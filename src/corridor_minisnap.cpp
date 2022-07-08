@@ -345,9 +345,6 @@ void MiniSnap::getContinuityConstraint() {
       _A(S + 3 + 4 * i + 12 * j, 3 + K * (j + 1) + i * M)             = -6;
     }
   }
-  // std::cout << _ub << std::endl;
-  // std::cout << _A.block(0, 0, 24, 360) << std::endl;
-  // std::cout << _A.block(15 * N - 15, 3*8*N - 48, 24, 48) << std::endl;
 }
 
 bool MiniSnap::solveQP() {
@@ -426,7 +423,6 @@ void CorridorMiniSnap::reset(const Eigen::Matrix3d &head, const Eigen::Matrix3d 
   /**
    * @brief constraint sampled trajectory points
    */
-  // int M = DIM * 4 * 2 + 2 * N_POLYHEDRA * (N - 1) + DIM * 4 * (N - 1);
   int M = DIM * 4 * 2 + DIM * 4 * (N - 1) + n_hyperplanes;
   _A.resize(M, S);
   _A.setZero();
@@ -470,7 +466,6 @@ void CorridorMiniSnap::getTransitionConstraint(double delta) {
     }
     for (int i = 0; i < next_corridor.cols(); i++) {
       Eigen::VectorXd v = next_corridor.col(i);
-      // int row_index = SR + i + 2 * N_POLYHEDRA * j + N_POLYHEDRA;
       _A.block(row_index, j * N_PIECE + 0, 1, C)     = pos_1d * v(0);
       _A.block(row_index, j * N_PIECE + C, 1, C)     = pos_1d * v(1);
       _A.block(row_index, j * N_PIECE + C * 2, 1, C) = pos_1d * v(2);
@@ -511,9 +506,6 @@ void CorridorMiniSnap::getContinuityConstraint() {
       _A(SR + 3 + 4 * i + 12 * j, 3 + K * (j + 1) + i * M)             = -6;
     }
   }
-  // std::cout << _ub << std::endl;
-  // std::cout << _A.block(0, 0, 24, 360) << std::endl;
-  // std::cout << _A.block(15 * N - 15, 3*8*N - 48, 24, 48) << std::endl;
 }
 
 void CorridorMiniSnap::getHeadTailConstraint() {
@@ -545,8 +537,6 @@ void CorridorMiniSnap::getHeadTailConstraint() {
   jer_1d << 0, 0, 0, 6, 24, 60, 120, 210;
   double T = _timeAlloc[N - 1];
   for (int i = 0; i < DIM; i++) {
-    // std::cout << _A.rows() << ' ' << _A.cols() << ' ' << M + 8 * i <<
-    // std::endl;
     _A.block(12 + 0 + 4 * i, M + 8 * i, 1, N_ORDER + 1) = pos_1d;
     _A.block(12 + 1 + 4 * i, M + 8 * i, 1, N_ORDER + 1) = vel_1d;
     _A.block(12 + 2 + 4 * i, M + 8 * i, 1, N_ORDER + 1) = acc_1d;

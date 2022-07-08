@@ -92,7 +92,7 @@ Launch a simulation test.
 
 4) Start mapping and planning by
    ```
-   roslaunch rast_corridor_planning planning.launch
+   roslaunch rast_corridor_planning ros.launch
    ```
 
 The goal position and parameters related to the planning can be changed in file ``cfg/cfg.yaml``.
