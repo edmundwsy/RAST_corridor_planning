@@ -60,7 +60,7 @@ void actorPublish(const vector<Eigen::Vector3d> &actors)
 
     visualization_msgs::Marker marker;
 
-    marker.header.frame_id = "map";
+    marker.header.frame_id = "world";
     marker.header.stamp = ros::Time::now();
     marker.type = visualization_msgs::Marker::CYLINDER;
     marker.action = visualization_msgs::Marker::ADD;
@@ -136,7 +136,7 @@ void showFOV(Eigen::Vector3d &position, Eigen::Quaternionf &att, double angle_h,
     rotateVectorByQuaternion(p4, att);
 
     visualization_msgs::Marker fov;
-    fov.header.frame_id = "map";
+    fov.header.frame_id = "world";
     fov.header.stamp = ros::Time::now();
     fov.action = visualization_msgs::Marker::ADD;
     fov.ns = "lines_and_points";
@@ -387,7 +387,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud)
 
     /// Publish Point cloud and center position
     pcl::toROSMsg(cloud_to_publish, cloud_to_pub_transformed);
-    cloud_to_pub_transformed.header.frame_id = "map";
+    cloud_to_pub_transformed.header.frame_id = "world";
     cloud_to_pub_transformed.header.stamp = cloud->header.stamp;
     cloud_pub.publish(cloud_to_pub_transformed);
 
@@ -429,7 +429,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud)
 //
 //    sensor_msgs::PointCloud2 cloud_future_transformed;
 //    pcl::toROSMsg(future_risk_cloud, cloud_future_transformed);
-//    cloud_future_transformed.header.frame_id = "map";
+//    cloud_future_transformed.header.frame_id = "world";
 //    cloud_future_transformed.header.stamp = cloud->header.stamp;
 //    future_risk_pub.publish(cloud_future_transformed);
 
@@ -496,7 +496,6 @@ void simPoseCallback(const geometry_msgs::PoseStamped &msg)
         uav_att_global_queue.push(uav_att_global);
         pose_att_time_queue.push(msg.header.stamp.toSec());
 //        ROS_INFO("Pose updated");
-
         position_received = true;
     }
 
