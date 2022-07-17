@@ -1,0 +1,5 @@
+<launch>
+  <node pkg="so3_control" type="control_example" name="control_example" output="screen">
+    <remap from="/position_cmd" to="/uav0/planning/pos_cmd" />
+  </node>
+</launch>
