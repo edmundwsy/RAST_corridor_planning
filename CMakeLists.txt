@@ -15,6 +15,9 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs #
   image_transport
   mav_msgs
+  quadrotor_msgs
+  traj_utils
+  traj_opt
 )
 
 
@@ -49,3 +52,9 @@ target_link_libraries(map_sim_example ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${Mun
 
 add_executable(planning_node src/planning_node.cpp)
 target_link_libraries(planning_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${MunkresLIB} MINIMUM_SNAP_CORRIDOR osqp::osqp)
+
+add_executable(planning_node_sim src/planning_node_sim.cpp)
+target_link_libraries(planning_node_sim ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${MunkresLIB} MINIMUM_SNAP_CORRIDOR osqp::osqp)
+
+add_executable(traj_server src/traj_server.cpp)
+target_link_libraries(traj_server ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${MunkresLIB} MINIMUM_SNAP_CORRIDOR osqp::osqp)
