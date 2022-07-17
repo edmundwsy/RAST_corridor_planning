@@ -25,10 +25,10 @@
 
 		<param name="ObstacleShape/seed" value="-1"/>
 		<param name="map/obs_num"    value="20"/>
-		<param name="ObstacleShape/lower_rad" value="0.3"/>
-		<param name="ObstacleShape/upper_rad" value="1.0"/>
-		<param name="ObstacleShape/lower_hei" value="5.0"/>
-		<param name="ObstacleShape/upper_hei" value="5.0"/>        
+		<param name="ObstacleShape/lower_rad" value="0.1"/>
+		<param name="ObstacleShape/upper_rad" value="0.5"/>
+		<param name="ObstacleShape/lower_hei" value="4.0"/>
+		<param name="ObstacleShape/upper_hei" value="4.0"/>        
 		<param name="ObstacleShape/set_cylinder" value="true"/>     
 
 		<param name="map/circle_num" value="50"/>        
@@ -69,7 +69,7 @@
 		</node>
 
 		<!-- fake camera sensing -->
-		<node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node" output="screen">
+		<node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
 			<rosparam command="load" file="$(find local_sensing_node)/params/camera.yaml" />
 			<param name="sensing_horizon" value="5.0" />
 			<param name="sensing_rate" value="30.0" />

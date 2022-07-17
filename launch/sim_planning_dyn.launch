@@ -10,20 +10,20 @@
 
   <arg name="init_x" value="-10" />
   <arg name="init_y" value="0.0" />
-  <arg name="init_z" value="0.2" />
+  <arg name="init_z" value="0.5" />
 
   <group ns="uav$(arg drone_id)">
-    <node pkg="rast_corridor_planning" name="map_sim_example" type="map_sim_example">
+    <node pkg="rast_corridor_planning" name="map_sim_example" type="map_sim_example" output="screen">
       <rosparam file="$(find rast_corridor_planning)/cfg/cfg.yaml" command="load" />
       <remap from="/camera_front/depth/points" to="/uav$(arg drone_id)/pcl_render_node/cloud" />
     </node>
   </group>
 
-  <!-- <node pkg="rast_corridor_planning" name="planning_node" type="planning_node" output="screen">
+  <node pkg="rast_corridor_planning" name="planning_node" type="planning_node_sim" output="screen">
 		<rosparam file="$(find rast_corridor_planning)/cfg/cfg.yaml" command="load" /> 
-	</node> -->
+	</node>
 
-  <include file="$(find rast_corridor_planning)/launch/simulator.launch">
+  <include file="$(find rast_corridor_planning)/launch/simulator_dyn.launch">
     <arg name="drone_id" value="$(arg drone_id)" />
     <arg name="map_size_x" value="$(arg map_size_x)" />
     <arg name="map_size_y" value="$(arg map_size_y)" />
