@@ -45,14 +45,18 @@ graph TD
 
     C("~pointcloud")-->map_sim_example
       style C fill:#eee,stroke:#333,stroke-width:0px
+    
     I("~mavros/local_position/pose")-->map_sim_example
       style I fill:#eee,stroke:#333,stroke-width:0px
+    I-->bridge_node_tcp
+    I-->planning_node
+
     T("~trajectory")-->bridge_node_tcp
     T-->traj_server_node
     planning_node-->T
       style T fill:#eee,stroke:#333,stroke-width:0px
-    I-->bridge_node_tcp
-    I-->planning_node
+
+    bridge_node_tcp --"/other_traj"--> planning_node
     minisnap -.-> traj_server_node
     traj_server_node --"~/command/pva_setpoint"-->pva_tracker
   end
