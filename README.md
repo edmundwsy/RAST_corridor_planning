@@ -16,9 +16,13 @@
 
 ## Mermaid Graph
 
-dotted line: introduced by class pointer
+dotted line: introduced as a library (by class & class pointer)
 solid line: ros message
 
+- `~trajectory`: parametric trajectory message
+- `~other_traj`: parametric trajectory message related to other agents
+
+Subgraph: individual package with its own test samples. Main functionalities are encapsulated in `.h` or `.hpp` files.
 
 ```mermaid
 graph TD
@@ -35,6 +39,10 @@ graph TD
     bridge_node_tcp 
     end
 
+    subgraph corridor_gen
+    dcomps -.-> planning_node
+    end
+
     subgraph traj_opt
     minisnap -.-> planning_node
     end
@@ -48,15 +56,15 @@ graph TD
     
     I("~mavros/local_position/pose")-->map_sim_example
       style I fill:#eee,stroke:#333,stroke-width:0px
-    I-->bridge_node_tcp
     I-->planning_node
+    I-->traj_server_node
 
     T("~trajectory")-->bridge_node_tcp
     T-->traj_server_node
     planning_node-->T
       style T fill:#eee,stroke:#333,stroke-width:0px
 
-    bridge_node_tcp --"/other_traj"--> planning_node
+    bridge_node_tcp --"~other_traj"--> planning_node
     minisnap -.-> traj_server_node
     traj_server_node --"~/command/pva_setpoint"-->pva_tracker
   end
@@ -70,12 +78,20 @@ graph TD
   bridge_node_tcp =="/boardcast_traj<br>/uav0/odom"==> uav1_bridge_node_tcp
 ```
 
+<!-- No commit, only discuss in zoom meeting -->
+## Discuss
+- Good architecture for multi-robot navigation?
+- What if we communicate by **safety corridors**?
+- !!!WARNING: No convergence proofs of this pipeline!!!
+
 ## TODO
-- [ ] Merge DSP map to `plan_env`
-- [ ] Include B-Spline trajectory optimization to `traj_opt`
-- [ ] Merge MiniSnap trajectory optimization to `traj_opt`
-- [ ] Move trajectory queue to `traj_server`
-- [ ] Implement conflict-based search and M* method to `path_searching`
+- [ ] (Aug. w1) Refactor the code in `rast_corridor_planning` to make it fit this framework. Extract `traj_server` from `planning_node`.
+- [ ] (Aug. w1) Move trajectory queue to `traj_server`
+- [ ] (Aug. w2) Include B-Spline trajectory optimization to `traj_opt` 
+- [ ] (Aug. w2) Merge MiniSnap trajectory optimization `corridor_minisnap` to `traj_opt`
+- [ ] (Aug. w3) Include `decomp_ros` for convex corridor generation
+- [ ] Implement conflict-based search (CBS) method to `path_searching`
+
 
 ## Note
 
