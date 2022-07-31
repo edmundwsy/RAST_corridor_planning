@@ -41,6 +41,11 @@ add_library(MINIMUM_SNAP_CORRIDOR
         src/corridor_minisnap.cpp
         )
 
+add_library(PLANNER
+  src/multi_planning.cpp
+  src/corridor_minisnap.cpp
+)
+
 
 include_directories(/usr/local/include/munkres)
 set(MunkresLIB
@@ -56,5 +61,7 @@ target_link_libraries(planning_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${Munkr
 add_executable(planning_node_sim src/planning_node_sim.cpp)
 target_link_libraries(planning_node_sim ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${MunkresLIB} MINIMUM_SNAP_CORRIDOR osqp::osqp)
 
-add_executable(traj_server src/traj_server.cpp)
-target_link_libraries(traj_server ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${MunkresLIB} MINIMUM_SNAP_CORRIDOR osqp::osqp)
+add_executable(multi_planning_node src/multi_planning_node.cpp)
+target_link_libraries(multi_planning_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${MunkresLIB} MINIMUM_SNAP_CORRIDOR PLANNER osqp::osqp)
+# add_executable(traj_server src/traj_server.cpp)
+# target_link_libraries(traj_server ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${MunkresLIB} MINIMUM_SNAP_CORRIDOR osqp::osqp)
