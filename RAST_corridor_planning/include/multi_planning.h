@@ -126,7 +126,7 @@ struct PlannerConfig {
 class Planner {
  private:
   /********** TRAJECTORY PLANNING **********/
-  traj_opt::CorridorMiniSnap::Ptr _traj_optimizer; /** Trajectory optimizer */
+  traj_opt::CorridorMiniSnap _traj_optimizer; /** Trajectory optimizer */
   traj_opt::Trajectory            _traj;           /** Trajectory */
 
   Astar _astar_planner; /** A* path finding */
@@ -137,7 +137,7 @@ class Planner {
   Eigen::Quaternionf _odom_att; /** quadrotor's current attitude as a quaternion */
 
   double _prev_t, _prev_vx, _prev_vy, _prev_vz;
-  double _prev_traj_end_time;  /// previous trajectory end time
+  double _prev_opt_end_time;  /// previous trajectory end time
 
   /********** MAP **********/
   int   _map_x_limit, _map_y_limit, _map_z_limit; /** Map limits */
@@ -179,8 +179,10 @@ class Planner {
   Visualizer::Ptr _vis;
 
  public:
-  Planner(ros::NodeHandle &nh, const PlannerConfig &conf);
+  Planner(ros::NodeHandle &nh, const PlannerConfig &conf) : _nh(nh), _config(conf){};
   ~Planner() {}
+
+  void init();
 
   int getPointSpatialIndexInMap(const Eigen::Vector3d &p, const Eigen::Vector3d &c);
 
@@ -189,8 +191,12 @@ class Planner {
   void OdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
   void VelCallback(const geometry_msgs::TwistStamped &msg);
   void TrajTimerCallback(const ros::TimerEvent &event);
-  bool OptimizationInCorridors(const decomp_ros_msgs::DynPolyhedronArray msg,
-                               const Eigen::Vector3d                     start_pos);
+  bool OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6, -1>> &c,
+                               const std::vector<double> &                      t,
+                               const Eigen::Matrix3d &                          init,
+                               const Eigen::Matrix3d &                          final);
+  void publishTrajectory();
+  void publishCorridor(const vector<Corridor*> &c);
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   typedef std::unique_ptr<Planner> Ptr;
 };

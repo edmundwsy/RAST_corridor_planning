@@ -19,7 +19,8 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "multi_planning_node");
   ros::NodeHandle   nh("~");
   Planner           multi_planning(nh, PlannerConfig(nh));
-  ros::AsyncSpinner spinner(3);  // use 3 threads
+  multi_planning.init();
+  ros::AsyncSpinner spinner(1);  // use 3 threads
   spinner.start();
   ros::waitForShutdown();
   return 0;

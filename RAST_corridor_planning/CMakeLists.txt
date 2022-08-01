@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(rast_corridor_planning)
+set(CMAKE_BUILD_TYPE "Debug")
 
 add_definitions(-std=c++17 -g -O3 -ftree-vectorize -ffast-math -march=native -lpthread)
 

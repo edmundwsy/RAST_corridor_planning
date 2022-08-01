@@ -399,11 +399,11 @@ double MiniSnap::getMinimumCost() const { return _x.transpose() * _Q * _x; }
 void CorridorMiniSnap::reset(const Eigen::Matrix3d &head, const Eigen::Matrix3d &tail,
                              const std::vector<double> &                      timeAlloc,
                              const std::vector<Eigen::Matrix<double, 6, -1>> &corridors) {
-  ROS_INFO_STREAM("[TrajOpt] head state:\n" << head);
-  ROS_INFO_STREAM("[TrajOpt] tail state:\n" << tail);
+  // ROS_INFO_STREAM("[TrajOpt] head state:\n" << head);
+  // ROS_INFO_STREAM("[TrajOpt] tail state:\n" << tail);
   _headPVA = head;
   _tailPVA = tail;
-  ROS_INFO_STREAM("[TrajOpt] timeAlloc:" << timeAlloc.size());
+  // ROS_INFO_STREAM("[TrajOpt] timeAlloc:" << timeAlloc.size());
   _timeAlloc = timeAlloc;
   _Polygons  = corridors;
   N          = timeAlloc.size();
@@ -554,7 +554,7 @@ void CorridorMiniSnap::getHeadTailConstraint() {
 
 bool CorridorMiniSnap::primarySolveQP() {
   IOSQP solver;
-  ROS_INFO("[TrajOpt] start solving");
+  // ROS_INFO("[TrajOpt] start solving");
   Eigen::VectorXd q;
   q.resize(N * (N_ORDER + 1) * DIM);
   q.setZero();
@@ -580,22 +580,23 @@ bool CorridorMiniSnap::primarySolveQP() {
 
 bool CorridorMiniSnap::optimize(const std::vector<double> &factors, double delta) {
   getCostFunc(factors);
-  ROS_INFO("[TrajOpt] Generated Cost Func");
+  // ROS_INFO("[TrajOpt] Generated Cost Func");
   getHeadTailConstraint();
-  ROS_INFO("[TrajOpt] Generated Head Tail Constraint");
+  // ROS_INFO("[TrajOpt] Generated Head Tail Constraint");
   getTransitionConstraint(delta);
-  ROS_INFO("[TrajOpt] Generated Transitional Constraint");
+  // ROS_INFO("[TrajOpt] Generated Transitional Constraint");
   getContinuityConstraint();
-  ROS_INFO("[TrajOpt] Generated Continuity Constraint");
+  // ROS_INFO("[TrajOpt] Generated Continuity Constraint");
   // getCorridorConstraint();
   // std::cout << "Generated Corridor Constraint" << std::endl;
   bool isSuccess = primarySolveQP();
+  // ROS_INFO("[TrajOpt] Solved primary QP");
   return isSuccess;
 }
 
 bool CorridorMiniSnap::reOptimize() {
-  ROS_INFO("[TrajOpt] Solve new QP problem");
   bool isSuccess = primarySolveQP();
+  // ROS_INFO("[TrajOpt] Solved new QP problem");
   return isSuccess;
 }
 

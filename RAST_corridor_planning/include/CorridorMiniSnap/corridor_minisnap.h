@@ -184,7 +184,6 @@ class CorridorMiniSnap {
   bool isCorridorSatisfied(Trajectory &traj, double max_vel, double max_acc, double delta);
   void getTrajectory(Trajectory *traj);
   double getMinimumCost() const;
-  typedef std::shared_ptr<CorridorMiniSnap> Ptr;
 };
 
 };  // namespace traj_opt
