@@ -18,7 +18,7 @@ using namespace planner;
 int main(int argc, char **argv) {
   ros::init(argc, argv, "multi_planning_node");
   ros::NodeHandle   nh("~");
-  Planner           multi_planning(nh, PlannerConfig(ros::NodeHandle("~")));
+  Planner           multi_planning(nh, PlannerConfig(nh));
   ros::AsyncSpinner spinner(3);  // use 3 threads
   spinner.start();
   ros::waitForShutdown();

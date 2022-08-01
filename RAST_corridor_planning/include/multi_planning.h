@@ -69,53 +69,57 @@ struct PlannerConfig {
   bool   is_rviz_map_center_locked    = false;
 
   std::vector<double> factors;
-  double              factor_pos;
-  double              factor_vel;
-  double              factor_acc;
-  double              factor_jrk;
-  double              factor_snp;
+  double              factor_pos = 0.0;
+  double              factor_vel = 0.0;
+  double              factor_acc = 0.0;
+  double              factor_jrk = 0.0;
+  double              factor_snp = 1.0;
 
   double goal_x = 60.0;
   double goal_y = 0.0;
   double goal_z = 1.5;
 
   PlannerConfig(const ros::NodeHandle &nh) {
-    nh.getParam("/planning_node/max_vel", max_vel);
-    nh.getParam("/planning_node/max_acc", max_acc);
+    nh.getParam("max_vel", max_vel);
+    nh.getParam("max_acc", max_acc);
 
-    nh.getParam("/planning_node/max_vel_optimization", max_vel_optimization);
-    nh.getParam("/planning_node/max_acc_optimization", max_acc_optimization);
-    nh.getParam("/planning_node/max_differentiated_current_a", max_differentiated_current_a);
+    nh.getParam("max_vel_optimization", max_vel_optimization);
+    nh.getParam("max_acc_optimization", max_acc_optimization);
+    nh.getParam("max_differentiated_current_a", max_differentiated_current_a);
 
-    nh.getParam("/planning_node/use_height_limit", use_height_limit);
-    nh.getParam("/planning_node/height_limit_max", height_limit_max);
-    nh.getParam("/planning_node/height_limit_min", height_limit_min);
-    nh.getParam("/planning_node/sample_z_acc", sample_z_acc);
-    nh.getParam("/planning_node/expand_safety_distance", expand_safety_distance);
-    nh.getParam("/planning_node/trajectory_piece_max_size", trajectory_piece_max_size);
-    nh.getParam("/planning_node/nmpc_receive_points_num", nmpc_receive_points_num);
+    nh.getParam("use_height_limit", use_height_limit);
+    nh.getParam("height_limit_max", height_limit_max);
+    nh.getParam("height_limit_min", height_limit_min);
+    nh.getParam("sample_z_acc", sample_z_acc);
+    nh.getParam("expand_safety_distance", expand_safety_distance);
+    nh.getParam("trajectory_piece_max_size", trajectory_piece_max_size);
+    nh.getParam("nmpc_receive_points_num", nmpc_receive_points_num);
 
-    nh.getParam("/planning_node/delta_corridor", delta_corridor);
-    nh.getParam("/planning_node/pos_factor", factor_pos);
-    nh.getParam("/planning_node/vel_factor", factor_vel);
-    nh.getParam("/planning_node/acc_factor", factor_acc);
-    nh.getParam("/planning_node/jerk_factor", factor_jrk);
-    nh.getParam("/planning_node/snap_factor", factor_snp);
-    factors = {factor_pos, factor_vel, factor_acc, factor_jrk, factor_snp};
+    nh.getParam("delta_corridor", delta_corridor);
+    nh.getParam("pos_factor", factor_pos);
+    nh.getParam("vel_factor", factor_vel);
+    nh.getParam("acc_factor", factor_acc);
+    nh.getParam("jerk_factor", factor_jrk);
+    nh.getParam("snap_factor", factor_snp);
+    factors.push_back(factor_pos);
+    factors.push_back(factor_vel);
+    factors.push_back(factor_acc);
+    factors.push_back(factor_jrk);
+    factors.push_back(factor_snp);
 
-    nh.getParam("/planning_node/planning_time_step", planning_time_step);
-    nh.getParam("/planning_node/a_star_acc_sample_step", a_star_acc_sample_step);
-    nh.getParam("/planning_node/a_star_search_time_step", a_star_search_time_step);
+    nh.getParam("planning_time_step", planning_time_step);
+    nh.getParam("a_star_acc_sample_step", a_star_acc_sample_step);
+    nh.getParam("a_star_search_time_step", a_star_search_time_step);
 
-    nh.getParam("/planning_node/risk_threshold_motion_primitive", risk_threshold_motion_primitive);
-    nh.getParam("/planning_node/risk_threshold_single_voxel", risk_threshold_single_voxel);
-    nh.getParam("/planning_node/risk_threshold_corridor", risk_threshold_corridor);
+    nh.getParam("risk_threshold_motion_primitive", risk_threshold_motion_primitive);
+    nh.getParam("risk_threshold_single_voxel", risk_threshold_single_voxel);
+    nh.getParam("risk_threshold_corridor", risk_threshold_corridor);
 
-    nh.getParam("/planning_node/p_goal_x", goal_x);
-    nh.getParam("/planning_node/p_goal_y", goal_y);
-    nh.getParam("/planning_node/p_goal_z", goal_z);
+    nh.getParam("p_goal_x", goal_x);
+    nh.getParam("p_goal_y", goal_y);
+    nh.getParam("p_goal_z", goal_z);
 
-    nh.getParam("/planning_node/rviz_map_center_locked", is_rviz_map_center_locked);
+    nh.getParam("rviz_map_center_locked", is_rviz_map_center_locked);
   }
 };
 
