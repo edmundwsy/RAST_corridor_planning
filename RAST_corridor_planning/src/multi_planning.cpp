@@ -587,8 +587,8 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
 }
 
 /**
+ * !! DEPRECATED
  * @brief optimization function
- *
  * @param msg
  * @param c_start map center in world frame
  * @return true
