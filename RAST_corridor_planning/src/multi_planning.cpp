@@ -47,7 +47,7 @@ void Planner::init() {
 
   _traj_timer =
       _nh.createTimer(ros::Duration(_config.planning_time_step), &Planner::TrajTimerCallback, this);
-
+  _traj_idx = 0;
   /*** AUXILIARY VARIABLES ***/
   _prev_vx = 0.0;
   _prev_vy = 0.0;
@@ -527,13 +527,13 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
     /** apply optimization **/
     // bool is_trajectory_optimized =
     //     OptimizationInCorridors(polyhedra, time_alloc, init_state, final_state);
-    bool   is_solved = false;
-    double T         = 0; /** Total allocated time among input corridors */
+    bool is_solved = false;
+    _traj_duration = 0; /** Total allocated time among input corridors */
     for (auto it = time_alloc.begin(); it != time_alloc.end(); ++it) {
-      T += (*it);
+      _traj_duration += (*it);
     }
     std::cout << "Piece num:" << time_alloc.size() << std::endl;
-    std::cout << "Total time: " << T << std::endl;
+    std::cout << "Total time: " << _traj_duration << std::endl;
 
     /* initial optimize */
     _traj_optimizer.reset(init_state, final_state, time_alloc, polyhedra);
@@ -574,14 +574,15 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
     }
     ROS_INFO("Re-optimization %d", i);
     bool is_trajectory_optimized = is_solved;
-    _prev_opt_end_time = ros::Time::now().toSec();
+    _prev_opt_end_time           = ros::Time::now().toSec();
     ROS_INFO("[PLANNING] trajectory optimization takes %lf s",
              ros::Time::now().toSec() - optimization_start_time);
     if (!is_trajectory_optimized) {
       ROS_WARN("Optimization failed!!");
     }
   }  // end of if a_star valid
-
+  _traj_start_time = ros::Time::now();
+  _traj_end_time   = ros::Time::now() + ros::Duration(_traj_duration);
   publishTrajectory();
 }
 
@@ -643,8 +644,42 @@ bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6,
     }
   }
   ROS_INFO("Re-optimization %d", i);
+  _traj_idx++;
+
+  /* publish trajectory */
+  publishTrajectory();
 }
 
-/** Publish the trajectory */
-// TODO
+/**
+ * @brief Publish the trajectory
+ *
+ */
+void Planner::publishTrajectory() {
+  traj_utils::PolyTraj poly_msg;
+  int                  piece_num = _traj.getPieceNum();
+
+  poly_msg.drone_id   = 0;
+  poly_msg.traj_id    = _traj_idx;
+  poly_msg.start_time = _traj_start_time;  // TODO:
+  poly_msg.order      = 7;
+  poly_msg.duration.resize(piece_num);
+  poly_msg.coef_x.resize(8 * piece_num);
+  poly_msg.coef_y.resize(8 * piece_num);
+  poly_msg.coef_z.resize(8 * piece_num);
+
+  for (int i = 0; i < piece_num; i++) {
+    poly_msg.duration[i] = _traj[i].getDuration();
+
+    Eigen::Matrix<double, 3, 8> coef = _traj[i].getCoefficient();
+    int  idx  = i * 8;
+    for (int j = 0; j < 8; j++) {
+      poly_msg.coef_x[idx + j] = coef.row(0)[j];
+      poly_msg.coef_y[idx + j] = coef.row(1)[j];
+      poly_msg.coef_z[idx + j] = coef.row(2)[j];
+    }
+  }
+
+  _traj_pub.publish(poly_msg);
+}
+
 }  // namespace planner

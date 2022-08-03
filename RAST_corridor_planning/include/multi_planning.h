@@ -128,7 +128,11 @@ class Planner {
   /********** TRAJECTORY PLANNING **********/
   traj_opt::CorridorMiniSnap _traj_optimizer; /** Trajectory optimizer */
   traj_opt::Trajectory            _traj;           /** Trajectory */
-
+  int                             _traj_idx;       /** Trajectory index */
+  ros::Time                  _traj_start_time;
+  ros::Time                  _traj_end_time;
+  double _traj_duration;
+  
   Astar _astar_planner; /** A* path finding */
 
   Eigen::Vector3d    _odom_pos; /** quadrotor's current position */
@@ -156,8 +160,7 @@ class Planner {
 
   /********** DATA **********/
   geometry_msgs::PoseStamped _map_center;  // TODO(@siyuan): change this to Eigen::Vector3d
-  ros::Time                  _traj_start_time;
-  ros::Time                  _traj_end_time;
+
 
   double _traj_planning_start_time;
 
