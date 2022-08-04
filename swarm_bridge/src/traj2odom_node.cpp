@@ -6,7 +6,7 @@
 #include <nav_msgs/Odometry.h>
 #include <traj_utils/MINCOTraj.h>
 #include <traj_utils/CentralPos.h>
-#include <optimizer/poly_traj_utils.hpp>
+#include <polynomial/poly_traj_utils.hpp>
 #include <std_msgs/Int32.h>
 
 using namespace std;

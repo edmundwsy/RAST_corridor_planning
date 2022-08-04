@@ -1,4 +1,4 @@
-#include "optimizer/poly_traj_optimizer.h"
+#include "polynomial/poly_traj_optimizer.h"
 // using namespace std;
 
 namespace ego_planner

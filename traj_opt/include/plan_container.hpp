@@ -4,7 +4,7 @@
 #include <ros/ros.h>
 
 #include <Eigen/Eigen>
-#include <optimizer/poly_traj_utils.hpp>
+#include <polynomial/poly_traj_utils.hpp>
 #include <vector>
 
 using std::vector;
