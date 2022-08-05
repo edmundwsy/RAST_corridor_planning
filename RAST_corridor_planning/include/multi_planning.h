@@ -12,8 +12,9 @@
 #ifndef _MULTI_PLANNING_H_
 #define _MULTI_PLANNING_H_
 
-#include <CorridorMiniSnap/corridor_minisnap.h>
+// #include <CorridorMiniSnap/corridor_minisnap.h>
 #include <geometry_msgs/TwistStamped.h>
+#include <polynomial/mini_snap.h>
 #include <traj_utils/PolyTraj.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -24,7 +25,6 @@
 #include <vector>
 
 #include "decomp_ros_msgs/DynPolyhedronArray.h"
-#include "decomp_utils.hpp"
 #include "gazebo_msgs/ModelStates.h"
 #include "geometry_msgs/PointStamped.h"
 #include "geometry_msgs/PoseStamped.h"
@@ -126,13 +126,13 @@ struct PlannerConfig {
 class Planner {
  private:
   /********** TRAJECTORY PLANNING **********/
-  traj_opt::CorridorMiniSnap _traj_optimizer; /** Trajectory optimizer */
-  traj_opt::Trajectory            _traj;           /** Trajectory */
-  int                             _traj_idx;       /** Trajectory index */
+  minisnap::CorridorMiniSnap _traj_optimizer; /** Trajectory optimizer */
+  minisnap::Trajectory       _traj;           /** Trajectory */
+  int                        _traj_idx;       /** Trajectory index */
   ros::Time                  _traj_start_time;
   ros::Time                  _traj_end_time;
-  double _traj_duration;
-  
+  double                     _traj_duration;
+
   Astar _astar_planner; /** A* path finding */
 
   Eigen::Vector3d    _odom_pos; /** quadrotor's current position */
@@ -160,7 +160,6 @@ class Planner {
 
   /********** DATA **********/
   geometry_msgs::PoseStamped _map_center;  // TODO(@siyuan): change this to Eigen::Vector3d
-
 
   double _traj_planning_start_time;
 
@@ -199,7 +198,7 @@ class Planner {
                                const Eigen::Matrix3d &                          init,
                                const Eigen::Matrix3d &                          final);
   void publishTrajectory();
-  void publishCorridor(const vector<Corridor*> &c);
+  void publishCorridor(const vector<Corridor *> &c);
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   typedef std::unique_ptr<Planner> Ptr;
 };

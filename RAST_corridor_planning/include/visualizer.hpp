@@ -11,7 +11,6 @@
 #ifndef VISUALIZER_HPP
 #define VISUALIZER_HPP
 
-#include <CorridorMiniSnap/corridor_minisnap.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
@@ -21,6 +20,7 @@
 #include <std_msgs/UInt8.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <polynomial/mini_snap.h>
 
 #include <Eigen/Eigen>
 #include <Eigen/Sparse>
@@ -57,7 +57,7 @@ class Visualizer {
    * @param max_vel    maximum velocity to visualize as red line
    */
   inline void visualizeTrajectory(const Eigen::Vector3d&      start_pos,
-                                  const traj_opt::Trajectory& traj,
+                                  const minisnap::Trajectory& traj,
                                   double                      max_vel) {
     visualization_msgs::Marker traj_marker;
     traj_marker.header.frame_id    = _frame_id;

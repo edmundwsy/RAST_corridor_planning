@@ -19,7 +19,7 @@
 #include <random>
 #include <vector>
 
-#include "polynomial/mini_snap.hpp"
+#include "polynomial/mini_snap.h"
 
 /* initialize random seed */
 std::random_device                     rd;

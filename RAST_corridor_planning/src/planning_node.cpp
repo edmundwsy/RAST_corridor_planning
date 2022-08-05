@@ -2,7 +2,7 @@
 // Created by clarence on 2022/2/8.
 //
 
-#include <CorridorMiniSnap/corridor_minisnap.h>
+#include <polynomial/mini_snap.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -27,7 +27,7 @@
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 #include "trajectory_msgs/MultiDOFJointTrajectory.h"
 
-using namespace traj_opt;
+using namespace minisnap;
 using namespace std;
 using namespace std::chrono;
 

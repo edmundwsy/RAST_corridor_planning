@@ -670,7 +670,7 @@ void Planner::publishTrajectory() {
   for (int i = 0; i < piece_num; i++) {
     poly_msg.duration[i] = _traj[i].getDuration();
 
-    Eigen::Matrix<double, 3, 8> coef = _traj[i].getCoefficient();
+    Eigen::Matrix<double, 3, 8> coef = _traj[i].getCoeffs();
     int  idx  = i * 8;
     for (int j = 0; j < 8; j++) {
       poly_msg.coef_x[idx + j] = coef.row(0)[j];

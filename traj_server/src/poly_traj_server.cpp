@@ -1,17 +1,15 @@
 /**
  * @file poly_traj_server.cpp
  * @author Siyuan Wu (siyuanwu99@gmail.com)
- * @thanks to EGO-Planner
  * @brief receive parametric polynomial trajectory, publish position command
  * @version 1.0
  * @date 2022-08-03
- *
  * @copyright Copyright (c) 2022
  *
  */
 #include <ros/ros.h>
 #include "quadrotor_msgs/PositionCommand.h"
-#include "optimizer/poly_traj_utils.hpp"
+#include "polynomial/mini_snap_utils.hpp"
 #include "traj_utils/PolyTraj.h"
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 
@@ -19,14 +17,13 @@ ros::Publisher _pos_cmd_pub, _pva_pub;
 
 bool                  _is_traj_received = false;
 int                   _traj_id;
-poly_traj::Trajectory _traj;
+minisnap::Trajectory _traj;
 ros::Time             _t_srt;     // start time
 ros::Time             _t_cur;     // current time
 double                _duration;  // duration of the trajectory in seconds
 
 double _last_yaw, _last_yaw_dot;
 
-// TODO: merge corridor minisnap to poly_traj_utils
 void polyCallback(traj_utils::PolyTrajConstPtr msg) {
   _traj_id    = msg->traj_id;
   int order   = msg->order;
@@ -34,16 +31,24 @@ void polyCallback(traj_utils::PolyTrajConstPtr msg) {
   int n_piece = msg->duration.size();  // number of pieces
 
   _duration = 0.0;
+  std::vector<double> time_alloc;
   for (auto it = msg->duration.begin(); it != msg->duration.end(); ++it) {
     _duration += (*it);
+    time_alloc.push_back(*it);
   }
 
-  // TODO: not applicable because CoefficientMat has pre-defined order 6
-  poly_traj::CoefficientMat coeff_mat(n_piece, N);
-  std::vector<double>       duration(n_piece);
+  Eigen::VectorXd coeff;
+  coeff.resize((ORDER+1)*DIM*n_piece);
+  for (int i = 0; i < n_piece; i++) {
+    for (int j = 0; j < ORDER + 1; j ++) {
+      coeff(i*(ORDER+1)*DIM + j) = msg->coef_x[i*(ORDER+1) + j];
+      coeff(i*(ORDER+1)*DIM + j + (ORDER+1)) = msg->coef_y[i*(ORDER+1) + j];
+      coeff(i*(ORDER+1)*DIM + j + 2*(ORDER+1)) = msg->coef_z[i*(ORDER+1) + j];
+    }
+  }
+  _traj.setDuration(time_alloc);
+  _traj.setCoeffs(coeff);
 }
-
-// TODO check normalized coefficient (if t is normalized)
 
 // TODO: calculate yaw angle
 

@@ -2,7 +2,7 @@
 // Created by clarence on 2022/2/8.
 //
 
-#include <CorridorMiniSnap/corridor_minisnap.h>
+#include <polynomial/mini_snap.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <traj_utils/PolyTraj.h>
 #include <visualization_msgs/Marker.h>
@@ -29,7 +29,7 @@
 #include "decomp_utils.hpp"
 #include "visualizer.hpp"
 
-using namespace traj_opt;
+using namespace minisnap;
 using namespace std;
 using namespace std::chrono;
 
@@ -47,17 +47,10 @@ ros::Publisher corridor_pub, color_vel_pub, trajectory_pub, pva_pub, pva_traj_pu
     velocity_setpoint_pub, position_tracking_pub;
 ros::Publisher current_marker_pub, astar_result_pub, mode_pub, tracking_error_too_large_state_pub;
 
-/** @brief quadrotor's position */
-Eigen::Vector3d current_pos_;
-
-/** quadrotor's velocity */
-Eigen::Vector3d current_vel_;
-
-/** quadrotor's acceleration */
-Eigen::Vector3d current_acc_;
-
-/** quadrotor's orientation as a quaternion */
-Eigen::Quaternionf current_qua_;
+Eigen::Vector3d current_pos_; /* @brief quadrotor's position */
+Eigen::Vector3d current_vel_; /** quadrotor's velocity aaa */
+Eigen::Vector3d current_acc_; /** quadrotor's acceleration */
+Eigen::Quaternionf current_qua_; /** quadrotor's orientation as a quaternion */
 
 bool   state_locked                 = false;
 double max_differentiated_current_a = 4.0;
@@ -111,7 +104,7 @@ float risk_threshold_motion_primitive = 0.15;
 float risk_threshold_single_voxel     = 0.15;
 float risk_threshold_corridor         = 2.5;
 
-std::vector<double>        factors(5);
+std::vector<double>        factors(5);  /** factor */
 geometry_msgs::PoseStamped map_pose_global;
 
 bool optimizationInCorridors(const decomp_ros_msgs::DynPolyhedronArray msg,
@@ -148,7 +141,7 @@ int getPointSpatialIndexInMap(const PVAYPoint& p, const Eigen::Vector3d& map_cen
   static const int max_size = MAP_HEIGHT_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM * MAP_LENGTH_VOXEL_NUM;
 
   static const float map_length_half = MAP_LENGTH_VOXEL_NUM * VOXEL_RESOLUTION / 2.f;
-  static const float map_width_half  = MAP_WIDTH_VOXEL_NUM * VOXEL_RESOLUTION / 2.f;
+  static const float map_width_half  = MAP_WIDTH_VOXEL_NUM * VOXEL_RESOLUTION / 2.f; 
   static const float map_height_half = MAP_HEIGHT_VOXEL_NUM * VOXEL_RESOLUTION / 2.f;
 
   auto x_index = (int)((p.position.x() - map_center.x() + map_length_half) / VOXEL_RESOLUTION);
@@ -623,51 +616,6 @@ bool optimizationInCorridors(const decomp_ros_msgs::DynPolyhedronArray msg,
   }
 
   vis_->visualizeAstarPath(queue_points_to_show, 45, 0.5, 0.2, 0.8, 1.0, 0.1);
-
-  /// Print and visualization
-  //    std::cout << "\033[35m EVALUATIONS" << std::endl;
-  //    std::cout << " number of pieces: " << time_alloc.size() << std::endl;
-  //    std::cout << "[TrajOpt] Iterations: " << i << std::endl;
-  //
-  //    std::chrono::high_resolution_clock::time_point toc =
-  //    std::chrono::high_resolution_clock::now(); std::cout << "[TrajOpt] Computation time: "
-  //              << 1.0e-3 * std::chrono::duration_cast<std::chrono::microseconds>(
-  //                      toc - tic)
-  //                      .count()
-  //              << "ms" << std::endl;
-  //    std::cout << "[TrajOpt] Final cost: " << mini_snap_.getMinimumCost()
-  //              << std::endl;
-  //    std::cout << "[TrajOpt] Max velocity: " << traj_.getMaxVelRate() << std::endl;
-  //    std::cout << "[TrajOpt] Max acclerate: " << traj_.getMaxAccRate()
-  //              << std::endl;
-  //    std::cout << "[TrajOpt] Total time: " << traj_.getDuration() << std::endl;
-  //    std::cout << " \033[0m" << std::endl;
-
-  // initialize visualization
-  //    nav_msgs::Path path;
-  //    double dt = 0.05;
-  //    traj_start_ = ros::Time::now();              // start timestamp
-  //    traj_end_ = traj_start_ + ros::Duration(T);  // end timestamp
-  //
-  //    path.header.frame_id = "map";
-  //    path.header.stamp = traj_start_;
-  //
-  //    for (double t = 0.0; t < T; t += dt) {
-  //        geometry_msgs::PoseStamped point;
-  //        point.header.frame_id = "map";
-  //        point.header.stamp = traj_start_ + ros::Duration(t);
-  //        Eigen::Vector3d pos = traj_.getPos(t);
-  //        point.pose.position.x = pos(0) + planning_start_map_center.x();
-  //        point.pose.position.y = pos(1) + planning_start_map_center.y();
-  //        point.pose.position.z = pos(2) + planning_start_map_center.z();
-  //        point.pose.orientation.w = 1;
-  //        point.pose.orientation.x = 0;
-  //        point.pose.orientation.y = 0;
-  //        point.pose.orientation.z = 0;
-  //        path.poses.push_back(point);
-  //    }
-  //    trajectory_pub.publish(path);
-
   vis_->visualizeTrajectory(planning_start_map_center, traj_, 3.0);
   corridors.clear();
 

@@ -10,7 +10,7 @@
  */
 
 #include <iostream>
-#include <polynomial/mini_snap.hpp>
+#include <polynomial/mini_snap.h>
 
 namespace minisnap {
 void CorridorMiniSnap::reset(const Eigen::Matrix3d&                           head,

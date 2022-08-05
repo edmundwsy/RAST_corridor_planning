@@ -25,9 +25,8 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
     INCLUDE_DIRS include
     LIBRARIES traj_opt
-    CATKIN_DEPENDS plan_env
-
-    # DEPENDS system_lib
+    CATKIN_DEPENDS plan_env traj_utils
+    # DEPENDS osqp
 )
 
 include_directories(
@@ -38,21 +37,19 @@ include_directories(
     ${PCL_INCLUDE_DIRS}
 )
 
-add_library(MINISNAP
-    src/mini_snap.cpp
-)
-target_link_libraries(MINISNAP ${catkin_LIBRARIES} osqp::osqp)
-
 add_library(traj_opt
     src/poly_traj_optimizer.cpp
+    src/mini_snap.cpp
 )
 
 target_link_libraries(traj_opt
     ${catkin_LIBRARIES}
+    osqp::osqp
 )
 
 add_executable(test_minisnap src/test_minisnap.cpp)
 target_link_libraries(test_minisnap
     ${catkin_LIBRARIES}
-    MINISNAP
+    # minisnap
+    traj_opt
 )
