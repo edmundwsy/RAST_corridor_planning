@@ -12,6 +12,8 @@
 #ifndef MINI_SNAP_H_
 #define MINI_SNAP_H_
 
+#include <stdlib.h>
+
 #include <Eigen/Eigen>
 #include <cmath>
 #include <vector>
@@ -27,6 +29,7 @@
 namespace minisnap {
 
 typedef Eigen::Matrix<double, DIM, ORDER + 1> CoefficientMat;
+typedef Eigen::SparseMatrix<double>           SparMat;
 
 class Piece {
  private:
@@ -127,6 +130,7 @@ class Piece {
     }
   }
 
+  // TODO: bug
   inline double getMaxVelRate() const {
     Eigen::MatrixXd velCoeffMat = getVelCoeffMat();
     Eigen::VectorXd coeff       = RootFinder::polySqr(velCoeffMat.row(0).reverse()) +
@@ -150,14 +154,14 @@ class Piece {
         r = 0.5 * (r + 1.0);
       }
       std::set<double> candidates =
-          RootFinder::solvePolynomial(coeff.head(N - 1), l, r, FLT_EPSILON / duration);
+          RootFinder::solvePolynomial(coeff.head(N - 1), l, r, FLT_EPSILON / _duration);
       candidates.insert(0.0);
       candidates.insert(1.0);
       double maxVelRateSqr = -INFINITY;
       double tempNormSqr;
       for (std::set<double>::const_iterator it = candidates.begin(); it != candidates.end(); it++) {
         if (0.0 <= *it && 1.0 >= *it) {
-          tempNormSqr   = getVel((*it) * duration).squaredNorm();
+          tempNormSqr   = getVel((*it)).squaredNorm();
           maxVelRateSqr = maxVelRateSqr < tempNormSqr ? tempNormSqr : maxVelRateSqr;
         }
       }
@@ -188,14 +192,14 @@ class Piece {
         r = 0.5 * (r + 1.0);
       }
       std::set<double> candidates =
-          RootFinder::solvePolynomial(coeff.head(N - 1), l, r, FLT_EPSILON / duration);
+          RootFinder::solvePolynomial(coeff.head(N - 1), l, r, FLT_EPSILON / _duration);
       candidates.insert(0.0);
       candidates.insert(1.0);
       double maxAccRateSqr = -INFINITY;
       double tempNormSqr;
       for (std::set<double>::const_iterator it = candidates.begin(); it != candidates.end(); it++) {
         if (0.0 <= *it && 1.0 >= *it) {
-          tempNormSqr   = getAcc((*it) * duration).squaredNorm();
+          tempNormSqr   = getAcc(*it).squaredNorm();
           maxAccRateSqr = maxAccRateSqr < tempNormSqr ? tempNormSqr : maxAccRateSqr;
         }
       }
@@ -220,7 +224,7 @@ class Trajectory {
     }
   }
 
-  void setDuration(const std::vector<doubel>& durations) {
+  void setDuration(const std::vector<double>& durations) {
     _n_pieces = durations.size();
     _pieces.resize(_n_pieces);
     for (int i = 0; i < _n_pieces; i++) {
@@ -228,6 +232,15 @@ class Trajectory {
     }
   }
 
+  void setCoeffs(const Eigen::VectorXd& x) {
+    int M = ORDER + 1;
+    for (int i = 0; i < _n_pieces; i++) {
+      Eigen::Matrix<double, DIM, ORDER + 1> temp;
+      temp << x.segment(DIM * M * i, M).transpose(), x.segment(DIM * M * i + M, M).transpose(),
+          x.segment(DIM * M * i + 2 * M, M).transpose();
+      _pieces[i].setup(temp);
+    }
+  }
   void setCoeffs(const std::vector<CoefficientMat>& coeffs) {
     _n_pieces = coeffs.size();
     _pieces.resize(_n_pieces);
@@ -245,6 +258,60 @@ class Trajectory {
     return duration;
   }
 
+  /**
+   * @brief given absolute timestamp, find out piece index and relative timestamp
+   * @param t absolute time stamp
+   * @param nt normalized time stamp, return nt \in [0, 1)
+   * @param idx
+   */
+  inline void locatePiece(const double& t, double& nt, int& idx) const {
+    idx        = _n_pieces;
+    double tmp = t;
+    for (int i = 0; i < _n_pieces; i++) {
+      double Ti = _pieces[i].getDuration();
+      if (tmp > Ti) {
+        tmp -= Ti;
+      } else {
+        idx = i;
+        nt  = tmp / Ti;
+        break;
+      }
+    }
+    /* if t0 is longer than all durations */
+    if (idx == _n_pieces) {
+      idx = _n_pieces - 1;
+      nt  = 1;
+    }
+  }
+
+  inline Eigen::Vector3d getPos(double t) const {
+    double nt;
+    int    idx;
+    locatePiece(t, nt, idx);
+    return _pieces[idx].getPos(nt);
+  }
+
+  inline Eigen::Vector3d getVel(double t) const {
+    double nt;
+    int    idx;
+    locatePiece(t, nt, idx);
+    return _pieces[idx].getVel(nt);
+  }
+
+  inline Eigen::Vector3d getAcc(double t) const {
+    double nt;
+    int    idx;
+    locatePiece(t, nt, idx);
+    return _pieces[idx].getAcc(nt);
+  }
+
+  inline Eigen::Vector3d getJrk(double t) const {
+    double nt;
+    int    idx;
+    locatePiece(t, nt, idx);
+    return _pieces[idx].getJrk(nt);
+  }
+
   double getMaxVelRate() const {
     double max_vel_rate = -INFINITY;
     for (int i = 0; i < _n_pieces; i++) {
@@ -253,7 +320,7 @@ class Trajectory {
     }
     return max_vel_rate;
   }
-  
+
   double getMaxAccRate() const {
     double max_acc_rate = -INFINITY;
     for (int i = 0; i < _n_pieces; i++) {
@@ -326,7 +393,7 @@ void CorridorMiniSnap::reset(const Eigen::Matrix3d&                           he
   _timeAlloc = timeAlloc;
   _Polygons  = corridors;
   N          = timeAlloc.size();
-  int S      = N * (N_ORDER + 1) * DIM;  // number of variables
+  int S      = N * (ORDER + 1) * DIM;  // number of variables
   _x.resize(S);
   _Q.resize(S, S);
   _Q.setZero();
@@ -358,9 +425,9 @@ void CorridorMiniSnap::reset(const Eigen::Matrix3d&                           he
 void CorridorMiniSnap::getTransitionConstraint(double delta) {
   int SR        = 24;
   int row_index = SR;
-  int N_PIECE   = DIM * (N_ORDER + 1);           // number of coeffs in single piece (8*3=24)
-  int C         = (N_ORDER + 1);                 // number of coeffs in single dimension
-  Eigen::Matrix<double, 1, N_ORDER + 1> pos_1d;  // end position
+  int N_PIECE   = DIM * (ORDER + 1);           // number of coeffs in single piece (8*3=24)
+  int C         = (ORDER + 1);                 // number of coeffs in single dimension
+  Eigen::Matrix<double, 1, ORDER + 1> pos_1d;  // end position
   pos_1d << 1, 1, 1, 1, 1, 1, 1, 1;
 
   for (int j = 0; j < N - 1; j++) {
@@ -378,7 +445,6 @@ void CorridorMiniSnap::getTransitionConstraint(double delta) {
       p[2] = p[2] - 0.5 * delta * n_vec[1];
 
       _ub(row_index) = n_vec(0) * p(0) + n_vec(1) * p(1) + n_vec(2) * p(2);
-      ;
       _lb(row_index) = -OSQP_INFTY;
       row_index++;
     }
@@ -392,7 +458,6 @@ void CorridorMiniSnap::getTransitionConstraint(double delta) {
       p[2] = p[2] - 0.5 * delta * n_vec[1];
 
       _ub(row_index) = n_vec(0) * p(0) + n_vec(1) * p(1) + n_vec(2) * p(2);
-      ;
       _lb(row_index) = -OSQP_INFTY;
       row_index++;
     }
@@ -400,13 +465,13 @@ void CorridorMiniSnap::getTransitionConstraint(double delta) {
 }
 
 void CorridorMiniSnap::getContinuityConstraint() {
-  int                                   M  = N_ORDER + 1;
-  int                                   K  = DIM * M;             // 3*8
-  int                                   SR = 24 + n_hyperplanes;  // start row
-  Eigen::Matrix<double, 1, N_ORDER + 1> pos_1d;
-  Eigen::Matrix<double, 1, N_ORDER + 1> vel_1d;
-  Eigen::Matrix<double, 1, N_ORDER + 1> acc_1d;
-  Eigen::Matrix<double, 1, N_ORDER + 1> jer_1d;
+  int                                 M  = ORDER + 1;
+  int                                 K  = DIM * M;             // 3*8
+  int                                 SR = 24 + n_hyperplanes;  // start row
+  Eigen::Matrix<double, 1, ORDER + 1> pos_1d;
+  Eigen::Matrix<double, 1, ORDER + 1> vel_1d;
+  Eigen::Matrix<double, 1, ORDER + 1> acc_1d;
+  Eigen::Matrix<double, 1, ORDER + 1> jer_1d;
   pos_1d << 1, 1, 1, 1, 1, 1, 1, 1;
   vel_1d << 0, 1, 2, 3, 4, 5, 6, 7;
   acc_1d << 0, 0, 2, 6, 12, 20, 30, 42;
@@ -414,14 +479,19 @@ void CorridorMiniSnap::getContinuityConstraint() {
 
   for (int j = 0; j < N - 1; j++) {
     for (int i = 0; i < DIM; i++) {
-      _A.block(SR + 0 + 4 * i + 12 * j, i * M + j * K, 1, N_ORDER + 1) = pos_1d;
-      _A.block(SR + 1 + 4 * i + 12 * j, i * M + j * K, 1, N_ORDER + 1) = vel_1d;
-      _A.block(SR + 2 + 4 * i + 12 * j, i * M + j * K, 1, N_ORDER + 1) = acc_1d;
-      _A.block(SR + 3 + 4 * i + 12 * j, i * M + j * K, 1, N_ORDER + 1) = jer_1d;
-      _A(SR + 0 + 4 * i + 12 * j, 0 + K * (j + 1) + i * M)             = -1;
-      _A(SR + 1 + 4 * i + 12 * j, 1 + K * (j + 1) + i * M)             = -1;
-      _A(SR + 2 + 4 * i + 12 * j, 2 + K * (j + 1) + i * M)             = -2;
-      _A(SR + 3 + 4 * i + 12 * j, 3 + K * (j + 1) + i * M)             = -6;
+      _A.block(SR + 0 + 4 * i + 12 * j, i * M + j * K, 1, ORDER + 1) = pos_1d;
+      _A.block(SR + 1 + 4 * i + 12 * j, i * M + j * K, 1, ORDER + 1) = vel_1d / _timeAlloc[j];
+      _A.block(SR + 2 + 4 * i + 12 * j, i * M + j * K, 1, ORDER + 1) =
+          acc_1d / _timeAlloc[j] / _timeAlloc[j];
+      _A.block(SR + 3 + 4 * i + 12 * j, i * M + j * K, 1, ORDER + 1) =
+          jer_1d / _timeAlloc[j] / _timeAlloc[j] / _timeAlloc[j];
+
+      _A(SR + 0 + 4 * i + 12 * j, 0 + K * (j + 1) + i * M) = -1;
+      _A(SR + 1 + 4 * i + 12 * j, 1 + K * (j + 1) + i * M) = -1 / _timeAlloc[j + 1];
+      _A(SR + 2 + 4 * i + 12 * j, 2 + K * (j + 1) + i * M) =
+          -2 / _timeAlloc[j + 1] / _timeAlloc[j + 1];
+      _A(SR + 3 + 4 * i + 12 * j, 3 + K * (j + 1) + i * M) =
+          -6 / _timeAlloc[j + 1] / _timeAlloc[j + 1] / _timeAlloc[j + 1];
     }
   }
 }
@@ -433,6 +503,7 @@ void CorridorMiniSnap::getHeadTailConstraint() {
     _A(1 + 4 * i, 1 + 8 * i) = 1;
     _A(2 + 4 * i, 2 + 8 * i) = 2;
     _A(3 + 4 * i, 3 + 8 * i) = 6;
+    
     _ub(0 + 4 * i)           = _headPVA(i, 0);
     _ub(1 + 4 * i)           = _headPVA(i, 1) * _timeAlloc[0];
     _ub(2 + 4 * i)           = _headPVA(i, 2) * _timeAlloc[0] * _timeAlloc[0];
@@ -444,29 +515,30 @@ void CorridorMiniSnap::getHeadTailConstraint() {
   }
 
   /* constraints for end states */
-  int                                   M = (N - 1) * (N_ORDER + 1) * DIM;
-  Eigen::Matrix<double, 1, N_ORDER + 1> pos_1d;
-  Eigen::Matrix<double, 1, N_ORDER + 1> vel_1d;
-  Eigen::Matrix<double, 1, N_ORDER + 1> acc_1d;
-  Eigen::Matrix<double, 1, N_ORDER + 1> jer_1d;
+  int                                 M = (N - 1) * (ORDER + 1) * DIM;
+  Eigen::Matrix<double, 1, ORDER + 1> pos_1d;
+  Eigen::Matrix<double, 1, ORDER + 1> vel_1d;
+  Eigen::Matrix<double, 1, ORDER + 1> acc_1d;
+  Eigen::Matrix<double, 1, ORDER + 1> jer_1d;
   pos_1d << 1, 1, 1, 1, 1, 1, 1, 1;
   vel_1d << 0, 1, 2, 3, 4, 5, 6, 7;
   acc_1d << 0, 0, 2, 6, 12, 20, 30, 42;
   jer_1d << 0, 0, 0, 6, 24, 60, 120, 210;
   double T = _timeAlloc[N - 1];
   for (int i = 0; i < DIM; i++) {
-    _A.block(12 + 0 + 4 * i, M + 8 * i, 1, N_ORDER + 1) = pos_1d;
-    _A.block(12 + 1 + 4 * i, M + 8 * i, 1, N_ORDER + 1) = vel_1d;
-    _A.block(12 + 2 + 4 * i, M + 8 * i, 1, N_ORDER + 1) = acc_1d;
-    _A.block(12 + 3 + 4 * i, M + 8 * i, 1, N_ORDER + 1) = jer_1d;
-    _ub(12 + 0 + 4 * i)                                 = _tailPVA(i, 0);
-    _ub(12 + 1 + 4 * i)                                 = _tailPVA(i, 1) * T;
-    _ub(12 + 2 + 4 * i)                                 = _tailPVA(i, 2) * T * T;
-    _ub(12 + 3 + 4 * i)                                 = 0;
-    _lb(12 + 0 + 4 * i)                                 = _tailPVA(i, 0);
-    _lb(12 + 1 + 4 * i)                                 = _tailPVA(i, 1) * T;
-    _lb(12 + 2 + 4 * i)                                 = _tailPVA(i, 2) * T * T;
-    _lb(12 + 3 + 4 * i)                                 = 0;
+    _A.block(12 + 0 + 4 * i, M + 8 * i, 1, ORDER + 1) = pos_1d;
+    _A.block(12 + 1 + 4 * i, M + 8 * i, 1, ORDER + 1) = vel_1d;
+    _A.block(12 + 2 + 4 * i, M + 8 * i, 1, ORDER + 1) = acc_1d;
+    _A.block(12 + 3 + 4 * i, M + 8 * i, 1, ORDER + 1) = jer_1d;
+
+    _ub(12 + 0 + 4 * i)                               = _tailPVA(i, 0);
+    _ub(12 + 1 + 4 * i)                               = _tailPVA(i, 1) * T;
+    _ub(12 + 2 + 4 * i)                               = _tailPVA(i, 2) * T * T;
+    _ub(12 + 3 + 4 * i)                               = 0;
+    _lb(12 + 0 + 4 * i)                               = _tailPVA(i, 0);
+    _lb(12 + 1 + 4 * i)                               = _tailPVA(i, 1) * T;
+    _lb(12 + 2 + 4 * i)                               = _tailPVA(i, 2) * T * T;
+    _lb(12 + 3 + 4 * i)                               = 0;
   }
 }
 
@@ -474,7 +546,7 @@ bool CorridorMiniSnap::primarySolveQP() {
   IOSQP solver;
   // ROS_INFO("[TrajOpt] start solving");
   Eigen::VectorXd q;
-  q.resize(N * (N_ORDER + 1) * DIM);
+  q.resize(N * (ORDER + 1) * DIM);
   q.setZero();
   SparMat Q = _Q.sparseView();
   SparMat A = _A.sparseView();
@@ -536,12 +608,12 @@ double divided_factorial(int i, int d) {
 
 void CorridorMiniSnap::getCostFunc(const std::vector<double>& factors) {
   /* for single piece, single dimension */
-  int                                             D = N_ORDER + 1;  // size of matrix Q
-  Eigen::Matrix<double, N_ORDER + 1, N_ORDER + 1> Q;
+  int                                         D = ORDER + 1;  // size of matrix Q
+  Eigen::Matrix<double, ORDER + 1, ORDER + 1> Q;
   Q.setZero();
   for (int d = 0; d <= 4; d++) {
-    for (int i = d; i <= N_ORDER; i++) {
-      for (int j = d; j <= N_ORDER; j++) {
+    for (int i = d; i <= ORDER; i++) {
+      for (int j = d; j <= ORDER; j++) {
         if (i + j > 2 * d - 1) {
           Q(i, j) += factors[d] *
                      (divided_factorial(i, d) * divided_factorial(j, d) / (i + j - 2 * d + 1));
@@ -556,38 +628,38 @@ void CorridorMiniSnap::getCostFunc(const std::vector<double>& factors) {
   }
 }
 
-typedef Eigen::Matrix<double, DIM, N_ORDER + 1> CoeffMatrix;
+typedef Eigen::Matrix<double, DIM, ORDER + 1> CoeffMatrix;
 
 /**
  * @brief derivative calculate
  *
  * @param coeff
- * @return Eigen::Matrix<double, DIM, N_ORDER + 1>
+ * @return Eigen::Matrix<double, DIM, ORDER + 1>
  */
 
-Eigen::Matrix<double, DIM, N_ORDER> derivative(CoeffMatrix coeff) {
-  Eigen::Matrix<double, DIM, N_ORDER> der;
+Eigen::Matrix<double, DIM, ORDER> derivative(CoeffMatrix coeff) {
+  Eigen::Matrix<double, DIM, ORDER> der;
   for (int i = 0; i < DIM; i++) {
-    for (int j = 0; j < N_ORDER; j++) {
+    for (int j = 0; j < ORDER; j++) {
       der(i, j) = coeff(i, j + 1) * (j + 1);
     }
   }
   return der;
 }
 /** TODO: Templates **/
-Eigen::Matrix<double, DIM, N_ORDER - 1> derivative(Eigen::Matrix<double, DIM, N_ORDER> coeff) {
-  Eigen::Matrix<double, DIM, N_ORDER - 1> der;
+Eigen::Matrix<double, DIM, ORDER - 1> derivative(Eigen::Matrix<double, DIM, ORDER> coeff) {
+  Eigen::Matrix<double, DIM, ORDER - 1> der;
   for (int i = 0; i < DIM; i++) {
-    for (int j = 0; j < N_ORDER - 1; j++) {
+    for (int j = 0; j < ORDER - 1; j++) {
       der(i, j) = coeff(i, j + 1) * (j + 1);
     }
   }
   return der;
 }
-Eigen::Matrix<double, DIM, N_ORDER - 2> derivative(Eigen::Matrix<double, DIM, N_ORDER - 1> coeff) {
-  Eigen::Matrix<double, DIM, N_ORDER - 2> der;
+Eigen::Matrix<double, DIM, ORDER - 2> derivative(Eigen::Matrix<double, DIM, ORDER - 1> coeff) {
+  Eigen::Matrix<double, DIM, ORDER - 2> der;
   for (int i = 0; i < DIM; i++) {
-    for (int j = 0; j < N_ORDER - 2; j++) {
+    for (int j = 0; j < ORDER - 2; j++) {
       der(i, j) = coeff(i, j + 1) * (j + 1);
     }
   }
@@ -608,15 +680,15 @@ bool CorridorMiniSnap::isCorridorSatisfied(Trajectory& traj,
                                            double      delta) {
   bool                         isSatisfied = true;
   std::vector<Eigen::VectorXd> constraints;
-  int                          C        = N_ORDER + 1;
+  int                          C        = ORDER + 1;
   int                          N_PIECES = DIM * C;
-  int                          S        = N * (N_ORDER + 1) * DIM;
+  int                          S        = N * (ORDER + 1) * DIM;
 
   /* add position constraints */
   for (int idx = 0; idx < N; idx++) { /* for each piece */
-    Eigen::MatrixXd                     polyhedra = _Polygons[idx];
-    CoeffMatrix                         coeff     = traj[idx].getCoefficient();
-    Eigen::Matrix<double, DIM, N_ORDER> coeff_dot = derivative(coeff);
+    Eigen::MatrixXd                   polyhedra = _Polygons[idx];
+    CoeffMatrix                       coeff     = traj[idx].getCoeffs();
+    Eigen::Matrix<double, DIM, ORDER> coeff_dot = derivative(coeff);
 
     for (int i = 0; i < polyhedra.cols(); i++) { /* for each hyperplane */
       Eigen::Vector3d n_vec = polyhedra.block<3, 1>(0, i);
@@ -637,9 +709,9 @@ bool CorridorMiniSnap::isCorridorSatisfied(Trajectory& traj,
         if (n_vec.dot(p - pos) < 0) {
           isSatisfied = false;
           /* add a single corridor constraint */
-          Eigen::Matrix<double, 1, N_ORDER + 1> d;
+          Eigen::Matrix<double, 1, ORDER + 1> d;
           d << 1, t, pow(t, 2), pow(t, 3), pow(t, 4), pow(t, 5), pow(t, 6), pow(t, 7);
-          Eigen::Matrix<double, 1, 3 * (N_ORDER + 1)> d3;
+          Eigen::Matrix<double, 1, 3 * (ORDER + 1)> d3;
           d3 << n_vec(0) * d, n_vec(1) * d, n_vec(2) * d;
           //          p = p - delta * n_vec;  // constraint with boundary margin
           p[1] = p[1] - delta * n_vec[1];
@@ -656,10 +728,10 @@ bool CorridorMiniSnap::isCorridorSatisfied(Trajectory& traj,
 
     std::set<double> root_x, root_y, root_z;
     /* add velocity constraints */
-    Eigen::Matrix<double, DIM, N_ORDER - 1> coeff_dot2 = derivative(coeff_dot);
-    Eigen::VectorXd                         a_coeff_x  = coeff_dot2.row(0);
-    Eigen::VectorXd                         a_coeff_y  = coeff_dot2.row(1);
-    Eigen::VectorXd                         a_coeff_z  = coeff_dot2.row(2);
+    Eigen::Matrix<double, DIM, ORDER - 1> coeff_dot2 = derivative(coeff_dot);
+    Eigen::VectorXd                       a_coeff_x  = coeff_dot2.row(0);
+    Eigen::VectorXd                       a_coeff_y  = coeff_dot2.row(1);
+    Eigen::VectorXd                       a_coeff_z  = coeff_dot2.row(2);
     root_x = RootFinder::solvePolynomial(a_coeff_x.reverse(), 0, 1, 0.0001);
     root_y = RootFinder::solvePolynomial(a_coeff_y.reverse(), 0, 1, 0.0001);
     root_z = RootFinder::solvePolynomial(a_coeff_z.reverse(), 0, 1, 0.0001);
@@ -676,7 +748,7 @@ bool CorridorMiniSnap::isCorridorSatisfied(Trajectory& traj,
       idxt++;
       if (vel(0) > max_vel) {
         isSatisfied = false;
-        Eigen::Matrix<double, 1, N_ORDER + 1> d;
+        Eigen::Matrix<double, 1, ORDER + 1> d;
         d << 0, 1, 2 * pow(t, 1), 3 * pow(t, 2), 4 * pow(t, 3), 5 * pow(t, 4), 6 * pow(t, 5),
             7 * pow(t, 6);
         Eigen::VectorXd Ab(S + 1);
@@ -694,7 +766,7 @@ bool CorridorMiniSnap::isCorridorSatisfied(Trajectory& traj,
       if (vel(1) > max_vel) {
         isSatisfied = false;
         //        std::cout << t << "\tvel_y\t" << vel(1) << std::endl;
-        Eigen::Matrix<double, 1, N_ORDER + 1> d;
+        Eigen::Matrix<double, 1, ORDER + 1> d;
         d << 0, 1, 2 * pow(t, 1), 3 * pow(t, 2), 4 * pow(t, 3), 5 * pow(t, 4), 6 * pow(t, 5),
             7 * pow(t, 6);
         Eigen::VectorXd Ab(S + 1);
@@ -712,7 +784,7 @@ bool CorridorMiniSnap::isCorridorSatisfied(Trajectory& traj,
       if (vel(2) > max_vel) {
         isSatisfied = false;
         //        std::cout << t << "\tvel_z\t" << vel(2) << std::endl;
-        Eigen::Matrix<double, 1, N_ORDER + 1> d;
+        Eigen::Matrix<double, 1, ORDER + 1> d;
         d << 0, 1, 2 * pow(t, 1), 3 * pow(t, 2), 4 * pow(t, 3), 5 * pow(t, 4), 6 * pow(t, 5),
             7 * pow(t, 6);
         Eigen::VectorXd Ab(S + 1);
@@ -724,10 +796,10 @@ bool CorridorMiniSnap::isCorridorSatisfied(Trajectory& traj,
     }
 
     /* add acceleration constraints */
-    Eigen::Matrix<double, DIM, N_ORDER - 2> coeff_dot3 = derivative(coeff_dot2);
-    Eigen::VectorXd                         j_coeff_x  = coeff_dot3.row(0);
-    Eigen::VectorXd                         j_coeff_y  = coeff_dot3.row(1);
-    Eigen::VectorXd                         j_coeff_z  = coeff_dot3.row(2);
+    Eigen::Matrix<double, DIM, ORDER - 2> coeff_dot3 = derivative(coeff_dot2);
+    Eigen::VectorXd                       j_coeff_x  = coeff_dot3.row(0);
+    Eigen::VectorXd                       j_coeff_y  = coeff_dot3.row(1);
+    Eigen::VectorXd                       j_coeff_z  = coeff_dot3.row(2);
     root_x = RootFinder::solvePolynomial(j_coeff_x.reverse(), 0, 1, 0.0001);
     // root_y = RootFinder::solvePolynomial(j_coeff_y.reverse(), 0, 1, 0.0001);
     // root_z = RootFinder::solvePolynomial(j_coeff_z.reverse(), 0, 1, 0.0001);
@@ -741,7 +813,7 @@ bool CorridorMiniSnap::isCorridorSatisfied(Trajectory& traj,
       //      std::cout << "\033[1;32m t:" << t << "\tacc_x\t\033[0m" << acc(0) << std::endl;
       if (acc(0) > max_acc) {
         isSatisfied = false;
-        Eigen::Matrix<double, 1, N_ORDER + 1> d;
+        Eigen::Matrix<double, 1, ORDER + 1> d;
         d << 0, 0, 2, 6 * pow(t, 1), 12 * pow(t, 2), 20 * pow(t, 3), 30 * pow(t, 4), 42 * pow(t, 5);
         Eigen::VectorXd Ab(S + 1);
         Ab.setZero();
@@ -751,7 +823,7 @@ bool CorridorMiniSnap::isCorridorSatisfied(Trajectory& traj,
       }
       if (acc(0) < -max_acc) {
         isSatisfied = false;
-        Eigen::Matrix<double, 1, N_ORDER + 1> d;
+        Eigen::Matrix<double, 1, ORDER + 1> d;
         d << 0, 0, 2, 6 * pow(t, 1), 12 * pow(t, 2), 20 * pow(t, 3), 30 * pow(t, 4), 42 * pow(t, 5);
         Eigen::VectorXd Ab(S + 1);
         Ab.setZero();
@@ -782,7 +854,7 @@ void CorridorMiniSnap::getCorridorConstraint() { std::cout << "TODO" << std::end
 
 void CorridorMiniSnap::getTrajectory(Trajectory* traj) {
   traj->setDuration(_timeAlloc);
-  traj->setCoefficient(_x);
+  traj->setCoeffs(_x);
   //  std::cout << (*traj)[3].getCoefficient().row(0) << std::endl;
 }
 
