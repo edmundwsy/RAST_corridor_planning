@@ -86,7 +86,7 @@ graph TD
 
 ## TODO
 - [x] (Aug. w1) Refactor the code in `rast_corridor_planning` to make it fit this framework. Extract `traj_server` from `planning_node`.
-- [ ] (Aug. w1) Merge MiniSnap trajectory optimization `corridor_minisnap` to `traj_opt`
+- [x] (Aug. w1) Merge MiniSnap trajectory optimization `corridor_minisnap` to `traj_opt`
 - [ ] (Aug. w1) Move trajectory queue to `traj_server`
 - [ ] (Aug. w2) Include B-Spline trajectory optimization to `traj_opt` 
 - [ ] (Aug. w3) Include `decomp_ros` for convex corridor generation

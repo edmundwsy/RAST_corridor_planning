@@ -38,6 +38,11 @@ include_directories(
     ${PCL_INCLUDE_DIRS}
 )
 
+add_library(MINISNAP
+    src/mini_snap.cpp
+)
+target_link_libraries(MINISNAP ${catkin_LIBRARIES} osqp::osqp)
+
 add_library(traj_opt
     src/poly_traj_optimizer.cpp
 )
@@ -49,5 +54,5 @@ target_link_libraries(traj_opt
 add_executable(test_minisnap src/test_minisnap.cpp)
 target_link_libraries(test_minisnap
     ${catkin_LIBRARIES}
-    osqp::osqp
+    MINISNAP
 )
