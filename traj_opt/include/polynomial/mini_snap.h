@@ -19,9 +19,9 @@
 #include <vector>
 
 #include "iosqp.hpp"
-#include "polynomial/mini_snap_utils.hpp"
+#include "traj_utils/poly_traj.hpp"
 
-namespace minisnap{
+namespace polynomial{
 /***************************************/
 /********** Corridor MiniSnap **********/
 /***************************************/

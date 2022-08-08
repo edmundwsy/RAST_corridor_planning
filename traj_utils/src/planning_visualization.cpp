@@ -2,7 +2,7 @@
 
 using std::cout;
 using std::endl;
-namespace ego_planner
+namespace planner
 {
   PlanningVisualization::PlanningVisualization(ros::NodeHandle &nh)
   {

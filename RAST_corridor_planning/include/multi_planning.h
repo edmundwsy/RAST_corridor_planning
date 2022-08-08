@@ -12,8 +12,8 @@
 #ifndef _MULTI_PLANNING_H_
 #define _MULTI_PLANNING_H_
 
-// #include <CorridorMiniSnap/corridor_minisnap.h>
 #include <geometry_msgs/TwistStamped.h>
+#include <traj_utils/poly_traj.hpp>
 #include <polynomial/mini_snap.h>
 #include <traj_utils/PolyTraj.h>
 #include <visualization_msgs/Marker.h>
@@ -36,7 +36,7 @@
 #include "std_msgs/Float32MultiArray.h"
 #include "std_msgs/Float64.h"
 #include "std_msgs/UInt8.h"
-#include "visualizer.hpp"
+#include "traj_utils/visualizer.hpp"
 
 namespace planner {
 
@@ -126,8 +126,8 @@ struct PlannerConfig {
 class Planner {
  private:
   /********** TRAJECTORY PLANNING **********/
-  minisnap::CorridorMiniSnap _traj_optimizer; /** Trajectory optimizer */
-  minisnap::Trajectory       _traj;           /** Trajectory */
+  polynomial::CorridorMiniSnap _traj_optimizer; /** Trajectory optimizer */
+  polynomia::Trajectory       _traj;           /** Trajectory */
   int                        _traj_idx;       /** Trajectory index */
   ros::Time                  _traj_start_time;
   ros::Time                  _traj_end_time;

@@ -78,6 +78,27 @@ graph TD
   bridge_node_tcp =="/boardcast_traj<br>/uav0/odom"==> uav1_bridge_node_tcp
 ```
 
+## Structure
+
+### [traj_utils]: Trajectory utilities
+
+A library for trajectory visualization and parametric trajectory message.
+
+### [traj_opt]: Trajectory optimizer
+
+**Dependency**: `traj_utils`
+
+A library for trajectory optimization, which includes polynomial, bernstein, bspline trajectories and related optimization algorithms.
+
+### [traj_server]: Trajectory server
+
+**Dependency**: `traj_utils`
+
+A node for discretize parametric trajectory into separate waypoints and poses.
+
+- Input: parametric trajectory message (`~trajectory`)
+- Output: discretized trajectory message (`~position_cmd`, `~pva_setpoint`)
+
 <!-- No commit, only discuss in zoom meeting -->
 ## Discuss
 - Good architecture for multi-robot navigation?
@@ -104,7 +125,7 @@ Use `.launch` file to start a group of nodes for each uav.
       <remap from="/camera_front/depth/points" to="/uav$(arg drone_id)/pcl_render_node/cloud" />
     </node>
   </group>
-``` 
+```
 
 In C++ code, use common topic name, e.g. `~trajectory`. In launch file, remap common topic name to specific uav e.g. `/uav$(arg drone_id)/trajectory`.
 

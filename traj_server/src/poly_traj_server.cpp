@@ -9,15 +9,16 @@
  */
 #include <ros/ros.h>
 #include "quadrotor_msgs/PositionCommand.h"
-#include "polynomial/mini_snap_utils.hpp"
+#include "traj_utils/poly_traj.hpp"
 #include "traj_utils/PolyTraj.h"
 #include "trajectory_msgs/JointTrajectoryPoint.h"
+#include <Eigen/Eigen>
 
-ros::Publisher _pos_cmd_pub, _pva_pub;
+ros::Publisher _pos_cmd_pub, _pva_pub, _vis_pub;
 
 bool                  _is_traj_received = false;
 int                   _traj_id;
-minisnap::Trajectory _traj;
+polynomial::Trajectory _traj;
 ros::Time             _t_srt;     // start time
 ros::Time             _t_cur;     // current time
 double                _duration;  // duration of the trajectory in seconds

@@ -11,7 +11,7 @@
 #include <stdlib.h>
 
 using std::vector;
-namespace ego_planner
+namespace planner
 {
   class PlanningVisualization
   {

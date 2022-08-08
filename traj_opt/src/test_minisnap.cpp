@@ -38,8 +38,8 @@ Eigen::Vector3d _end_acc(0.0, 0.0, 0.0);
 
 ros::Publisher _vis_pub, _route_pub, _text_pub, _wpt_pub;
 
-minisnap::Trajectory       _traj;
-minisnap::CorridorMiniSnap _optimizer;
+polynomial::Trajectory       _traj;
+polynomial::CorridorMiniSnap _optimizer;
 
 /**
  * @brief optimize trajectory

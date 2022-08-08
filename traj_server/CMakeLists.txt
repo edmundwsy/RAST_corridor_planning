@@ -14,7 +14,6 @@ find_package(catkin REQUIRED COMPONENTS
   traj_utils
   quadrotor_msgs
   trajectory_msgs
-  traj_opt
 )
 
 catkin_package(

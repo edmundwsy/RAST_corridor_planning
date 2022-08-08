@@ -14,13 +14,19 @@
 
   <group ns="uav$(arg drone_id)">
     <!-- <node pkg="rast_corridor_planning" name="map_sim_example" type="map_sim_example" output="screen"> -->
-      <node pkg="rast_corridor_planning" name="map_sim_example" type="map_sim_example">
+    <node pkg="rast_corridor_planning" name="map_sim_example" type="map_sim_example">
       <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
       <remap from="/camera_front/depth/points" to="/uav$(arg drone_id)/pcl_render_node/cloud" />
     </node>
 
-    <node pkg="rast_corridor_planning" name="planning_node" type="multi_planning_node" output="screen">
-      <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" /> 
+    <!-- <node pkg="rast_corridor_planning" name="planning_node" type="multi_planning_node" output="screen"> -->
+    <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node">
+      <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
+    </node>
+
+    <node pkg="traj_server" name="traj_server" type="poly_traj_server" output="screen">
+      <remap from="~trajectory" to="/uav$(arg drone_id)/planning/trajectory" />
+      <remap from="/position_cmd" to="/uav$(arg drone_id)/planning/pos_cmd" />
     </node>
 
   </group>
@@ -29,6 +35,7 @@
 		<rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" /> 
 	</node> -->
 
+  <!-- SIMULATOR -->
   <include file="$(find rast_corridor_planning)/launch/simulator_dyn.launch">
     <arg name="drone_id" value="$(arg drone_id)" />
     <arg name="map_size_x" value="$(arg map_size_x)" />

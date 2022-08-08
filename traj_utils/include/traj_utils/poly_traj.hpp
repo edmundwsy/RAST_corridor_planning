@@ -27,7 +27,7 @@
 #define DIM         3  // number of dimensions in Cspace
 #define N_POLYHEDRA 6  // number of polygons in polyhedra
 
-namespace minisnap {
+namespace polynomial {
 
 typedef Eigen::Matrix<double, DIM, ORDER + 1> CoefficientMat;
 typedef Eigen::SparseMatrix<double>           SparMat;

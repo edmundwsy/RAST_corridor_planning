@@ -648,6 +648,10 @@ bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6,
 
   /* publish trajectory */
   publishTrajectory();
+
+  /* visualize trajectory */
+  double v_max = _traj.getMaxVelRate();
+  _vis->visualizeTrajectory(_odom_pos, _traj, v_max);
 }
 
 /**

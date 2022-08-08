@@ -12,7 +12,7 @@
 #include <iostream>
 #include <polynomial/mini_snap.h>
 
-namespace minisnap {
+namespace polynomial {
 void CorridorMiniSnap::reset(const Eigen::Matrix3d&                           head,
                              const Eigen::Matrix3d&                           tail,
                              const std::vector<double>&                       timeAlloc,
