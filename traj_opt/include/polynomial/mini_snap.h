@@ -59,13 +59,15 @@ class CorridorMiniSnap {
              const std::vector<double>&                       timeAlloc,
              const std::vector<Eigen::Matrix<double, 6, -1>>& corridors);
 
-  void getCostFunc(const std::vector<double>& factors);
+  void getCustomCostFunc(const std::vector<double>& factors);
+  void getMiniSnapCostFunc();
   void getCorridorConstraint();
   void getTransitionConstraint(double delta);
   void getContinuityConstraint();
   void getHeadTailConstraint();
 
-  bool optimize(const std::vector<double>& factors, double delta);
+  bool optimize(double delta);
+  bool optimizeCustomCostFunc(const std::vector<double>& factors, double delta);
   bool primarySolveQP();
   bool reOptimize();
   // inline bool isCorridorSatisfied(const Eigen::Vector3d & pos, int idx,

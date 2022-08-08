@@ -27,9 +27,10 @@
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 #include "trajectory_msgs/MultiDOFJointTrajectory.h"
 #include "decomp_utils.hpp"
-#include "visualizer.hpp"
+#include <traj_utils/visualizer.hpp>
 
-using namespace minisnap;
+using namespace visualizer;
+using namespace polynomial;
 using namespace std;
 using namespace std::chrono;
 
@@ -450,7 +451,7 @@ void trajectoryCallback(const ros::TimerEvent& e) {
     }
     corridor_pub.publish(corridor_msg);
     /// Publish corridors to RVIZ
-    vis_->visualizeCorridors(corridors, map_pose_global, rviz_map_center_locked);
+    // vis_->visualizeCorridors(corridors, map_pose_global, rviz_map_center_locked);
 
     /***** P4: Trajectory Optimization *****/
     double optimization_start_t = ros::Time::now().toSec();
@@ -469,7 +470,7 @@ void trajectoryCallback(const ros::TimerEvent& e) {
                             visualization_msgs::Marker::LINE_STRIP, true);
 
     vector<Corridor*> corridors;
-    vis_->visualizeCorridors(corridors, map_pose_global, true);
+    // vis_->visualizeCorridors(corridors, map_pose_global, true);
 
     //        /******** TEST code for emergency *********/
     //        std::queue<PVAYPoint> empty;

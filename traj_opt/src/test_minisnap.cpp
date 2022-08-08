@@ -61,7 +61,7 @@ bool Optimize(const Eigen::Matrix3d &                          init,
   /* initial guess */
   _optimizer.reset(init, goal, t_alloc, corridors);
   try {
-    is_solved = _optimizer.optimize(factors, 0.0);
+    is_solved = _optimizer.optimize(0.0);
 
   } catch (int e) {
     ROS_ERROR("Optimization failed!");
@@ -167,9 +167,6 @@ std::vector<Eigen::Matrix<double, 6, -1>> getRandomCorridors(
   return crds;
 }
 
-// TODO: generate waypoints
-// TODO: generate corridor
-
 inline Eigen::Vector3d jetColorMap(double a) {
   double          s = a * 4;
   Eigen::Vector3d c;  // [r, g, b]
@@ -193,9 +190,10 @@ inline Eigen::Vector3d jetColorMap(double a) {
   return c;
 }
 
+// TODO: move it to traj_utils visualizer
 void visualizeCorridor() {}
 
-void visualizeTraj(const minisnap::Trajectory &        traj,
+void visualizeTraj(const polynomial::Trajectory &        traj,
                    const std::vector<Eigen::Vector3d> &route,
                    ros::Time                           timeStamp,
                    double                              compT,

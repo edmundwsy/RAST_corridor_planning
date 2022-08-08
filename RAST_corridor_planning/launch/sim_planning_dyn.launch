@@ -19,8 +19,8 @@
       <remap from="/camera_front/depth/points" to="/uav$(arg drone_id)/pcl_render_node/cloud" />
     </node>
 
-    <!-- <node pkg="rast_corridor_planning" name="planning_node" type="multi_planning_node" output="screen"> -->
-    <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node">
+    <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node" output="screen">
+    <!-- <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node"> -->
       <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
     </node>
 

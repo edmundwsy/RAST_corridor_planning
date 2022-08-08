@@ -27,7 +27,7 @@
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 #include "trajectory_msgs/MultiDOFJointTrajectory.h"
 
-using namespace minisnap;
+using namespace polynomial;
 using namespace std;
 using namespace std::chrono;
 
@@ -795,7 +795,7 @@ bool      optimizationInCorridors(const decomp_ros_msgs::DynPolyhedronArray msg,
 
   bool is_solved = false;
   try {
-    is_solved = mini_snap_.optimize(factors, delta_corridor);
+    is_solved = mini_snap_.optimize(delta_corridor);
   } catch (int e) {
     ROS_ERROR("Optimizer crashed!");
     return false;

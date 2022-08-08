@@ -13,7 +13,6 @@
 #define _MULTI_PLANNING_H_
 
 #include <geometry_msgs/TwistStamped.h>
-#include <traj_utils/poly_traj.hpp>
 #include <polynomial/mini_snap.h>
 #include <traj_utils/PolyTraj.h>
 #include <visualization_msgs/Marker.h>
@@ -22,6 +21,7 @@
 #include <chrono>
 #include <ctime>
 #include <queue>
+#include <traj_utils/poly_traj.hpp>
 #include <vector>
 
 #include "decomp_ros_msgs/DynPolyhedronArray.h"
@@ -68,13 +68,6 @@ struct PlannerConfig {
   double max_differentiated_current_a = 4.0;
   bool   is_rviz_map_center_locked    = false;
 
-  std::vector<double> factors;
-  double              factor_pos = 0.0;
-  double              factor_vel = 0.0;
-  double              factor_acc = 0.0;
-  double              factor_jrk = 0.0;
-  double              factor_snp = 1.0;
-
   double goal_x = 60.0;
   double goal_y = 0.0;
   double goal_z = 1.5;
@@ -96,16 +89,6 @@ struct PlannerConfig {
     nh.getParam("nmpc_receive_points_num", nmpc_receive_points_num);
 
     nh.getParam("delta_corridor", delta_corridor);
-    nh.getParam("pos_factor", factor_pos);
-    nh.getParam("vel_factor", factor_vel);
-    nh.getParam("acc_factor", factor_acc);
-    nh.getParam("jerk_factor", factor_jrk);
-    nh.getParam("snap_factor", factor_snp);
-    factors.push_back(factor_pos);
-    factors.push_back(factor_vel);
-    factors.push_back(factor_acc);
-    factors.push_back(factor_jrk);
-    factors.push_back(factor_snp);
 
     nh.getParam("planning_time_step", planning_time_step);
     nh.getParam("a_star_acc_sample_step", a_star_acc_sample_step);
@@ -127,11 +110,11 @@ class Planner {
  private:
   /********** TRAJECTORY PLANNING **********/
   polynomial::CorridorMiniSnap _traj_optimizer; /** Trajectory optimizer */
-  polynomia::Trajectory       _traj;           /** Trajectory */
-  int                        _traj_idx;       /** Trajectory index */
-  ros::Time                  _traj_start_time;
-  ros::Time                  _traj_end_time;
-  double                     _traj_duration;
+  polynomial::Trajectory       _traj;           /** Trajectory */
+  int                          _traj_idx;       /** Trajectory index */
+  ros::Time                    _traj_start_time;
+  ros::Time                    _traj_end_time;
+  double                       _traj_duration;
 
   Astar _astar_planner; /** A* path finding */
 
@@ -178,7 +161,7 @@ class Planner {
   bool _is_state_locked;
 
   /********** VISUALIZATIONS **********/
-  Visualizer::Ptr _vis;
+  visualizer::Visualizer::Ptr _vis;
 
  public:
   Planner(ros::NodeHandle &nh, const PlannerConfig &conf) : _nh(nh), _config(conf){};
@@ -200,7 +183,7 @@ class Planner {
   void publishTrajectory();
   void publishCorridor(const vector<Corridor *> &c);
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  typedef std::unique_ptr<Planner> Ptr;
+  typedef std::shared_ptr<Planner> Ptr;
 };
 
 }  // namespace planner

@@ -200,8 +200,24 @@ bool CorridorMiniSnap::primarySolveQP() {
   }
 }
 
-bool CorridorMiniSnap::optimize(const std::vector<double>& factors, double delta) {
-  getCostFunc(factors);
+bool CorridorMiniSnap::optimizeCustomCostFunc(const std::vector<double>& factors, double delta) {
+  getCustomCostFunc(factors);
+  // ROS_INFO("[TrajOpt] Generated Cost Func");
+  getHeadTailConstraint();
+  // ROS_INFO("[TrajOpt] Generated Head Tail Constraint");
+  getTransitionConstraint(delta);
+  // ROS_INFO("[TrajOpt] Generated Transitional Constraint");
+  getContinuityConstraint();
+  // ROS_INFO("[TrajOpt] Generated Continuity Constraint");
+  // getCorridorConstraint();
+  // std::cout << "Generated Corridor Constraint" << std::endl;
+  bool isSuccess = primarySolveQP();
+  // ROS_INFO("[TrajOpt] Solved primary QP");
+  return isSuccess;
+}
+
+bool CorridorMiniSnap::optimize(double delta) {
+  getMiniSnapCostFunc();
   // ROS_INFO("[TrajOpt] Generated Cost Func");
   getHeadTailConstraint();
   // ROS_INFO("[TrajOpt] Generated Head Tail Constraint");
@@ -238,7 +254,7 @@ double divided_factorial(int i, int d) {
   return result;
 }
 
-void CorridorMiniSnap::getCostFunc(const std::vector<double>& factors) {
+void CorridorMiniSnap::getCustomCostFunc(const std::vector<double>& factors) {
   /* for single piece, single dimension */
   int                                         D = ORDER + 1;  // size of matrix Q
   Eigen::Matrix<double, ORDER + 1, ORDER + 1> Q;
@@ -254,6 +270,27 @@ void CorridorMiniSnap::getCostFunc(const std::vector<double>& factors) {
     }
   }
   // std::cout << Q;
+  /* iterate all dimensions and all pieces */
+  for (int i = 0; i < N * DIM; i++) {
+    _Q.block(i * D, i * D, D, D) = Q;
+  }
+}
+
+void CorridorMiniSnap::getMiniSnapCostFunc() {
+  /* for single piece, single dimension */
+  int D = ORDER + 1;  // size of matrix Q
+  Eigen::Matrix<double, ORDER + 1, ORDER + 1> Q;
+  for (int i = 0; i <= ORDER; i++) {
+    for (int j = 0; j <= ORDER; j++) {
+      if (i < 4 || j < 4) {
+        Q(i, j) = 0;
+      }
+      if (i + j > ORDER) {
+        Q(i, j) = i * (i - 1) * (i - 2) * (i - 3) * j * (j - 1) * (j - 2) *
+                  (j - 3) / (i + j - ORDER);
+      }
+    }
+  }
   /* iterate all dimensions and all pieces */
   for (int i = 0; i < N * DIM; i++) {
     _Q.block(i * D, i * D, D, D) = Q;

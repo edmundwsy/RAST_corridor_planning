@@ -30,7 +30,7 @@ void Planner::init() {
 
   /*** INITIALIZE VISUALIZATION ***/
   std::string frame_id = "world";
-  _vis.reset(new Visualizer(_nh, frame_id));
+  _vis.reset(new visualizer::Visualizer(_nh, frame_id));
 
   /*** SUBSCRIBERS ***/
   _future_risk_sub =
@@ -366,7 +366,7 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
                              visualization_msgs::Marker::LINE_STRIP, true);
 
     vector<Corridor*> corridors;
-    _vis->visualizeCorridors(corridors, _map_center, true);
+    // _vis->visualizeCorridors(corridors, _map_center, true);
     return;
 
     //        /******** TEST code for emergency *********/
@@ -487,7 +487,7 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
       corridor_msg.dyn_polyhedrons.push_back(corridor_this);
     }
     _corridor_pub.publish(corridor_msg);
-    _vis->visualizeCorridors(corridors, _map_center, _is_rviz_center_locked);
+    // _vis->visualizeCorridors(polyhedron, _map_center, _is_rviz_center_locked);
 
     /***** P4: Trajectory Optimization *****/
     double optimization_start_time = ros::Time::now().toSec();
@@ -537,12 +537,12 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
 
     /* initial optimize */
     _traj_optimizer.reset(init_state, final_state, time_alloc, polyhedra);
-    try {
-      is_solved = _traj_optimizer.optimize(_config.factors, _config.delta_corridor);
-    } catch (int e) {
-      ROS_ERROR("Optimizer crashed!");
-      // return false;
-    }
+    std::cout << "Initial optimize..." << std::endl;
+    double delta = 0.3;
+    is_solved = _traj_optimizer.optimize(delta);
+    // TODO: debug: might related to corridor generations
+
+    std::cout << "Initial optimization finished!" << std::endl;
 
     if (is_solved) {
       _traj_optimizer.getTrajectory(&_traj);
@@ -583,7 +583,13 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
   }  // end of if a_star valid
   _traj_start_time = ros::Time::now();
   _traj_end_time   = ros::Time::now() + ros::Duration(_traj_duration);
+
+  /* publish trajectory */
   publishTrajectory();
+
+  /* visualize trajectory */
+  double v_max = _traj.getMaxVelRate();
+  _vis->visualizeTrajectory(_odom_pos, _traj, v_max);
 }
 
 /**
@@ -609,7 +615,7 @@ bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6,
   /* initial optimize */
   _traj_optimizer.reset(init, final, t, c);
   try {
-    is_solved = _traj_optimizer.optimize(_config.factors, _config.delta_corridor);
+    is_solved = _traj_optimizer.optimize(_config.delta_corridor);
   } catch (int e) {
     ROS_ERROR("Optimizer crashed!");
     return false;
@@ -652,6 +658,8 @@ bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6,
   /* visualize trajectory */
   double v_max = _traj.getMaxVelRate();
   _vis->visualizeTrajectory(_odom_pos, _traj, v_max);
+
+  return true;
 }
 
 /**
@@ -664,7 +672,7 @@ void Planner::publishTrajectory() {
 
   poly_msg.drone_id   = 0;
   poly_msg.traj_id    = _traj_idx;
-  poly_msg.start_time = _traj_start_time;  // TODO:
+  poly_msg.start_time = _traj_start_time;
   poly_msg.order      = 7;
   poly_msg.duration.resize(piece_num);
   poly_msg.coef_x.resize(8 * piece_num);
@@ -675,7 +683,7 @@ void Planner::publishTrajectory() {
     poly_msg.duration[i] = _traj[i].getDuration();
 
     Eigen::Matrix<double, 3, 8> coef = _traj[i].getCoeffs();
-    int  idx  = i * 8;
+    int                         idx  = i * 8;
     for (int j = 0; j < 8; j++) {
       poly_msg.coef_x[idx + j] = coef.row(0)[j];
       poly_msg.coef_y[idx + j] = coef.row(1)[j];
