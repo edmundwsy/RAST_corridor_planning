@@ -130,6 +130,7 @@ class Planner {
   int   _map_x_limit, _map_y_limit, _map_z_limit; /** Map limits */
   int   _map_size;
   float _map_half_length, _map_half_width, _map_half_height;
+  Eigen::Vector3d _map_center; /** Map center */
 
   /********** ROS UTILS **********/
   ros::NodeHandle _nh;
@@ -142,7 +143,7 @@ class Planner {
   float         _ref_direction_angle;
 
   /********** DATA **********/
-  geometry_msgs::PoseStamped _map_center;  // TODO(@siyuan): change this to Eigen::Vector3d
+  // geometry_msgs::PoseStamped _map_center;  // TODO(@siyuan): change this to Eigen::Vector3d
 
   double _traj_planning_start_time;
 
@@ -157,7 +158,7 @@ class Planner {
   bool _is_safety_mode_enabled;
   bool _is_odom_received;
   bool _is_trajectory_initialized;
-  bool _is_rviz_center_locked;
+  bool _is_local_frame;
   bool _is_state_locked;
 
   /********** VISUALIZATIONS **********/
@@ -182,7 +183,7 @@ class Planner {
                                const Eigen::Matrix3d &                          final);
   void publishTrajectory();
   void publishCorridor(const vector<Corridor *> &c);
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  // EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   typedef std::shared_ptr<Planner> Ptr;
 };
 

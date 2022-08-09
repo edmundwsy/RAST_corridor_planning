@@ -64,7 +64,7 @@ void Planner::init() {
   _map_half_height = MAP_HEIGHT_VOXEL_NUM * VOXEL_RESOLUTION / 2.f;
 
   /*** BOOLEANS ***/
-  _is_rviz_center_locked     = _config.is_rviz_map_center_locked;
+  _is_local_frame            = _config.is_rviz_map_center_locked;
   _is_future_risk_updated    = false;
   _is_future_risk_locked     = false;
   _is_safety_mode_enabled    = false;
@@ -81,10 +81,15 @@ void Planner::FutureRiskCallback(const std_msgs::Float32MultiArrayConstPtr& risk
     }
   }
   _is_future_risk_locked = false;
-
-  _map_center.pose.position.x = risk_msg->data[VOXEL_NUM * RISK_MAP_NUMBER];
-  _map_center.pose.position.y = risk_msg->data[VOXEL_NUM * RISK_MAP_NUMBER + 1];
-  _map_center.pose.position.z = risk_msg->data[VOXEL_NUM * RISK_MAP_NUMBER + 2];
+  if (!_is_local_frame) {
+    _map_center.x() = risk_msg->data[VOXEL_NUM * RISK_MAP_NUMBER];
+    _map_center.y() = risk_msg->data[VOXEL_NUM * RISK_MAP_NUMBER + 1];
+    _map_center.z() = risk_msg->data[VOXEL_NUM * RISK_MAP_NUMBER + 2];
+  } else {
+    _map_center.x() = 0.f;
+    _map_center.y() = 0.f;
+    _map_center.z() = 0.f;
+  }
 
   _is_future_risk_updated = true;
 }
@@ -189,7 +194,7 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
 
   if (!_is_future_risk_updated) return;
 
-  double _traj_planning_start_time = ros::Time::now().toSec();  // TODO: useless?
+  double _traj_planning_start_time = ros::Time::now().toSec();
 
   /*** Copy future status ***/  // TODO(@chen): WHY?
   // static float future_risk_planning[VOXEL_NUM][RISK_MAP_NUMBER];
@@ -211,7 +216,7 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
 
   /** @brief map center when trajectory planning start */
   Eigen::Vector3d c_start;
-  c_start << _map_center.pose.position.x, _map_center.pose.position.y, _map_center.pose.position.z;
+  c_start << _map_center.x(), _map_center.y(), _map_center.z();
 
   /***************************************************************************************/
   /***** P1: Check the risk of the planned short trajectory and set a start position ****/
@@ -293,6 +298,7 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
 
   /***************************************************************************************/
   /************** P2: Risk-aware Kino-dynamic A-star planning *****************************/
+  // NOTE: A-star planning is in the map frame.
 
   double astar_planning_start_time = ros::Time::now().toSec();
 
@@ -333,9 +339,9 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
   //        if(rviz_map_center_locked){
   //            p<<searched_point.x, searched_point.y, searched_point.z;
   //        }else{
-  //            p<<searched_point.x+_map_center.pose.position.x,
-  //            searched_point.y+_map_center.pose.position.y,
-  //            searched_point.z+_map_center.pose.position.z;
+  //            p<<searched_point.x+_map_center.x(),
+  //            searched_point.y+_map_center.y(),
+  //            searched_point.z+_map_center.z();
   //        }
   //        searched_points_to_show.push_back(p);
   //    }
@@ -364,29 +370,16 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
                              true);
     _vis->visualizeAstarPath(points, 1, 0.1, 0.9, 0.2, 1.0, 0.1,
                              visualization_msgs::Marker::LINE_STRIP, true);
-
-    vector<Corridor*> corridors;
-    // _vis->visualizeCorridors(corridors, _map_center, true);
     return;
-
-    //        /******** TEST code for emergency *********/
-    //        std::queue<PVAYPoint> empty;
-    //        std::swap( trajectory_piece, empty);
   } else {
     // at least two nodes are generated to build a corridor
     std::vector<Eigen::Vector3d> points;
     for (auto& p : astar_rst) {
-      Eigen::Vector3d p_this;
-      if (_is_rviz_center_locked) {
-        p_this.x() = p->x;
-        p_this.y() = p->y;
-        p_this.z() = p->z;
-      } else {
-        p_this.x() = p->x + _map_center.pose.position.x;
-        p_this.y() = p->y + _map_center.pose.position.y;
-        p_this.z() = p->z + _map_center.pose.position.z;
-      }
-      points.push_back(p_this);
+      Eigen::Vector3d pt;
+      pt.x() = p->x + _map_center.x();
+      pt.y() = p->y + _map_center.y();
+      pt.z() = p->z + _map_center.z();
+      points.push_back(pt);
     }
     _vis->visualizeAstarPath(points, 0, 0.8, 0.3, 0.4, 1.0, 0.2);
 
@@ -406,26 +399,22 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
       auto  point_num_one_piece =
           (int)(_astar_planner.time_step_node / _astar_planner.time_step_trajectory);
 
-      for (int j = 1; j < point_num_one_piece;
-           ++j) {  // Skip the first point. Which is the same as the last point on the last piece.
-        Eigen::Vector3d p;
-        float           t = (float)j * _astar_planner.time_step_trajectory;
-        p.x()             = node1->x + node1->vx * t + 0.5 * ax * t * t;
-        p.y()             = node1->y + node1->vy * t + 0.5 * ay * t * t;
-        p.z()             = node1->z + node1->vz * t + 0.5 * az * t * t;
+      for (int j = 1; j < point_num_one_piece; ++j) {
+        // Skip the first point. Which is the same as the last point on the last piece.
+        float t = (float)j * _astar_planner.time_step_trajectory;
 
-        if (!_is_rviz_center_locked) {
-          p.x() += _map_center.pose.position.x;
-          p.y() += _map_center.pose.position.y;
-          p.z() += _map_center.pose.position.z;
-        }
+        Eigen::Vector3d p;
+        p.x() = _map_center.x() + node1->x + node1->vx * t + 0.5 * ax * t * t;
+        p.y() = _map_center.y() + node1->y + node1->vy * t + 0.5 * ay * t * t;
+        p.z() = _map_center.z() + node1->z + node1->vz * t + 0.5 * az * t * t;
+
         a_star_traj_points_to_show.push_back(p);
       }
     }
     _vis->visualizeAstarPath(a_star_traj_points_to_show, 1, 0.1, 0.9, 0.2, 1.0, 0.1,
                              visualization_msgs::Marker::LINE_STRIP);
 
-    /***** P3: Risk-constrained corridor ****/
+    /***** P3: Risk-constrained corridor in global frame ****/
     double            corridor_start_time = ros::Time::now().toSec();
     vector<Corridor*> corridors;
 
@@ -446,83 +435,81 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
     // ROS_INFO("corridors MAX time = %lf", corridor_max_time);
 
     /// Publish corridors to optimization planner
-    decomp_ros_msgs::DynPolyhedronArray corridor_msg;
-    corridor_msg.header.stamp = ros::Time::now();
-    corridor_msg.start_pos.x  = astar_rst[0]->x;
-    corridor_msg.start_pos.y  = astar_rst[0]->y;
-    corridor_msg.start_pos.z  = astar_rst[0]->z;
-    corridor_msg.start_vel.x  = astar_rst[0]->vx;
-    corridor_msg.start_vel.y  = astar_rst[0]->vy;
-    corridor_msg.start_vel.z  = astar_rst[0]->vz;
-    corridor_msg.start_acc.x  = a_start.x();
-    corridor_msg.start_acc.y  = a_start.y();
-    corridor_msg.start_acc.z  = a_start.z();
+    decomp_ros_msgs::DynPolyhedronArray crd_msg;
+    crd_msg.header.stamp = ros::Time::now();
+    crd_msg.start_pos.x  = astar_rst[0]->x + _map_center.x();
+    crd_msg.start_pos.y  = astar_rst[0]->y + _map_center.y();
+    crd_msg.start_pos.z  = astar_rst[0]->z + _map_center.z();
+    crd_msg.start_vel.x  = astar_rst[0]->vx;
+    crd_msg.start_vel.y  = astar_rst[0]->vy;
+    crd_msg.start_vel.z  = astar_rst[0]->vz;
+    crd_msg.start_acc.x  = a_start.x();
+    crd_msg.start_acc.y  = a_start.y();
+    crd_msg.start_acc.z  = a_start.z();
 
-    corridor_msg.end_pos.x = astar_rst[astar_rst.size() - 1]->x;
-    corridor_msg.end_pos.y = astar_rst[astar_rst.size() - 1]->y;
-    corridor_msg.end_pos.z = astar_rst[astar_rst.size() - 1]->z;
-    corridor_msg.end_vel.x = astar_rst[astar_rst.size() - 1]->vx;
-    corridor_msg.end_vel.y = astar_rst[astar_rst.size() - 1]->vy;
-    corridor_msg.end_vel.z = astar_rst[astar_rst.size() - 1]->vz;
+    crd_msg.end_pos.x = astar_rst[astar_rst.size() - 1]->x + _map_center.x();
+    crd_msg.end_pos.y = astar_rst[astar_rst.size() - 1]->y + _map_center.y();
+    crd_msg.end_pos.z = astar_rst[astar_rst.size() - 1]->z + _map_center.z();
+    crd_msg.end_vel.x = astar_rst[astar_rst.size() - 1]->vx;
+    crd_msg.end_vel.y = astar_rst[astar_rst.size() - 1]->vy;
+    crd_msg.end_vel.z = astar_rst[astar_rst.size() - 1]->vz;
 
-    corridor_msg.end_acc.x = 0.f;
-    corridor_msg.end_acc.y = 0.f;
-    corridor_msg.end_acc.z = 0.f;
+    crd_msg.end_acc.x = 0.f;
+    crd_msg.end_acc.y = 0.f;
+    crd_msg.end_acc.z = 0.f;
+
+    /** convert corridor (Corridor) to polyhedra (Eigen::Matrix) and publish **/
+    std::vector<double>                       time_alloc;
+    std::vector<Eigen::Matrix<double, 6, -1>> polyhedra;
+    polyhedra.reserve(corridors.size());
+    time_alloc.reserve(corridors.size());
 
     for (auto& corridor : corridors) {
-      decomp_ros_msgs::DynPolyhedron corridor_this;
-      corridor_this.duration = _config.a_star_search_time_step;
+      decomp_ros_msgs::DynPolyhedron dyn_crd;
+      Eigen::MatrixXd                polygon;
+      polygon.resize(6, corridor->envelope.surfaces.size());
+      dyn_crd.duration = _config.a_star_search_time_step;
+      time_alloc.push_back(static_cast<double>(_config.a_star_search_time_step));
+      int i = 0;
       for (const auto& surface : corridor->envelope.surfaces) {
         geometry_msgs::Point point;
         geometry_msgs::Point normal;
-        point.x  = surface.point.x;
-        point.y  = surface.point.y;
-        point.z  = surface.point.z;
+        point.x  = surface.point.x + _map_center.x();
+        point.y  = surface.point.y + _map_center.y();
+        point.z  = surface.point.z + _map_center.z();
         normal.x = surface.normal.x;
         normal.y = surface.normal.y;
         normal.z = surface.normal.z;
-        corridor_this.points.push_back(point);
-        corridor_this.normals.push_back(normal);
-      }
-      corridor_msg.dyn_polyhedrons.push_back(corridor_this);
-    }
-    _corridor_pub.publish(corridor_msg);
-    // _vis->visualizeCorridors(polyhedron, _map_center, _is_rviz_center_locked);
 
-    /***** P4: Trajectory Optimization *****/
+        polygon.col(i).tail<3>() << point.x, point.y, point.z;
+        polygon.col(i).head<3>() << normal.x, normal.y, normal.z;
+        dyn_crd.points.push_back(point);
+        dyn_crd.normals.push_back(normal);
+        i++;
+      }
+      polyhedra.push_back(polygon);
+      crd_msg.dyn_polyhedrons.push_back(dyn_crd);
+    }
+    _corridor_pub.publish(crd_msg);
+    std::cout << "corridor size: " << corridors.size() << std::endl;
+    std::cout << "polyhedra size: " << polyhedra.size() << std::endl;
+    _vis->visualizeCorridors(polyhedra, _odom_pos);
+
+    /***** P4: Trajectory Optimization in global frame *****/
     double optimization_start_time = ros::Time::now().toSec();
 
     /** extract init final states from the corridors **/
     Eigen::Matrix3d init_state, final_state;
-    init_state.col(0) << astar_rst[0]->x, astar_rst[0]->y, astar_rst[0]->z;
+    init_state.col(0) << astar_rst[0]->x + _map_center.x(), astar_rst[0]->y + _map_center.y(),
+        astar_rst[0]->z + _map_center.z();
     init_state.col(1) << astar_rst[0]->vx, astar_rst[0]->vy, astar_rst[0]->vz;
     init_state.col(2) << a_start.x(), a_start.y(), a_start.z();
+    
     int n = astar_rst.size() - 1;
-    final_state.col(0) << astar_rst[n]->x, astar_rst[n]->y, astar_rst[n]->z;
+    final_state.col(0) << astar_rst[n]->x + _map_center.x(), astar_rst[n]->y + _map_center.y(),
+        astar_rst[n]->z + _map_center.z();
     final_state.col(1) << astar_rst[n]->vx, astar_rst[n]->vy, astar_rst[n]->vz;
     final_state.col(2) << 0.f, 0.f, 0.f;
-
-    /** convert corridor (Corridor) to polyhedra (Eigen::Matrix) **/
-    std::vector<Eigen::Matrix<double, 6, -1>> polyhedra;
-    std::vector<double>                       time_alloc;
-    polyhedra.reserve(corridors.size());
-    time_alloc.reserve(corridors.size());
-    for (auto& corridor : corridors) {
-      Eigen::MatrixXd polygon;
-      int             s = corridor->envelope.surfaces.size();
-      polygon.resize(6, s);
-      for (unsigned int i = 0; i < s; i++) {
-        polygon.col(i).tail<3>() << corridor->envelope.surfaces[i].point.x,
-            corridor->envelope.surfaces[i].point.y, corridor->envelope.surfaces[i].point.z;
-        polygon.col(i).head<3>() << corridor->envelope.surfaces[i].normal.x,
-            corridor->envelope.surfaces[i].normal.y, corridor->envelope.surfaces[i].normal.z;
-      }
-      polyhedra.push_back(polygon);
-      time_alloc.push_back((double)_config.a_star_search_time_step);
-    }
-
-    std::cout << "corridor size: " << corridors.size() << std::endl;
-    std::cout << "polyhedra size: " << polyhedra.size() << std::endl;
 
     /** apply optimization **/
     // bool is_trajectory_optimized =
@@ -532,15 +519,16 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
     for (auto it = time_alloc.begin(); it != time_alloc.end(); ++it) {
       _traj_duration += (*it);
     }
+    std::cout << "init state: " << init_state << std::endl;
+    std::cout << "final state: " << final_state << std::endl;
     std::cout << "Piece num:" << time_alloc.size() << std::endl;
     std::cout << "Total time: " << _traj_duration << std::endl;
 
     /* initial optimize */
     _traj_optimizer.reset(init_state, final_state, time_alloc, polyhedra);
     std::cout << "Initial optimize..." << std::endl;
-    double delta = 0.3;
-    is_solved = _traj_optimizer.optimize(delta);
-    // TODO: debug: might related to corridor generations
+    double delta = 0.0;
+    is_solved    = _traj_optimizer.optimize(delta);
 
     std::cout << "Initial optimization finished!" << std::endl;
 
@@ -629,7 +617,7 @@ bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6,
   }
 
   /* re-optimize */
-  int I = 5;  // max iterations
+  int I = 10;  // max iterations
   int i = 0;
   while (!_traj_optimizer.isCorridorSatisfied(_traj, _config.max_vel_optimization,
                                               _config.max_acc_optimization,

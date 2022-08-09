@@ -75,6 +75,7 @@ class CorridorMiniSnap {
   bool   isCorridorSatisfied(Trajectory& traj, double max_vel, double max_acc, double delta);
   void   getTrajectory(Trajectory* traj);
   double getMinimumCost() const;
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 }  // namespace minisnap

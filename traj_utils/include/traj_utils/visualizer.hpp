@@ -110,7 +110,6 @@ inline void displayCorridors(const planner::Corridors&                  corridor
                              const Eigen::Vector3d& map_pose,
                              const ros::Publisher&             crd_pub,
                              const std::string                 frame_id = "world") {
-  ROS_INFO("corridor num = %ld", corridors.size());
   vec_E<Polyhedron3D> polyhedra;
   polyhedra.reserve(corridors.size());
   for (const auto& crd : corridors) {

@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(rast_corridor_planning)
-# set(CMAKE_BUILD_TYPE "Debug")
-
-add_definitions(-std=c++17 -g -O3 -ftree-vectorize -ffast-math -march=native -lpthread)
+set(CMAKE_BUILD_TYPE "Debug")
+add_compile_options(-std=c++14)
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g -lpthread")
+# add_definitions(-std=c++17 -g -O3 -ftree-vectorize -ffast-math -march=native -lpthread)
 
 find_package(PCL 1.7 REQUIRED)
 find_package(Eigen3 REQUIRED)
