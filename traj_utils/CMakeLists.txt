@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   message_generation
+  decomp_ros_utils
 )
 
 find_package(Eigen3 REQUIRED)
@@ -40,7 +41,7 @@ generate_messages(
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES traj_utils 
- CATKIN_DEPENDS message_runtime
+ CATKIN_DEPENDS message_runtime decomp_ros_utils
 #  DEPENDS system_lib
 )
 
@@ -54,7 +55,7 @@ include_directories(
 # link_directories(${PCL_LIBRARY_DIRS})
 
 add_library( traj_utils
-    src/planning_visualization.cpp 
+    # src/planning_visualization.cpp 
     src/visualizer.cpp
     )
 target_link_libraries( traj_utils

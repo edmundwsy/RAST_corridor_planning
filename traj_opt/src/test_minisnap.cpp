@@ -19,6 +19,7 @@
 #include <random>
 #include <vector>
 
+#include "traj_utils/visualizer.hpp"
 #include "polynomial/mini_snap.h"
 
 /* initialize random seed */
@@ -40,6 +41,7 @@ ros::Publisher _vis_pub, _route_pub, _text_pub, _wpt_pub;
 
 polynomial::Trajectory       _traj;
 polynomial::CorridorMiniSnap _optimizer;
+visualizer::Visualizer::Ptr       _vis;
 
 /**
  * @brief optimize trajectory
@@ -384,12 +386,16 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   double max_vel = _traj.getMaxVelRate();
 
   visualizeTraj(_traj, wpts, toc, t_comp, max_vel, duration);
-  ROS_INFO("Trajectory visualized");
+  Eigen::Vector3d zero(0.0, 0.0, 0.0);
+  _vis->visualizeCorridors(corridors, zero);
+  ROS_INFO("Trajectory and corridor visualized");
 }
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "test_minisnap_node");
   ros::NodeHandle nh("~");
+
+  _vis = std::shared_ptr<visualizer::Visualizer>(new visualizer::Visualizer(nh));
   ros::Subscriber click_sub = nh.subscribe("/move_base_simple/goal", 1, clickCallback);
 
   _vis_pub   = nh.advertise<visualization_msgs::Marker>("trajectory", 10);
