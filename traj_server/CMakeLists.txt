@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   traj_utils
   quadrotor_msgs
   trajectory_msgs
+  geometry_msgs
 )
 
 catkin_package(
@@ -30,6 +31,9 @@ include_directories(
 
 add_executable(poly_traj_server src/poly_traj_server.cpp)
 target_link_libraries(poly_traj_server ${catkin_LIBRARIES})
+
+add_executable(trigger src/trigger.cpp)
+target_link_libraries(trigger ${catkin_LIBRARIES})
 
 # TODO
 # add_executable(bspline_server src/bspline_traj_server.cpp)

@@ -7,6 +7,7 @@
  * @copyright Copyright (c) 2022
  *
  */
+#include <geometry_msgs/PoseStamped.h>
 #include <ros/ros.h>
 
 #include <Eigen/Eigen>
@@ -18,7 +19,9 @@
 
 ros::Publisher _pos_cmd_pub, _pva_pub, _vis_pub;
 
-bool                   _is_traj_received = false;
+bool _is_traj_received = false;
+bool _is_triggered     = false;
+
 int                    _traj_id;
 polynomial::Trajectory _traj;
 ros::Time              _t_str;     // start time
@@ -27,11 +30,27 @@ double                 _duration;  // duration of the trajectory in seconds
 
 double _last_yaw, _last_yaw_dot;
 
+/**
+ * @brief receive trigger message, start the trajectory
+ * @param msg
+ */
+void triggerCallback(const geometry_msgs::PoseStampedPtr &msg) {
+  ROS_WARN("[TrajSrv] trigger received");
+  _is_triggered = true;
+}
+
+/**
+ * @brief recieve parametric polynomial trajectory
+ *
+ * @param msg
+ */
 void polyCallback(traj_utils::PolyTrajConstPtr msg) {
   _traj_id    = msg->traj_id;
   int order   = msg->order;
   int N       = order + 1;
   int n_piece = msg->duration.size();  // number of pieces
+
+  _t_str = msg->start_time;
 
   _duration = 0.0;
   std::vector<double> time_alloc;
@@ -53,7 +72,7 @@ void polyCallback(traj_utils::PolyTrajConstPtr msg) {
   if (time_alloc.size() > 0) {
     _traj.setDuration(time_alloc);
     _traj.setCoeffs(coeff);
-    _is_traj_received = true;
+    _is_traj_received = true; /** only when traj is valid */
   } else {
     _is_traj_received = false;
   }
@@ -66,39 +85,11 @@ void getYaw(const Eigen::Vector3d &p, const double &t, double &yaw, double &yaw_
   yaw_dot = 0.0;
 }
 
-/**
- * @brief publish pva command for pva tracker
- * @param msg
- */
-void pvaPubCallback(const ros::TimerEvent &e) {
-  if (!_is_traj_received) {
-    return;
-  }
-
-  Eigen::Vector3d pos;
-  Eigen::Vector3d vel;
-  Eigen::Vector3d acc;
-  double          yaw, yaw_dot;
-
-  _t_cur   = ros::Time::now();
-  double t = (_t_cur - _t_str).toSec();
-
-  if (t >= 0.0 && t < _duration) { /* TRAJ EXEC IN PROGRESS */
-    pos = _traj.getPos(t);
-    vel = _traj.getVel(t);
-    acc = _traj.getAcc(t);
-    getYaw(pos, t, yaw, yaw_dot);
-  } else if (t >= _duration) { /* TRAJ EXEC COMPLETE */
-    ROS_WARN("[TrajSrv] trajectory execution complete");
-    pos = _traj.getPos(_duration);
-    vel.setZero();
-    acc.setZero();
-    yaw     = _last_yaw;
-    yaw_dot = 0;
-  } else {
-    ROS_ERROR("[TrajSrv]: invalid time, relative t is negative");
-  }
-
+void publishPVA(const Eigen::Vector3d &pos,
+                const Eigen::Vector3d &vel,
+                const Eigen::Vector3d &acc,
+                const double &         yaw,
+                const double &         yaw_dot) {
   trajectory_msgs::JointTrajectoryPoint pva_msg;
   pva_msg.positions.push_back(pos(0));
   pva_msg.positions.push_back(pos(1));
@@ -113,40 +104,11 @@ void pvaPubCallback(const ros::TimerEvent &e) {
   _pva_pub.publish(pva_msg);
 }
 
-/**
- * @brief publish quadrotor_msgs::PositionCommand for fake simulation
- *
- * @param e
- */
-void cmdPubCallback(const ros::TimerEvent &e) {
-  if (!_is_traj_received) {
-    return;
-  }
-  Eigen::Vector3d pos;
-  Eigen::Vector3d vel;
-  Eigen::Vector3d acc;
-  double          yaw, yaw_dot;
-
-  _t_cur   = ros::Time::now();
-  double t = (_t_cur - _t_str).toSec();
-  ROS_INFO("[TrajSrv] t = %f", t);
-
-  if (t >= 0.0 && t < _duration) { /* TRAJ EXEC IN PROGRESS */
-    pos = _traj.getPos(t);
-    vel = _traj.getVel(t);
-    acc = _traj.getAcc(t);
-    getYaw(pos, t, yaw, yaw_dot);
-  } else if (t >= _duration) { /* TRAJ EXEC COMPLETE */
-    ROS_WARN("[TrajSrv] trajectory execution complete");
-    pos = _traj.getPos(_duration);
-    vel.setZero();
-    acc.setZero();
-    yaw     = _last_yaw;
-    yaw_dot = 0;
-  } else {
-    ROS_ERROR("[TrajSrv]: invalid time, relative t is negative");
-  }
-
+void publishCmd(const Eigen::Vector3d &pos,
+                const Eigen::Vector3d &vel,
+                const Eigen::Vector3d &acc,
+                const double &         yaw,
+                const double &         yaw_dot) {
   quadrotor_msgs::PositionCommand cmd_msg;
   cmd_msg.header.stamp    = _t_cur;
   cmd_msg.header.frame_id = "world";
@@ -167,18 +129,58 @@ void cmdPubCallback(const ros::TimerEvent &e) {
   _pos_cmd_pub.publish(cmd_msg);
 }
 
+/**
+ * @brief publish quadrotor_msgs::PositionCommand for fake simulation
+ *
+ * @param e
+ */
+void PubCallback(const ros::TimerEvent &e) {
+  if (!_is_traj_received) {
+    ROS_INFO_ONCE("[TrajSrv] waiting for trajectory");
+    return;
+  } else if (!_is_triggered) {
+    ROS_INFO_ONCE("[TrajSrv] waiting for trigger");
+    return;
+  }
+
+  Eigen::Vector3d pos;
+  Eigen::Vector3d vel;
+  Eigen::Vector3d acc;
+  double          yaw, yaw_dot;
+
+  _t_cur   = ros::Time::now();
+  double t = (_t_cur - _t_str).toSec();
+
+  if (t >= 0.0 && t < _duration) { /* TRAJ EXEC IN PROGRESS */
+    pos = _traj.getPos(t);
+    vel = _traj.getVel(t);
+    acc = _traj.getAcc(t);
+    getYaw(pos, t, yaw, yaw_dot);
+  } else if (t >= _duration) { /* TRAJ EXEC COMPLETE */
+    ROS_WARN_ONCE("[TrajSrv] trajectory execution complete");
+    pos = _traj.getPos(_duration);
+    vel.setZero();
+    acc.setZero();
+    yaw     = _last_yaw;
+    yaw_dot = 0;
+  } else {
+    ROS_ERROR_ONCE("[TrajSrv]: invalid time, relative t is negative");
+  }
+  publishPVA(pos, vel, acc, yaw, yaw_dot);
+  publishCmd(pos, vel, acc, yaw, yaw_dot);
+}
+
 int main(int argc, char **argv) {
   ros::init(argc, argv, "poly_traj_server");
   ros::NodeHandle nh("~");
-  ros::Subscriber traj_sub = nh.subscribe("trajectory", 1, polyCallback);
+  ros::Timer cmd_timer = nh.createTimer(ros::Duration(0.01), PubCallback);
+  ros::Subscriber traj_sub    = nh.subscribe("trajectory", 1, polyCallback);
+  ros::Subscriber trigger_sub = nh.subscribe("/traj_start_trigger", 10, triggerCallback);
 
   _pva_pub     = nh.advertise<trajectory_msgs::JointTrajectoryPoint>("/pva_setpoint", 1);
   _pos_cmd_pub = nh.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 1);
 
-  ros::Timer cmd_timer = nh.createTimer(ros::Duration(0.01), cmdPubCallback);
-  ros::Timer pva_timer = nh.createTimer(ros::Duration(0.01), pvaPubCallback);
-
-  ros::Duration(2.0).sleep();
+  ros::Duration(3.0).sleep();
   ROS_INFO("[TrajSrv]: ready to receive trajectory");
   ros::spin();
   return 0;
