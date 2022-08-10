@@ -123,7 +123,8 @@ class Planner {
   Eigen::Vector3d    _odom_acc; /** quadrotor's current acceleration */
   Eigen::Quaternionf _odom_att; /** quadrotor's current attitude as a quaternion */
 
-  double _prev_t, _prev_vx, _prev_vy, _prev_vz;
+  double _prev_pt, _prev_px, _prev_py, _prev_pz; /** previous point */
+  double _prev_vt, _prev_vx, _prev_vy, _prev_vz; /** previous velocity */
   double _prev_opt_end_time;  /// previous trajectory end time
 
   /********** MAP **********/
@@ -156,6 +157,7 @@ class Planner {
   bool _is_future_risk_updated;
   bool _is_future_risk_locked;
   bool _is_safety_mode_enabled;
+  bool _is_velocity_received;
   bool _is_odom_received;
   bool _is_trajectory_initialized;
   bool _is_local_frame;

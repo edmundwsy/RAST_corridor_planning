@@ -48,7 +48,13 @@ void Planner::init() {
   _traj_timer =
       _nh.createTimer(ros::Duration(_config.planning_time_step), &Planner::TrajTimerCallback, this);
   _traj_idx = 0;
+
   /*** AUXILIARY VARIABLES ***/
+  _prev_pt = ros::Time::now().toSec();
+  _prev_px = 0.0;
+  _prev_py = 0.0;
+  _prev_pz = 0.0;
+  _prev_vt = ros::Time::now().toSec();
   _prev_vx = 0.0;
   _prev_vy = 0.0;
   _prev_vz = 0.0;
@@ -113,12 +119,23 @@ void Planner::PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
   }
   _is_state_locked = false;
 
-  Eigen::Quaternionf axis;  //= quad * q1 * quad.inverse();
-  axis.w()                       = cos(-M_PI / 4.0);
-  axis.x()                       = 0.0;
-  axis.y()                       = 0.0;
-  axis.z()                       = sin(-M_PI / 4.0);
-  Eigen::Quaternionf rotated_att = _odom_att * axis;
+  // Eigen::Quaternionf axis;  //= quad * q1 * quad.inverse();
+  // axis.w()                       = cos(-M_PI / 4.0);
+  // axis.x()                       = 0.0;
+  // axis.y()                       = 0.0;
+  // axis.z()                       = sin(-M_PI / 4.0);
+  // Eigen::Quaternionf rotated_att = _odom_att * axis;
+  if (!_is_velocity_received) {
+    double dt = msg->header.stamp.toSec() - _prev_pt;
+    _odom_vel.x() = (_odom_pos.x() - _prev_px) / dt;
+    _odom_vel.y() = (_odom_pos.y() - _prev_py) / dt;
+    _odom_vel.z() = (_odom_pos.z() - _prev_pz) / dt;
+
+    _prev_pt = msg->header.stamp.toSec();
+    _prev_px = _odom_pos.x();
+    _prev_py = _odom_pos.y();
+    _prev_pz = _odom_pos.z();
+  }
 }
 
 /**
@@ -128,35 +145,31 @@ void Planner::PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
  * @param msg
  */
 void Planner::VelCallback(const geometry_msgs::TwistStamped& msg) {
+  _is_velocity_received = true;
+
   _odom_vel.x() = msg.twist.linear.x;
   _odom_vel.y() = msg.twist.linear.y;
   _odom_vel.z() = msg.twist.linear.z;
 
-  bool is_vel_initialized = true;
+  double dt    = msg.header.stamp.toSec() - _prev_vt;
+  _odom_acc(0) = (_odom_vel(0) - _prev_vx) / dt;
+  _odom_acc(1) = (_odom_vel(1) - _prev_vy) / dt;
+  _odom_acc(2) = (_odom_vel(2) - _prev_vz) / dt;
 
-  if (is_vel_initialized) {
-    is_vel_initialized = false;
-  } else {
-    double dt    = ros::Time::now().toSec() - _prev_t;
-    _odom_acc(0) = (_odom_vel(0) - _prev_vx) / dt;
-    _odom_acc(1) = (_odom_vel(1) - _prev_vy) / dt;
-    _odom_acc(2) = (_odom_vel(2) - _prev_vz) / dt;
+  if (fabs(_odom_acc(0)) < 0.2) _odom_acc(0) = 0.0;  // dead zone for acc x
+  if (fabs(_odom_acc(1)) < 0.2) _odom_acc(1) = 0.0;  // dead zone for acc y
+  if (fabs(_odom_acc(2)) < 0.2) _odom_acc(2) = 0.0;  // dead zone for acc z
 
-    if (fabs(_odom_acc(0)) < 0.2) _odom_acc(0) = 0.0;  // dead zone for acc x
-    if (fabs(_odom_acc(1)) < 0.2) _odom_acc(1) = 0.0;  // dead zone for acc y
-    if (fabs(_odom_acc(2)) < 0.2) _odom_acc(2) = 0.0;  // dead zone for acc z
-
-    for (int i = 0; i < 3; i++) {
-      if (_odom_acc(i) < -_config.max_differentiated_current_a) {
-        _odom_acc(i) = -_config.max_differentiated_current_a;
-      } else if (_odom_acc(i) > _config.max_differentiated_current_a) {
-        _odom_acc(i) = _config.max_differentiated_current_a;
-      }
+  for (int i = 0; i < 3; i++) {
+    if (_odom_acc(i) < -_config.max_differentiated_current_a) {
+      _odom_acc(i) = -_config.max_differentiated_current_a;
+    } else if (_odom_acc(i) > _config.max_differentiated_current_a) {
+      _odom_acc(i) = _config.max_differentiated_current_a;
     }
-    // ROS_INFO("acc=(%f, %f, %f)", _odom_acc(0), _odom_acc(1),
-    // _odom_acc(2));
   }
-  _prev_t  = ros::Time::now().toSec();
+  ROS_INFO("acc=(%f, %f, %f)", _odom_acc(0), _odom_acc(1), _odom_acc(2));
+
+  _prev_vt = msg.header.stamp.toSec();
   _prev_vx = _odom_vel(0);
   _prev_vy = _odom_vel(1);
   _prev_vz = _odom_vel(2);
@@ -568,7 +581,8 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
 
   /* visualize trajectory */
   double v_max = _traj.getMaxVelRate();
-  _vis->visualizeTrajectory(_odom_pos, _traj, v_max);
+  Eigen::Vector3d zero(0, 0, 0);
+  _vis->visualizeTrajectory(zero, _traj, v_max);
 }
 
 /**

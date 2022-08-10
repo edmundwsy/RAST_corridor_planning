@@ -31,7 +31,7 @@
 		<param name="ObstacleShape/upper_hei" value="4.0"/>        
 		<param name="ObstacleShape/set_cylinder" value="true"/>     
 
-		<param name="map/circle_num" value="50"/>        
+		<param name="map/circle_num" value="0"/>        
 		<param name="ObstacleShape/radius_l" value="0.7"/>        
 		<param name="ObstacleShape/radius_h" value="0.5"/>        
 		<param name="ObstacleShape/z_l" value="0.7"/>        
