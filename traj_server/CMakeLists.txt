@@ -3,7 +3,8 @@ project(traj_server)
 
 set(CMAKE_BUILD_TYPE "Debug")
 add_compile_options(-std=c++14)
-add_definitions(-std=c++14 -g -O3 -ftree-vectorize -ffast-math -march=native -lpthread)
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
+# add_definitions(-std=c++14 -g -O3 -ftree-vectorize -ffast-math -march=native -lpthread)
 
 find_package(Eigen3 REQUIRED)
 set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})

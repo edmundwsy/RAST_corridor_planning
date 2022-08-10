@@ -129,6 +129,7 @@ class Piece {
     for (int i = 2; i <= ORDER; i++) {
       accCoeffMat.col(i - 2) = i * (i - 1) * _coeffs.col(i);
     }
+    return accCoeffMat;
   }
 
   // TODO: bug

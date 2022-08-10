@@ -491,8 +491,6 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
       crd_msg.dyn_polyhedrons.push_back(dyn_crd);
     }
     _corridor_pub.publish(crd_msg);
-    std::cout << "corridor size: " << corridors.size() << std::endl;
-    std::cout << "polyhedra size: " << polyhedra.size() << std::endl;
     _vis->visualizeCorridors(polyhedra, _odom_pos);
 
     /***** P4: Trajectory Optimization in global frame *****/
@@ -515,22 +513,15 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
     // bool is_trajectory_optimized =
     //     OptimizationInCorridors(polyhedra, time_alloc, init_state, final_state);
     bool is_solved = false;
-    _traj_duration = 0; /** Total allocated time among input corridors */
-    for (auto it = time_alloc.begin(); it != time_alloc.end(); ++it) {
-      _traj_duration += (*it);
-    }
-    std::cout << "init state: " << init_state << std::endl;
-    std::cout << "final state: " << final_state << std::endl;
-    std::cout << "Piece num:" << time_alloc.size() << std::endl;
-    std::cout << "Total time: " << _traj_duration << std::endl;
+    // _traj_duration = 0; /** Total allocated time among input corridors */
+    // for (auto it = time_alloc.begin(); it != time_alloc.end(); ++it) {
+    //   _traj_duration += (*it);
+    // }
 
     /* initial optimize */
     _traj_optimizer.reset(init_state, final_state, time_alloc, polyhedra);
-    std::cout << "Initial optimize..." << std::endl;
     double delta = 0.0;
     is_solved    = _traj_optimizer.optimize(delta);
-
-    std::cout << "Initial optimization finished!" << std::endl;
 
     if (is_solved) {
       _traj_optimizer.getTrajectory(&_traj);

@@ -8,20 +8,22 @@
  *
  */
 #include <ros/ros.h>
-#include "quadrotor_msgs/PositionCommand.h"
-#include "traj_utils/poly_traj.hpp"
-#include "traj_utils/PolyTraj.h"
-#include "trajectory_msgs/JointTrajectoryPoint.h"
+
 #include <Eigen/Eigen>
+
+#include "quadrotor_msgs/PositionCommand.h"
+#include "traj_utils/PolyTraj.h"
+#include "traj_utils/poly_traj.hpp"
+#include "trajectory_msgs/JointTrajectoryPoint.h"
 
 ros::Publisher _pos_cmd_pub, _pva_pub, _vis_pub;
 
-bool                  _is_traj_received = false;
-int                   _traj_id;
+bool                   _is_traj_received = false;
+int                    _traj_id;
 polynomial::Trajectory _traj;
-ros::Time             _t_srt;     // start time
-ros::Time             _t_cur;     // current time
-double                _duration;  // duration of the trajectory in seconds
+ros::Time              _t_str;     // start time
+ros::Time              _t_cur;     // current time
+double                 _duration;  // duration of the trajectory in seconds
 
 double _last_yaw, _last_yaw_dot;
 
@@ -39,22 +41,28 @@ void polyCallback(traj_utils::PolyTrajConstPtr msg) {
   }
 
   Eigen::VectorXd coeff;
-  coeff.resize((ORDER+1)*DIM*n_piece);
+  coeff.resize(N * DIM * n_piece);
   for (int i = 0; i < n_piece; i++) {
-    for (int j = 0; j < ORDER + 1; j ++) {
-      coeff(i*(ORDER+1)*DIM + j) = msg->coef_x[i*(ORDER+1) + j];
-      coeff(i*(ORDER+1)*DIM + j + (ORDER+1)) = msg->coef_y[i*(ORDER+1) + j];
-      coeff(i*(ORDER+1)*DIM + j + 2*(ORDER+1)) = msg->coef_z[i*(ORDER+1) + j];
+    for (int j = 0; j < ORDER + 1; j++) {
+      coeff[i * N * DIM + j]         = msg->coef_x[i * N + j];
+      coeff[i * N * DIM + j + N]     = msg->coef_y[i * N + j];
+      coeff[i * N * DIM + j + 2 * N] = msg->coef_z[i * N + j];
     }
   }
-  _traj.setDuration(time_alloc);
-  _traj.setCoeffs(coeff);
+
+  if (time_alloc.size() > 0) {
+    _traj.setDuration(time_alloc);
+    _traj.setCoeffs(coeff);
+    _is_traj_received = true;
+  } else {
+    _is_traj_received = false;
+  }
 }
 
 // TODO: calculate yaw angle
 
-void getYaw(const Eigen::Vector3d& p, const double &t, double &yaw, double &yaw_dot) {
-  yaw = 0.0;
+void getYaw(const Eigen::Vector3d &p, const double &t, double &yaw, double &yaw_dot) {
+  yaw     = 0.0;
   yaw_dot = 0.0;
 }
 
@@ -70,21 +78,22 @@ void pvaPubCallback(const ros::TimerEvent &e) {
   Eigen::Vector3d pos;
   Eigen::Vector3d vel;
   Eigen::Vector3d acc;
-  double yaw, yaw_dot;
+  double          yaw, yaw_dot;
 
   _t_cur   = ros::Time::now();
-  double t = (_t_cur - _t_srt).toSec();
+  double t = (_t_cur - _t_str).toSec();
 
-  if (t >= 0.0 && t < _duration) {  /* TRAJ EXEC IN PROGRESS */
+  if (t >= 0.0 && t < _duration) { /* TRAJ EXEC IN PROGRESS */
     pos = _traj.getPos(t);
     vel = _traj.getVel(t);
     acc = _traj.getAcc(t);
     getYaw(pos, t, yaw, yaw_dot);
-  } else if (t >= _duration) {  /* TRAJ EXEC COMPLETE */
+  } else if (t >= _duration) { /* TRAJ EXEC COMPLETE */
+    ROS_WARN("[TrajSrv] trajectory execution complete");
     pos = _traj.getPos(_duration);
     vel.setZero();
     acc.setZero();
-    yaw = _last_yaw;
+    yaw     = _last_yaw;
     yaw_dot = 0;
   } else {
     ROS_ERROR("[TrajSrv]: invalid time, relative t is negative");
@@ -116,21 +125,23 @@ void cmdPubCallback(const ros::TimerEvent &e) {
   Eigen::Vector3d pos;
   Eigen::Vector3d vel;
   Eigen::Vector3d acc;
-  double yaw, yaw_dot;
+  double          yaw, yaw_dot;
 
   _t_cur   = ros::Time::now();
-  double t = (_t_cur - _t_srt).toSec();
+  double t = (_t_cur - _t_str).toSec();
+  ROS_INFO("[TrajSrv] t = %f", t);
 
   if (t >= 0.0 && t < _duration) { /* TRAJ EXEC IN PROGRESS */
     pos = _traj.getPos(t);
     vel = _traj.getVel(t);
     acc = _traj.getAcc(t);
     getYaw(pos, t, yaw, yaw_dot);
-  } else if (t >= _duration) {  /* TRAJ EXEC COMPLETE */
+  } else if (t >= _duration) { /* TRAJ EXEC COMPLETE */
+    ROS_WARN("[TrajSrv] trajectory execution complete");
     pos = _traj.getPos(_duration);
     vel.setZero();
     acc.setZero();
-    yaw = _last_yaw;
+    yaw     = _last_yaw;
     yaw_dot = 0;
   } else {
     ROS_ERROR("[TrajSrv]: invalid time, relative t is negative");
@@ -170,4 +181,5 @@ int main(int argc, char **argv) {
   ros::Duration(2.0).sleep();
   ROS_INFO("[TrajSrv]: ready to receive trajectory");
   ros::spin();
+  return 0;
 }
