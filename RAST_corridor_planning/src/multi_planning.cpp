@@ -378,11 +378,6 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
   if (astar_rst.size() <= 1 || astar_rst.size() >= 10) {
     ROS_WARN("A* planning failed!");
     /// Eliminate the left points in RVIZ
-    vector<Eigen::Vector3d> points;
-    _vis->visualizeAstarPath(points, 0, 0.8, 0.3, 0.4, 1.0, 0.2, visualization_msgs::Marker::POINTS,
-                             true);
-    _vis->visualizeAstarPath(points, 1, 0.1, 0.9, 0.2, 1.0, 0.1,
-                             visualization_msgs::Marker::LINE_STRIP, true);
     return;
   } else {
     // at least two nodes are generated to build a corridor
@@ -394,7 +389,7 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
       pt.z() = p->z + _map_center.z();
       points.push_back(pt);
     }
-    _vis->visualizeAstarPath(points, 0, 0.8, 0.3, 0.4, 1.0, 0.2);
+    // _vis->visualizeAstarPath(points);
 
     // Set reference direction angle
     _ref_direction_angle = atan2(points[1].y() - points[0].y(), points[1].x() - points[0].x());
@@ -424,8 +419,7 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
         a_star_traj_points_to_show.push_back(p);
       }
     }
-    _vis->visualizeAstarPath(a_star_traj_points_to_show, 1, 0.1, 0.9, 0.2, 1.0, 0.1,
-                             visualization_msgs::Marker::LINE_STRIP);
+    _vis->visualizeAstarPath(a_star_traj_points_to_show);
 
     /***** P3: Risk-constrained corridor in global frame ****/
     double            corridor_start_time = ros::Time::now().toSec();
@@ -522,17 +516,50 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
     final_state.col(1) << astar_rst[n]->vx, astar_rst[n]->vy, astar_rst[n]->vz;
     final_state.col(2) << 0.f, 0.f, 0.f;
 
+    Eigen::Vector3d init_pos = init_state.col(0);
+    Eigen::Vector3d final_pos = final_state.col(0);
+    _vis->visualizeStartGoal(init_pos);
+    _vis->visualizeStartGoal(final_pos);
+    
     /** apply optimization **/
-    // bool is_trajectory_optimized =
-    //     OptimizationInCorridors(polyhedra, time_alloc, init_state, final_state);
+    bool is_trajectory_optimized =
+        OptimizationInCorridors(polyhedra, time_alloc, init_state, final_state);
+    _prev_opt_end_time           = ros::Time::now().toSec();
+    ROS_INFO("[PLANNING] trajectory optimization takes %lf s",
+             ros::Time::now().toSec() - optimization_start_time);
+    if (!is_trajectory_optimized) {
+      ROS_WARN("Optimization failed!!");
+    }
+  }  // end of if a_star valid
+  _traj_start_time = ros::Time::now();
+  _traj_end_time   = ros::Time::now() + ros::Duration(_traj_duration);
+
+  /* visualize trajectory */
+  double v_max = _traj.getMaxVelRate();
+  Eigen::Vector3d zero(0, 0, 0);
+  _vis->visualizeTrajectory(zero, _traj, v_max);
+
+  /* publish trajectory */
+  publishTrajectory();
+}
+
+/**
+ * @brief trajectory optimization function
+ * 
+ * @param c 
+ * @param t 
+ * @param init 
+ * @return true 
+ * @return false 
+ */
+bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6, -1>>& c,
+                                      const std::vector<double>&                       t,
+                                      const Eigen::Matrix3d&                           init,
+                                      const Eigen::Matrix3d&                           final) {
     bool is_solved = false;
-    // _traj_duration = 0; /** Total allocated time among input corridors */
-    // for (auto it = time_alloc.begin(); it != time_alloc.end(); ++it) {
-    //   _traj_duration += (*it);
-    // }
 
     /* initial optimize */
-    _traj_optimizer.reset(init_state, final_state, time_alloc, polyhedra);
+    _traj_optimizer.reset(init, final, t, c);
     double delta = 0.0;
     is_solved    = _traj_optimizer.optimize(delta);
 
@@ -565,93 +592,6 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
       }
     }
     ROS_INFO("Re-optimization %d", i);
-    bool is_trajectory_optimized = is_solved;
-    _prev_opt_end_time           = ros::Time::now().toSec();
-    ROS_INFO("[PLANNING] trajectory optimization takes %lf s",
-             ros::Time::now().toSec() - optimization_start_time);
-    if (!is_trajectory_optimized) {
-      ROS_WARN("Optimization failed!!");
-    }
-  }  // end of if a_star valid
-  _traj_start_time = ros::Time::now();
-  _traj_end_time   = ros::Time::now() + ros::Duration(_traj_duration);
-
-  /* publish trajectory */
-  publishTrajectory();
-
-  /* visualize trajectory */
-  double v_max = _traj.getMaxVelRate();
-  Eigen::Vector3d zero(0, 0, 0);
-  _vis->visualizeTrajectory(zero, _traj, v_max);
-}
-
-/**
- * !! DEPRECATED
- * @brief optimization function
- * @param msg
- * @param c_start map center in world frame
- * @return true
- * @return false
- */
-bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6, -1>>& c,
-                                      const std::vector<double>&                       t,
-                                      const Eigen::Matrix3d&                           init,
-                                      const Eigen::Matrix3d&                           final) {
-  bool   is_solved = false;
-  double T         = 0; /** Total allocated time among input corridors */
-  for (auto it = t.begin(); it != t.end(); ++it) {
-    T += (*it);
-  }
-  std::cout << "Piece num:" << c.size() << std::endl;
-  std::cout << "Total time: " << T << std::endl;
-
-  /* initial optimize */
-  _traj_optimizer.reset(init, final, t, c);
-  try {
-    is_solved = _traj_optimizer.optimize(_config.delta_corridor);
-  } catch (int e) {
-    ROS_ERROR("Optimizer crashed!");
-    return false;
-  }
-
-  if (is_solved) {
-    _traj_optimizer.getTrajectory(&_traj);
-  } else {
-    ROS_ERROR("No solution found for these corridors!");
-    return false;
-  }
-
-  /* re-optimize */
-  int I = 10;  // max iterations
-  int i = 0;
-  while (!_traj_optimizer.isCorridorSatisfied(_traj, _config.max_vel_optimization,
-                                              _config.max_acc_optimization,
-                                              _config.delta_corridor) &&
-         i++ < I) {
-    try {
-      is_solved = _traj_optimizer.reOptimize();
-    } catch (int e) {
-      ROS_ERROR("Optimizer crashed!");
-      return false;
-    }
-
-    if (is_solved) {
-      _traj_optimizer.getTrajectory(&_traj);
-    } else {
-      ROS_ERROR("No solution found for these corridors!");
-      return false;
-    }
-  }
-  ROS_INFO("Re-optimization %d", i);
-  _traj_idx++;
-
-  /* publish trajectory */
-  publishTrajectory();
-
-  /* visualize trajectory */
-  double v_max = _traj.getMaxVelRate();
-  _vis->visualizeTrajectory(_odom_pos, _traj, v_max);
-
   return true;
 }
 

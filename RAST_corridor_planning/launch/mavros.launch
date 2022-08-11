@@ -3,7 +3,7 @@
     <param name="fcu_url" value="udp://:14540@192.168.1.36:14557" />
     <param name="target_system_id" value="1" />
     <param name="target_component_id" value="1" />
-    <param name="fcu_protocol" value="$v2.0" />
+    <param name="fcu_protocol" value="v2.0" />
         <!-- <remap from="mavros/local_position/odom" to="mavros/local_position/origin_odom"/> -->
         <!-- <remap from="mavros/local_position/pose" to="mavros/local_position/origin_pose"/> -->
     <!-- load blacklist, config -->

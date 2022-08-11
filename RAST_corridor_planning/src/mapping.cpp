@@ -60,7 +60,7 @@ void actorPublish(const vector<Eigen::Vector3d> &actors)
 
     visualization_msgs::Marker marker;
 
-    marker.header.frame_id = "map";
+    marker.header.frame_id = "world";
     marker.header.stamp = ros::Time::now();
     marker.type = visualization_msgs::Marker::CYLINDER;
     marker.action = visualization_msgs::Marker::ADD;
@@ -110,33 +110,45 @@ static void rotateVectorByQuaternion(geometry_msgs::Point &vector, Eigen::Quater
 
 void showFOV(Eigen::Vector3d &position, Eigen::Quaternionf &att, double angle_h, double angle_v, double length){
     geometry_msgs::Point p_cam;
-    p_cam.x = 0;
-    p_cam.y = 0;
-    p_cam.z = 0;
+    p_cam.x = position.x();
+    p_cam.y = position.y();
+    p_cam.z = position.z();
 
     geometry_msgs::Point p1, p2, p3, p4;
     p1.x = length;
     p1.y = length * tan(angle_h/2);
     p1.z = length * tan(angle_v/2);
     rotateVectorByQuaternion(p1, att);
+    p1.x += position.x();
+    p1.y += position.y();
+    p1.z += position.z();
 
     p2.x = -length;
     p2.y = length * tan(angle_h/2);
     p2.z = length * tan(angle_v/2);
     rotateVectorByQuaternion(p2, att);
+    p2.x += position.x();
+    p2.y += position.y();
+    p2.z += position.z();
 
     p3.x = length;
     p3.y = length * tan(angle_h/2);
     p3.z = -length * tan(angle_v/2);
     rotateVectorByQuaternion(p3, att);
+    p3.x += position.x();
+    p3.y += position.y();
+    p3.z += position.z();
 
     p4.x = -length;
     p4.y = length * tan(angle_h/2);
     p4.z = -length * tan(angle_v/2);
     rotateVectorByQuaternion(p4, att);
+    p4.x += position.x();
+    p4.y += position.y();
+    p4.z += position.z();
 
     visualization_msgs::Marker fov;
-    fov.header.frame_id = "map";
+    fov.header.frame_id = "world";
     fov.header.stamp = ros::Time::now();
     fov.action = visualization_msgs::Marker::ADD;
     fov.ns = "lines_and_points";
@@ -146,7 +158,6 @@ void showFOV(Eigen::Vector3d &position, Eigen::Quaternionf &att, double angle_h,
     fov.scale.x = 0.1;
     fov.scale.y = 0.1;
     fov.scale.z = 0.1;
-
     fov.color.r = 0.8;
     fov.color.g = 0.5;
     fov.color.b = 0.5;
@@ -240,46 +251,45 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud)
     Eigen::Vector3d uav_position = uav_position_global;
     Eigen::Quaternionf uav_att = uav_att_global;
 
-    static Eigen::Quaternionf quad_last_popped(-10.f, -10.f, -10.f, -10.f);
-    static Eigen::Vector3d position_last_popped(-10000.f, -10000.f, -10000.f);
-    static double last_popped_time = 0.0;
+    // static Eigen::Quaternionf quad_last_popped(-10.f, -10.f, -10.f, -10.f);
+    // static Eigen::Vector3d position_last_popped(-10000.f, -10000.f, -10000.f);
+    // static double last_popped_time = 0.0;
 
-    ros::Rate loop_rate(500);
-    while(state_locked){
-        loop_rate.sleep();
-        ros::spinOnce();
-    }
-    state_locked = true;
+    // ros::Rate loop_rate(500);
+    // while(state_locked){
+    //     loop_rate.sleep();
+    //     ros::spinOnce();
+    // }
+    // state_locked = true;
+    // while(!pose_att_time_queue.empty()){   //Synchronize pose by queue
+    //     double time_stamp_pose = pose_att_time_queue.front();
+    //     if(time_stamp_pose >= cloud->header.stamp.toSec()){
+    //         uav_att = uav_att_global_queue.front();
+    //         uav_position = uav_position_global_queue.front();
 
-    while(!pose_att_time_queue.empty()){   //Synchronize pose by queue
-        double time_stamp_pose = pose_att_time_queue.front();
-        if(time_stamp_pose >= cloud->header.stamp.toSec()){
-            uav_att = uav_att_global_queue.front();
-            uav_position = uav_position_global_queue.front();
+    //         // linear interpolation
+    //         if(quad_last_popped.x() >= -1.f){
+    //             double time_interval_from_last_time = time_stamp_pose - last_popped_time;
+    //             double time_interval_cloud = cloud->header.stamp.toSec() - last_popped_time;
+    //             double factor = time_interval_cloud / time_interval_from_last_time;
+    //             uav_att = quad_last_popped.slerp(factor, uav_att);
+    //             uav_position = position_last_popped * (1.0 - factor) + uav_position*factor;
+    //         }
 
-            // linear interpolation
-            if(quad_last_popped.x() >= -1.f){
-                double time_interval_from_last_time = time_stamp_pose - last_popped_time;
-                double time_interval_cloud = cloud->header.stamp.toSec() - last_popped_time;
-                double factor = time_interval_cloud / time_interval_from_last_time;
-                uav_att = quad_last_popped.slerp(factor, uav_att);
-                uav_position = position_last_popped * (1.0 - factor) + uav_position*factor;
-            }
+    //         ROS_INFO_THROTTLE(3.0, "cloud mismatch time = %lf", cloud->header.stamp.toSec() - time_stamp_pose);
 
-            ROS_INFO_THROTTLE(3.0, "cloud mismatch time = %lf", cloud->header.stamp.toSec() - time_stamp_pose);
+    //         break;
+    //     }
 
-            break;
-        }
+    //     quad_last_popped = uav_att_global_queue.front();
+    //     position_last_popped = uav_position_global_queue.front();
+    //     last_popped_time = time_stamp_pose;
 
-        quad_last_popped = uav_att_global_queue.front();
-        position_last_popped = uav_position_global_queue.front();
-        last_popped_time = time_stamp_pose;
-
-        pose_att_time_queue.pop();
-        uav_att_global_queue.pop();
-        uav_position_global_queue.pop();
-    }
-    state_locked = false;
+    //     pose_att_time_queue.pop();
+    //     uav_att_global_queue.pop();
+    //     uav_position_global_queue.pop();
+    // }
+    // state_locked = false;
 
 
     /// Point cloud process
@@ -318,7 +328,8 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud)
     clock_t start1, finish1;
     start1 = clock();
 
-    std::cout << "uav_position="<<uav_position.x() <<", "<<uav_position.y()<<", "<<uav_position.z()<<endl;
+    std::cout << "uav_position="<<uav_position.x() <<", "<<uav_position.y()<<", "<<uav_position.z()<<std::endl;
+    std::cout << "position queue size="<<uav_position_global_queue.size()<<std::endl;
 
     if(!my_map.update(useful_point_num, 3, point_clouds,
                   uav_position.x(), uav_position.y(), uav_position.z(), this_time,
@@ -387,7 +398,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud)
 
     /// Publish Point cloud and center position
     pcl::toROSMsg(cloud_to_publish, cloud_to_pub_transformed);
-    cloud_to_pub_transformed.header.frame_id = "map";
+    cloud_to_pub_transformed.header.frame_id = "world";
     cloud_to_pub_transformed.header.stamp = cloud->header.stamp;
     cloud_pub.publish(cloud_to_pub_transformed);
 
@@ -429,7 +440,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud)
 //
 //    sensor_msgs::PointCloud2 cloud_future_transformed;
 //    pcl::toROSMsg(future_risk_cloud, cloud_future_transformed);
-//    cloud_future_transformed.header.frame_id = "map";
+//    cloud_future_transformed.header.frame_id = "world";
 //    cloud_future_transformed.header.stamp = cloud->header.stamp;
 //    future_risk_pub.publish(cloud_future_transformed);
 
@@ -480,27 +491,35 @@ void simObjectStateCallback(const gazebo_msgs::ModelStates &msg)
 
 void simPoseCallback(const geometry_msgs::PoseStamped &msg)
 {
-    if(!state_locked)
-    {
-        state_locked = true;
-        uav_position_global.x() = msg.pose.position.x;
-        uav_position_global.y() = msg.pose.position.y;
-        uav_position_global.z() = msg.pose.position.z;
+//     if(!state_locked)
+//     {
+//         state_locked = true;
+//         uav_position_global.x() = msg.pose.position.x;
+//         uav_position_global.y() = msg.pose.position.y;
+//         uav_position_global.z() = msg.pose.position.z;
 
-        uav_att_global.x() = msg.pose.orientation.x;
-        uav_att_global.y() = msg.pose.orientation.y;
-        uav_att_global.z() = msg.pose.orientation.z;
-        uav_att_global.w() = msg.pose.orientation.w;
+//         uav_att_global.x() = msg.pose.orientation.x;
+//         uav_att_global.y() = msg.pose.orientation.y;
+//         uav_att_global.z() = msg.pose.orientation.z;
+//         uav_att_global.w() = msg.pose.orientation.w;
 
-        uav_position_global_queue.push(uav_position_global);
-        uav_att_global_queue.push(uav_att_global);
-        pose_att_time_queue.push(msg.header.stamp.toSec());
-//        ROS_INFO("Pose updated");
-
-        position_received = true;
-    }
+//         uav_position_global_queue.push(uav_position_global);
+//         uxav_att_global_queue.push(uav_att_global);
+//         pose_att_time_queue.push(msg.header.stamp.toSec());
+// //        ROS_INFO("Pose updated");
+//         position_received = true;
+//     }
 
     state_locked = false;
+    uav_position_global.x() = msg.pose.position.x;
+    uav_position_global.y() = msg.pose.position.y;
+    uav_position_global.z() = msg.pose.position.z;
+
+    uav_att_global.x() = msg.pose.orientation.x;
+    uav_att_global.y() = msg.pose.orientation.y;
+    uav_att_global.z() = msg.pose.orientation.z;
+    uav_att_global.w() = msg.pose.orientation.w;
+    position_received = true;
 
     Eigen::Quaternionf axis; //= quad * q1 * quad.inverse();
     axis.w() = cos(-M_PI/4.0);

@@ -63,6 +63,9 @@ target_link_libraries(PLANNER ${catkin_LIBRARIES})
 add_executable(map_sim_example src/map_sim_example.cpp)
 target_link_libraries(map_sim_example ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${MunkresLIB})
 
+add_executable(mapping src/mapping.cpp)
+target_link_libraries(mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${MunkresLIB})
+
 add_executable(planning_node src/planning_node.cpp)
 target_link_libraries(planning_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${MunkresLIB} )
 
