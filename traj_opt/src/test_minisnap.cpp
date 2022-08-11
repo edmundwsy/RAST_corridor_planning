@@ -388,6 +388,7 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   visualizeTraj(_traj, wpts, toc, t_comp, max_vel, duration);
   Eigen::Vector3d zero(0.0, 0.0, 0.0);
   _vis->visualizeCorridors(corridors, zero);
+  _vis->visualizeTrajectory(zero, _traj, 4.0);
   ROS_INFO("Trajectory and corridor visualized");
 }
 
