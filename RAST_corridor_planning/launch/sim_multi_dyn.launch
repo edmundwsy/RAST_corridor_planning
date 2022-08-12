@@ -61,6 +61,16 @@
   <arg name="map_size_y" value="$(arg map_size_y)" />
   <arg name="map_size_z" value="$(arg map_size_z)" />
 </include>
+
+<include file="$(find rast_corridor_planning)/launch/sim_single_drone.xml">
+  <arg name="drone_id" value="2" />
+  <arg name="init_x" value="-10" />
+  <arg name="init_y" value="0.0" />
+  <arg name="init_z" value="0.5" />
+  <arg name="map_size_x" value="$(arg map_size_x)" />
+  <arg name="map_size_y" value="$(arg map_size_y)" />
+  <arg name="map_size_z" value="$(arg map_size_z)" />
+</include>
    
 
   <node pkg="rviz" type="rviz" name="rviz" args="-d $(find rast_corridor_planning)/rviz/sim_multi.rviz" />

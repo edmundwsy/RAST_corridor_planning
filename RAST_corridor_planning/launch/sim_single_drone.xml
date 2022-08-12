@@ -18,7 +18,7 @@
     <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node" output="screen">
     <!-- <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node"> -->
       <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
-      <remap from="~future_risk_full_array" to="/uav$(arg drone_id)/mapping/future_risk_full_array" />
+      <remap from="~future_risk_full_array" to="mapping/future_risk_full_array" />
       <remap from="/mavros/local_position/pose" to="mavros/local_position/pose"/>
       <remap from="/mavros/local_position/velocity_local" to="mavros/local_position/velocity_local"/>
     </node> 
