@@ -1,0 +1,77 @@
+<launch>
+  <arg name="drone_id"/>
+  <arg name="init_x"/>
+  <arg name="init_y"/>
+  <arg name="init_z"/>
+  <arg name="map_size_x"/>
+  <arg name="map_size_y"/>
+  <arg name="map_size_z"/>
+
+  <group ns="uav$(arg drone_id)">
+    <!-- <node pkg="rast_corridor_planning" name="mapping" type="mapping" output="screen"> -->
+    <node pkg="rast_corridor_planning" name="mapping" type="mapping">
+      <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
+      <remap from="/camera_front/depth/points" to="pcl_render_node/cloud" />
+      <remap from="/mavros/local_position/pose" to="mavros/local_position/pose"/>
+    </node>
+
+    <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node" output="screen">
+    <!-- <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node"> -->
+      <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
+      <remap from="~future_risk_full_array" to="/uav$(arg drone_id)/mapping/future_risk_full_array" />
+      <remap from="/mavros/local_position/pose" to="mavros/local_position/pose"/>
+      <remap from="/mavros/local_position/velocity_local" to="mavros/local_position/velocity_local"/>
+    </node> 
+
+    <node pkg="traj_server" name="traj_server" type="poly_traj_server" output="screen">
+      <remap from="~trajectory" to="planning/trajectory" />
+      <remap from="/position_cmd" to="planning/pos_cmd" />
+    </node>
+
+
+    <!-- SIMULATOR -->
+  	<!-- fake simulator -->
+    <node pkg="poscmd_2_odom" name="poscmd_2_odom" type="poscmd_2_odom" output="screen">
+			<param name="init_x" value="$(arg init_x)" />
+			<param name="init_y" value="$(arg init_y)" />
+			<param name="init_z" value="$(arg init_z)" />
+			<remap from="~command" to="planning/pos_cmd" />
+			<remap from="~odometry" to="mavros/local_position/odom" />
+			<remap from="~pose" to="mavros/local_position/pose" />
+		</node>
+
+		<!-- visualize drone odometry -->
+		<node pkg="odom_visualization" name="odom_visualization" type="odom_visualization" output="screen">
+			<remap from="~odom" to="mavros/local_position/odom" />
+			<param name="color/a" value="1.0" />
+			<param name="color/r" value="0.0" />
+			<param name="color/g" value="0.0" />
+			<param name="color/b" value="0.0" />
+			<param name="covariance_scale" value="100.0" />
+			<param name="robot_scale" value="1.0" />
+			<param name="tf45" value="false" />
+			<param name="drone_id" value="drone_id" />
+		</node>
+
+		<!-- fake camera sensing -->
+		<node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
+			<rosparam command="load" file="$(find local_sensing_node)/params/camera.yaml" />
+			<param name="sensing_horizon" value="5.0" />
+			<param name="sensing_rate" value="30.0" />
+			<param name="estimation_rate" value="30.0" />
+			<param name="is_camera_frame" value="true" />
+			<param name="is_dynamic_map" value="true" />
+
+			<param name="map/x_size" value="$(arg map_size_x)" />
+			<param name="map/y_size" value="$(arg map_size_y)" />
+			<param name="map/z_size" value="$(arg map_size_z)" />
+
+			<remap from="~global_map" to="/map_generator/global_cloud" />
+			<remap from="~odometry" to="mavros/local_position/odom" />
+			<remap from="~pcl_render_node/cloud" to="~/cloud" />
+		</node>
+
+  </group>
+
+
+</launch>

@@ -34,10 +34,10 @@ void Planner::init() {
 
   /*** SUBSCRIBERS ***/
   _future_risk_sub =
-      _nh.subscribe("/my_map/future_risk_full_array", 1, &Planner::FutureRiskCallback, this);
+      _nh.subscribe("future_risk_full_array", 1, &Planner::FutureRiskCallback, this);
   _pose_sub = _nh.subscribe("/mavros/local_position/pose", 1, &Planner::PoseCallback, this);
   _vel_sub = _nh.subscribe("/mavros/local_position/velocity_local", 1, &Planner::VelCallback, this);
-  // TODO: no velocity_local message in simulation
+
   /*** PUBLISHERS ***/
   _traj_pub     = _nh.advertise<traj_utils::PolyTraj>("trajectory", 1);
   _corridor_pub = _nh.advertise<decomp_ros_msgs::DynPolyhedronArray>("corridor", 1);
@@ -77,6 +77,8 @@ void Planner::init() {
   _is_odom_received          = false;
   _is_trajectory_initialized = false;
   _is_state_locked           = false;
+
+  ROS_INFO("[PLANNING] Initialization complete");
 }
 
 void Planner::FutureRiskCallback(const std_msgs::Float32MultiArrayConstPtr& risk_msg) {

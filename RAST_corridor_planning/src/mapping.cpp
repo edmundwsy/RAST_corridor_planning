@@ -543,8 +543,8 @@ void getParameterList(const ros::NodeHandle& nh) {
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "map_sim_example");
-    ros::NodeHandle n;
+    ros::init(argc, argv, "dsp_map");
+    ros::NodeHandle n("~");
 
     getParameterList(n);
     
@@ -562,18 +562,18 @@ int main(int argc, char **argv)
     ros::Subscriber point_cloud_sub = n.subscribe("/camera_front/depth/points", 1, cloudCallback);
     ros::Subscriber pose_sub = n.subscribe("/mavros/local_position/pose", 1, simPoseCallback);
 
-    cloud_pub = n.advertise<sensor_msgs::PointCloud2>("/my_map/cloud_ob", 1, true);
-    map_center_pub = n.advertise<geometry_msgs::PoseStamped>("/my_map/map_center", 1, true);
-    gazebo_model_states_pub = n.advertise<gazebo_msgs::ModelStates>("/my_map/model_states", 1, true);
+    cloud_pub = n.advertise<sensor_msgs::PointCloud2>("cloud_ob", 1, true);
+    map_center_pub = n.advertise<geometry_msgs::PoseStamped>("map_center", 1, true);
+    gazebo_model_states_pub = n.advertise<gazebo_msgs::ModelStates>("model_states", 1, true);
 
-    future_risk_pub = n.advertise<sensor_msgs::PointCloud2>("/my_map/future_risk", 1, true);
-    future_risk_full_array_pub = n.advertise<std_msgs::Float32MultiArray>("/my_map/future_risk_full_array", 1, true);
+    future_risk_pub = n.advertise<sensor_msgs::PointCloud2>("future_risk", 1, true);
+    future_risk_full_array_pub = n.advertise<std_msgs::Float32MultiArray>("future_risk_full_array", 1, true);
 
-    cluster_status_pub = n.advertise<sensor_msgs::PointCloud2>("/my_map/cluster_status", 1, true);
+    cluster_status_pub = n.advertise<sensor_msgs::PointCloud2>("cluster_status", 1, true);
 
     current_marker_pub = n.advertise<visualization_msgs::MarkerArray>("/visualization_marker", 1);
 
-    fov_pub = n.advertise<visualization_msgs::Marker>("/visualization_fov", 1);
+    fov_pub = n.advertise<visualization_msgs::Marker>("vis_fov", 1);
 
 
 
