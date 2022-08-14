@@ -185,10 +185,9 @@ void Planner::FSMChangeState(FSM_STATUS new_state) {
 void Planner::FSMPrintState() {
   static string state_str[7] = {"INIT",      "WAIT_TARGET",    "NEW_PLAN", "REPLAN",
                                 "EXEC_TRAJ", "EMERGENCY_STOP", "EXIT"};
-  std::cout << termcolor::green << "==============================" << termcolor::reset
-            << std::endl;
-  std::cout << termcolor::on_bright_green << "[PLANNER] FSM status "
-            << state_str[static_cast<int>(_status)] << termcolor::reset << std::endl;
+  std::cout << termcolor::dark << termcolor::on_bright_green << "[PLANNER] FSM status "
+            << termcolor::underline << termcolor::cyan << termcolor::on_white <<
+            state_str[static_cast<int>(_status)] << termcolor::reset << std::endl;
 }
 
 /**
