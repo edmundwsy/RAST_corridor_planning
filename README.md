@@ -1,4 +1,4 @@
-# [M]()-RAST: multi-robot risk-aware spatial-temporal corridors for uav navigation
+# M-RAST: multi-robot risk-aware spatial-temporal corridors for uav navigation
 
 
 ## File Structure
@@ -82,13 +82,13 @@ graph TD
 
 ### [traj_utils]: Trajectory utilities
 
-A library for trajectory visualization and parametric trajectory message.
+A library for parametric trajectories message and related visualization.
 
 ### [traj_opt]: Trajectory optimizer
 
 **Dependency**: `traj_utils`
 
-A library for trajectory optimization, which includes polynomial, bernstein, bspline trajectories and related optimization algorithms.
+A library for trajectory optimization, which includes polynomial ✅, bernstein 📝, bspline 📝, MINCO ✅ trajectories and related optimization algorithms. Trajectory optimizations are recommended to implement as a library, and a self-contained ROS node should be included for test.
 
 ### [traj_server]: Trajectory server
 
@@ -97,7 +97,8 @@ A library for trajectory optimization, which includes polynomial, bernstein, bsp
 A node for discretize parametric trajectory into separate waypoints and poses.
 
 - Input: parametric trajectory message (`~trajectory`)
-- Output: discretized trajectory message (`~position_cmd`, `~pva_setpoint`)
+- Output: discretized trajectory message (`~position_cmd`, `~pva_setpoint`, `/traj_start_trigger`)
+- Note: `/traj_start_trigger` is a `geometry_msgs::PoseStamped` message, which is used to trigger the discretization and trajectory execution.
 
 <!-- No commit, only discuss in zoom meeting -->
 ## Discuss
@@ -187,3 +188,5 @@ class Visualizer {
                           bool                        clear_corridors = false);
 };
 ```
+
+`std::shared_ptr` is recommended for ==better memory management==.

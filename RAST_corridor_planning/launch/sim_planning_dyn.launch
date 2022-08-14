@@ -16,17 +16,18 @@
     <!-- <node pkg="rast_corridor_planning" name="mapping" type="mapping" output="screen"> -->
     <node pkg="rast_corridor_planning" name="mapping" type="mapping">
       <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
-      <remap from="/camera_front/depth/points" to="/uav$(arg drone_id)/pcl_render_node/cloud" />
+      <remap from="/camera_front/depth/points" to="pcl_render_node/cloud" />
     </node>
 
     <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node" output="screen">
     <!-- <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node"> -->
+      <remap from="~future_risk_full_array" to="mapping/future_risk_full_array" />
       <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
     </node>
 
     <node pkg="traj_server" name="traj_server" type="poly_traj_server" output="screen">
-      <remap from="~trajectory" to="/uav$(arg drone_id)/planning/trajectory" />
-      <remap from="/position_cmd" to="/uav$(arg drone_id)/planning/pos_cmd" />
+      <remap from="~trajectory" to="planning/trajectory" />
+      <remap from="/position_cmd" to="planning/pos_cmd" />
     </node>
 
   </group>

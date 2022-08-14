@@ -33,9 +33,8 @@ void Planner::init() {
   _vis.reset(new visualizer::Visualizer(_nh, frame_id));
 
   /*** SUBSCRIBERS ***/
-  _future_risk_sub =
-      _nh.subscribe("future_risk_full_array", 1, &Planner::FutureRiskCallback, this);
-  _pose_sub = _nh.subscribe("/mavros/local_position/pose", 1, &Planner::PoseCallback, this);
+  _future_risk_sub = _nh.subscribe("future_risk_full_array", 1, &Planner::FutureRiskCallback, this);
+  _pose_sub        = _nh.subscribe("/mavros/local_position/pose", 1, &Planner::PoseCallback, this);
   _vel_sub = _nh.subscribe("/mavros/local_position/velocity_local", 1, &Planner::VelCallback, this);
 
   /*** PUBLISHERS ***/
@@ -46,7 +45,7 @@ void Planner::init() {
   ros::Duration(2.0).sleep();
 
   _traj_timer =
-      _nh.createTimer(ros::Duration(_config.planning_time_step), &Planner::TrajTimerCallback, this);
+      _nh.createTimer(ros::Duration(_config.planning_time_step), &Planner::FSMCallback, this);
   _traj_idx = 0;
 
   /*** AUXILIARY VARIABLES ***/
@@ -78,9 +77,124 @@ void Planner::init() {
   _is_trajectory_initialized = false;
   _is_state_locked           = false;
 
+  /*** STATE ***/
+  _status = FSM_STATUS::INIT;
   ROS_INFO("[PLANNING] Initialization complete");
 }
 
+/**
+ * @brief finite state machine for planning
+ *  States:
+ * - INIT: waiting for input information
+ * - WAIT_TARGET: waiting for target information
+ * - NEW_PLAN: planning a new trajectory
+ * - REPLAN: replanning based on current trajectory
+ * - EXEC_TRAJ: executing the trajectory
+ * - EMERGENCY_STOP: emergency stop
+ * - EXIT: exit the planner
+ * @param event
+ */
+void Planner::FSMCallback(const ros::TimerEvent& event) {
+  double risk = 0;
+  switch (_status) {
+    /* initialize */
+    case INIT:
+      FSMChangeState(FSM_STATUS::WAIT_TARGET);
+      break;
+
+    /* wait for callback */
+    case WAIT_TARGET:
+      if (_is_future_risk_updated && _is_odom_received) {
+        FSMChangeState(FSM_STATUS::NEW_PLAN);
+      } else {
+        ROS_INFO_ONCE("[PLANNER] Waiting for odom[%d] and future risk[%d] ", _is_odom_received,
+                      _is_future_risk_updated);
+      }
+      break;
+
+    /* plan a new trajectory from current position */
+    case NEW_PLAN:
+      if (!_is_future_risk_updated || !_is_odom_received) {
+        FSMChangeState(FSM_STATUS::WAIT_TARGET);
+      } else {
+        bool is_success = planNewTrajectory();
+        bool is_safe    = checkTrajectoryRisk(_traj);
+        if (is_success && is_safe) { /* publish trajectory */
+          publishTrajectory(_traj);
+          FSMChangeState(FSM_STATUS::EXEC_TRAJ);
+        }
+      }
+      break;
+
+    /* execute the trajectory, replan when current traj is about to finish */
+    case EXEC_TRAJ:
+      if (!_is_future_risk_updated || !_is_odom_received) {
+        FSMChangeState(FSM_STATUS::WAIT_TARGET);
+      } else {
+        bool is_safe            = checkTrajectoryRisk(_traj);
+        bool is_replan_required = executeTrajectory();
+        if (is_replan_required || !is_safe) {
+          FSMChangeState(FSM_STATUS::REPLAN);
+        }
+      }
+      break;
+
+    /* replan based on current trajectory */
+    case REPLAN:
+      if (!_is_future_risk_updated || !_is_odom_received) {
+        FSMChangeState(FSM_STATUS::WAIT_TARGET);
+      } else {
+        bool is_success = planNewTrajectory();
+        bool is_safe    = checkTrajectoryRisk(_traj);
+        if (is_success && is_safe) { /* publish trajectory */
+          publishTrajectory(_traj);
+          FSMChangeState(FSM_STATUS::EXEC_TRAJ);
+        }
+      }
+      break;
+
+    /* emergency stop */
+    case EMERGENCY_STOP:
+      if (!_is_safety_mode_enabled) {
+        FSMChangeState(FSM_STATUS::NEW_PLAN);
+      }
+      break;
+
+    case EXIT:
+      break;
+
+    default:
+      ROS_ERROR("[PLANNER] Invalid FSM state");
+      break;
+  }
+}
+
+/**
+ * @brief change the state of the finite state machine
+ * @param state
+ */
+void Planner::FSMChangeState(FSM_STATUS new_state) {
+  _status = new_state;
+  FSMPrintState();
+}
+
+/**
+ * @brief print the current state of the finite state machine via termcolor
+ * This function is used for debugging purposes
+ */
+void Planner::FSMPrintState() {
+  static string state_str[7] = {"INIT",      "WAIT_TARGET",    "NEW_PLAN", "REPLAN",
+                                "EXEC_TRAJ", "EMERGENCY_STOP", "EXIT"};
+  std::cout << termcolor::green << "==============================" << termcolor::reset
+            << std::endl;
+  std::cout << termcolor::on_bright_green << "[PLANNER] FSM status "
+            << state_str[static_cast<int>(_status)] << termcolor::reset << std::endl;
+}
+
+/**
+ * @brief callback for future risk
+ * @param msg
+ */
 void Planner::FutureRiskCallback(const std_msgs::Float32MultiArrayConstPtr& risk_msg) {
   _is_future_risk_locked = true;
   for (int i = 0; i < VOXEL_NUM; ++i) {
@@ -128,7 +242,7 @@ void Planner::PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
   // axis.z()                       = sin(-M_PI / 4.0);
   // Eigen::Quaternionf rotated_att = _odom_att * axis;
   if (!_is_velocity_received) {
-    double dt = msg->header.stamp.toSec() - _prev_pt;
+    double dt     = msg->header.stamp.toSec() - _prev_pt;
     _odom_vel.x() = (_odom_pos.x() - _prev_px) / dt;
     _odom_vel.y() = (_odom_pos.y() - _prev_py) / dt;
     _odom_vel.z() = (_odom_pos.z() - _prev_pz) / dt;
@@ -199,30 +313,65 @@ int Planner::getPointSpatialIndexInMap(const Eigen::Vector3d& p, const Eigen::Ve
 }
 
 /**
- * @brief Trajectory callback, called in a fixed time rate.
+ * @brief trajectory optimization function
  *
- * @param event
+ * @param c
+ * @param t
+ * @param init
+ * @return true
+ * @return false
  */
-void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
-  ROS_WARN("Time interval between two plannings = %lf",
-           ros::Time::now().toSec() - _prev_opt_end_time);
+bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6, -1>>& c,
+                                      const std::vector<double>&                       t,
+                                      const Eigen::Matrix3d&                           init,
+                                      const Eigen::Matrix3d&                           final) {
+  bool is_solved = false;
 
-  if (!_is_future_risk_updated) return;
+  /* initial optimize */
+  _traj_optimizer.reset(init, final, t, c);
+  double delta = 0.0;
+  is_solved    = _traj_optimizer.optimize(delta);
+
+  if (is_solved) {
+    _traj_optimizer.getTrajectory(&_traj);
+  } else {
+    ROS_ERROR("No solution found for these corridors!");
+    // return false;
+  }
+
+  /* re-optimize */
+  int I = 10;  // max iterations
+  int i = 0;
+  while (!_traj_optimizer.isCorridorSatisfied(_traj, _config.max_vel_optimization,
+                                              _config.max_acc_optimization,
+                                              _config.delta_corridor) &&
+         i++ < I) {
+    try {
+      is_solved = _traj_optimizer.reOptimize();
+    } catch (int e) {
+      ROS_ERROR("Optimizer crashed!");
+      // return false;
+    }
+
+    if (is_solved) {
+      _traj_optimizer.getTrajectory(&_traj);
+    } else {
+      ROS_ERROR("No solution found for these corridors!");
+      // return false;
+    }
+  }
+  ROS_INFO("Re-optimization %d", i);
+  return true;
+}
+
+/**
+ * @brief plan a trajectory
+ * @return true if a trajectory is planned successfully
+ */
+bool Planner::planNewTrajectory() {
+  bool is_success = false;
 
   double _traj_planning_start_time = ros::Time::now().toSec();
-
-  /*** Copy future status ***/  // TODO(@chen): WHY?
-  // static float future_risk_planning[VOXEL_NUM][RISK_MAP_NUMBER];
-  // while (future_risk_locked) {
-  //   ros::Duration(0.0001).sleep();
-  // }
-  // future_risk_locked = true;
-  // for (int i = 0; i < VOXEL_NUM; ++i) {
-  //   for (int j = 0; j < RISK_MAP_NUMBER; ++j) {
-  //     future_risk_planning[i][j] = _future_risk[i][j];
-  //   }
-  // }
-  // future_risk_locked = false;
 
   /** @brief  the start position of the planned trajectory in map frame*/
   Eigen::Vector3d p_start = Eigen::Vector3d::Zero();
@@ -232,87 +381,13 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
   /** @brief map center when trajectory planning start */
   Eigen::Vector3d c_start;
   c_start << _map_center.x(), _map_center.y(), _map_center.z();
-
-  /***************************************************************************************/
-  /***** P1: Check the risk of the planned short trajectory and set a start position ****/
-  /*** Initialization ***/
-
-  // TODO revise this after understanding the EGO FSM
   p_start = _odom_pos - c_start;
   v_start = _odom_vel;
   a_start = _odom_acc;
 
-  // /** @brief  0: normal 1: tracking error too large 2: safety mode */
-  // geometry_msgs::PointStamped tracking_error_signal;
-  // tracking_error_signal.header.stamp = ros::Time::now();
-  // tracking_error_signal.point.x      = 0.0;
-
-  // if (_is_safety_mode_enabled) {
-  //   p_start = _p_store_for_em - c_start;
-  //   v_start = Eigen::Vector3d::Zero();
-
-  //   tracking_error_signal.point.x = 2.0;
-
-  // } else {
-  //   /// Calculated risk of planned trajectory
-  //   float risk = 0.f;
-
-  //   std::queue<PVAYPoint> current_queue_copy(trajectory_piece);
-  //   while (!current_queue_copy.empty()) {
-  //     auto p = current_queue_copy.front();
-
-  //     int spatial_index = getPointSpatialIndexInMap(p, c_start);
-  //     if (spatial_index >= 0) {
-  //       risk += _future_risk[spatial_index][0];
-  //     }
-
-  //     current_queue_copy.pop();
-  //   }
-
-  //   /// Set planning initial state
-  //   if (risk > _config.risk_threshold_motion_primitive) {
-  //     p_start = _p_store_for_em - c_start;
-  //     // Empty the queue so it will enter safety mode
-  //     std::queue<PVAYPoint> empty;
-  //     std::swap(trajectory_piece, empty);
-  //     ROS_WARN("Current planned trajecotry not safe!");
-  //   } else if (!trajectory_piece.empty() && (_p_store_for_em - _odom_pos).norm() > 1.0) {
-  //     // Tracking error too large
-  //     PVAYPoint temp_p;
-  //     temp_p.position     = 0.5 * _p_store_for_em + 0.5 * _odom_pos;
-  //     temp_p.velocity     = Eigen::Vector3d::Zero();
-  //     temp_p.acceleration = Eigen::Vector3d::Zero();
-  //     temp_p.yaw          = 0.0;
-
-  //     // Empty the queue and add the temp point
-  //     std::queue<PVAYPoint> empty;
-  //     std::swap(trajectory_piece, empty);
-  //     trajectory_piece.push(temp_p);
-
-  //     p_start = temp_p.position - c_start;
-
-  //     ROS_WARN("Tracking error too large. Set a new start point.");
-  //     tracking_error_signal.point.x = 1.0;
-  //   } else {
-  //     if (trajectory_piece.size() > _config.trajectory_piece_max_size * 0.8) {
-  //       /// Planning is not necessary
-  //       ROS_WARN("Planning is not necessary!");
-  //       _prev_opt_end_time = ros::Time::now().toSec();
-  //       return;
-  //     } else if (!trajectory_piece.empty()) {
-  //       p_start = trajectory_piece.back().position - c_start;
-  //       v_start = trajectory_piece.back().velocity;
-  //       a_start = trajectory_piece.back().acceleration;
-  //       if (a_start.norm() > _config.max_differentiated_current_a) {
-  //         a_start = a_start / a_start.norm() * _config.max_differentiated_current_a;
-  //       }
-  //     }
-  //   }
-  // }
-  // tracking_error_too_large_state_pub.publish(tracking_error_signal);
-
-  /***************************************************************************************/
-  /************** P2: Risk-aware Kino-dynamic A-star planning *****************************/
+  /**********************************************************/
+  /***** STEP2: Risk-aware Kino-dynamic A-star planning *****/
+  /**********************************************************/
   // NOTE: A-star planning is in the map frame.
 
   double astar_planning_start_time = ros::Time::now().toSec();
@@ -346,41 +421,12 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
 
   std::vector<TrajPoint> searched_points;
   _astar_planner.getSearchedPoints(searched_points);
-
-  /// Visualize searched points
-  //    vector<Eigen::Vector3d> searched_points_to_show;
-  //    for(const auto &searched_point : searched_points){
-  //        Eigen::Vector3d p;
-  //        if(rviz_map_center_locked){
-  //            p<<searched_point.x, searched_point.y, searched_point.z;
-  //        }else{
-  //            p<<searched_point.x+_map_center.x(),
-  //            searched_point.y+_map_center.y(),
-  //            searched_point.z+_map_center.z();
-  //        }
-  //        searched_points_to_show.push_back(p);
-  //    }
-  //
-  //    _vis->visualizeAstarPath(searched_points_to_show, 89, 1.0, 0.1, 0.1, 1.0, 0.05);
-
-  /// To record max and avg search time
-  // static double a_star_total_time = 0.0;
-  // static double a_star_max_time   = 0.0;
-  // static int    a_star_counter    = 0;
   double a_star_time = ros::Time::now().toSec() - astar_planning_start_time;
-  // a_star_total_time += a_star_time;
-  // a_star_counter += 1;
-  // if (a_star_time > a_star_max_time) {
-  //   a_star_max_time = a_star_time;
-  // }
   ROS_INFO("[PLANNING] A* takes %lf s", a_star_time);
-  // ROS_INFO("A* AVG time = %lf", a_star_total_time / (double)a_star_counter);
-  // ROS_INFO("A* MAX time = %lf", a_star_max_time);
 
   if (astar_rst.size() <= 1 || astar_rst.size() >= 10) {
     ROS_WARN("A* planning failed!");
-    /// Eliminate the left points in RVIZ
-    return;
+    return is_success;
   } else {
     // at least two nodes are generated to build a corridor
     std::vector<Eigen::Vector3d> points;
@@ -391,7 +437,6 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
       pt.z() = p->z + _map_center.z();
       points.push_back(pt);
     }
-    // _vis->visualizeAstarPath(points);
 
     // Set reference direction angle
     _ref_direction_angle = atan2(points[1].y() - points[0].y(), points[1].x() - points[0].x());
@@ -423,25 +468,15 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
     }
     _vis->visualizeAstarPath(a_star_traj_points_to_show);
 
-    /***** P3: Risk-constrained corridor in global frame ****/
+    /************************************************************/
+    /***** STEP3: Risk-constrained corridor in global frame *****/
+    /************************************************************/
+
     double            corridor_start_time = ros::Time::now().toSec();
     vector<Corridor*> corridors;
-
     _astar_planner.findCorridors(corridors, 2);
-
-    /// To record max and avg corridors calculation time
-    // static double corridor_total_time = 0.0;
-    // static double corridor_max_time   = 0.0;
-    // static int    corridor_counter    = 0;
     double corridor_time = ros::Time::now().toSec() - corridor_start_time;
-    // corridor_total_time += corridor_time;
-    // corridor_counter += 1;
-    // if (corridor_time > corridor_max_time) {
-    //   corridor_max_time = corridor_time;
-    // }
     ROS_INFO("[PLANNING]: corridor generation takes %lf s", corridor_time);
-    // ROS_INFO("corridors AVG time = %lf", corridor_total_time / (double)corridor_counter);
-    // ROS_INFO("corridors MAX time = %lf", corridor_max_time);
 
     /// Publish corridors to optimization planner
     decomp_ros_msgs::DynPolyhedronArray crd_msg;
@@ -502,7 +537,10 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
     _corridor_pub.publish(crd_msg);
     _vis->visualizeCorridors(polyhedra, _odom_pos);
 
-    /***** P4: Trajectory Optimization in global frame *****/
+    /**********************************************************/
+    /***** STEP4: Trajectory Optimization in global frame *****/
+    /**********************************************************/
+
     double optimization_start_time = ros::Time::now().toSec();
 
     /** extract init final states from the corridors **/
@@ -511,99 +549,61 @@ void Planner::TrajTimerCallback(const ros::TimerEvent& event) {
         astar_rst[0]->z + _map_center.z();
     init_state.col(1) << astar_rst[0]->vx, astar_rst[0]->vy, astar_rst[0]->vz;
     init_state.col(2) << a_start.x(), a_start.y(), a_start.z();
-    
+
     int n = astar_rst.size() - 1;
     final_state.col(0) << astar_rst[n]->x + _map_center.x(), astar_rst[n]->y + _map_center.y(),
         astar_rst[n]->z + _map_center.z();
     final_state.col(1) << astar_rst[n]->vx, astar_rst[n]->vy, astar_rst[n]->vz;
     final_state.col(2) << 0.f, 0.f, 0.f;
 
-    Eigen::Vector3d init_pos = init_state.col(0);
+    Eigen::Vector3d init_pos  = init_state.col(0);
     Eigen::Vector3d final_pos = final_state.col(0);
     _vis->visualizeStartGoal(init_pos);
     _vis->visualizeStartGoal(final_pos);
-    
+
     /** apply optimization **/
-    bool is_trajectory_optimized =
-        OptimizationInCorridors(polyhedra, time_alloc, init_state, final_state);
-    _prev_opt_end_time           = ros::Time::now().toSec();
+    is_success = OptimizationInCorridors(polyhedra, time_alloc, init_state, final_state);
+    // _prev_opt_end_time = ros::Time::now().toSec();
     ROS_INFO("[PLANNING] trajectory optimization takes %lf s",
              ros::Time::now().toSec() - optimization_start_time);
-    if (!is_trajectory_optimized) {
-      ROS_WARN("Optimization failed!!");
+
+    if (is_success) { /* visualize trajectory */
+      double          v_max = _traj.getMaxVelRate();
+      Eigen::Vector3d zero(0, 0, 0);
+      _vis->visualizeTrajectory(zero, _traj, v_max);
     }
   }  // end of if a_star valid
   _traj_start_time = ros::Time::now();
   _traj_end_time   = ros::Time::now() + ros::Duration(_traj_duration);
 
-  /* visualize trajectory */
-  double v_max = _traj.getMaxVelRate();
-  Eigen::Vector3d zero(0, 0, 0);
-  _vis->visualizeTrajectory(zero, _traj, v_max);
-
-  /* publish trajectory */
-  publishTrajectory();
+  return is_success;
 }
 
 /**
- * @brief trajectory optimization function
- * 
- * @param c 
- * @param t 
- * @param init 
- * @return true 
- * @return false 
+ * @brief return true when current trajectory is almost finished, drone should replan a new
+ * trajectory
+ *
+ * @return true current trajectory is almost finished
+ * @return false current trajectory is still valid
  */
-bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6, -1>>& c,
-                                      const std::vector<double>&                       t,
-                                      const Eigen::Matrix3d&                           init,
-                                      const Eigen::Matrix3d&                           final) {
-    bool is_solved = false;
-
-    /* initial optimize */
-    _traj_optimizer.reset(init, final, t, c);
-    double delta = 0.0;
-    is_solved    = _traj_optimizer.optimize(delta);
-
-    if (is_solved) {
-      _traj_optimizer.getTrajectory(&_traj);
-    } else {
-      ROS_ERROR("No solution found for these corridors!");
-      // return false;
-    }
-
-    /* re-optimize */
-    int I = 10;  // max iterations
-    int i = 0;
-    while (!_traj_optimizer.isCorridorSatisfied(_traj, _config.max_vel_optimization,
-                                                _config.max_acc_optimization,
-                                                _config.delta_corridor) &&
-           i++ < I) {
-      try {
-        is_solved = _traj_optimizer.reOptimize();
-      } catch (int e) {
-        ROS_ERROR("Optimizer crashed!");
-        // return false;
-      }
-
-      if (is_solved) {
-        _traj_optimizer.getTrajectory(&_traj);
-      } else {
-        ROS_ERROR("No solution found for these corridors!");
-        // return false;
-      }
-    }
-    ROS_INFO("Re-optimization %d", i);
-  return true;
+bool Planner::executeTrajectory() {
+  ros::Time now     = ros::Time::now();
+  double    total   = _traj_end_time.toSec() - _traj_start_time.toSec();
+  double    elapsed = now.toSec() - _traj_start_time.toSec();
+  if (elapsed > 0.8 * total) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 /**
  * @brief Publish the trajectory
  *
  */
-void Planner::publishTrajectory() {
+void Planner::publishTrajectory(const polynomial::Trajectory& traj) {
   traj_utils::PolyTraj poly_msg;
-  int                  piece_num = _traj.getPieceNum();
+  int                  piece_num = traj.getPieceNum();
 
   poly_msg.drone_id   = 0;
   poly_msg.traj_id    = _traj_idx;
@@ -615,9 +615,9 @@ void Planner::publishTrajectory() {
   poly_msg.coef_z.resize(8 * piece_num);
 
   for (int i = 0; i < piece_num; i++) {
-    poly_msg.duration[i] = _traj[i].getDuration();
+    poly_msg.duration[i] = traj[i].getDuration();
 
-    Eigen::Matrix<double, 3, 8> coef = _traj[i].getCoeffs();
+    Eigen::Matrix<double, 3, 8> coef = traj[i].getCoeffs();
     int                         idx  = i * 8;
     for (int j = 0; j < 8; j++) {
       poly_msg.coef_x[idx + j] = coef.row(0)[j];
@@ -627,6 +627,45 @@ void Planner::publishTrajectory() {
   }
 
   _traj_pub.publish(poly_msg);
+}
+
+/**
+ * @brief
+ *
+ * @param traj
+ * @return double maximum risk
+ */
+double Planner::getMaxRisk(const polynomial::Trajectory& traj) {
+  double r = 0.0;
+  double T = traj.getDuration();
+  T        = (T > 1.0) ? T : 1.0;
+  for (double t = 0.0; t < T; t += 0.1) {
+    Eigen::Vector3d p     = traj.getPos(t);
+    int             idx   = getPointSpatialIndexInMap(p - _map_center, _map_center);
+    double          r_tmp = _future_risk[idx][0];
+    // TODO ask risk map time step, use current time step by now
+    if (r_tmp > r) {
+      r = r_tmp;
+    }
+  }
+  return r;
+}
+
+/**
+ * @brief
+ *
+ * @param traj
+ * @return true this trajectory is safe
+ * @return false this trajectory is not safe
+ */
+bool Planner::checkTrajectoryRisk(const polynomial::Trajectory& traj) {
+  double risk = getMaxRisk(traj);
+  std::cout << termcolor::yellow << "Risk: " << risk << termcolor::reset << std::endl;
+  if (risk > _config.risk_threshold_motion_primitive) {
+    return false;
+  } else {
+    return true;
+  }
 }
 
 }  // namespace planner

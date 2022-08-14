@@ -21,6 +21,7 @@
 #include <chrono>
 #include <ctime>
 #include <queue>
+#include <termcolor.hpp>  // for colored output
 #include <traj_utils/poly_traj.hpp>
 #include <vector>
 
@@ -106,8 +107,13 @@ struct PlannerConfig {
   }
 };
 
+enum FSM_STATUS { INIT, WAIT_TARGET, NEW_PLAN, REPLAN, EXEC_TRAJ, EMERGENCY_STOP, EXIT };
+
 class Planner {
  private:
+  /********** FINITE STATE MACHINE **********/
+  FSM_STATUS _status;
+
   /********** TRAJECTORY PLANNING **********/
   polynomial::CorridorMiniSnap _traj_optimizer; /** Trajectory optimizer */
   polynomial::Trajectory       _traj;           /** Trajectory */
@@ -125,12 +131,12 @@ class Planner {
 
   double _prev_pt, _prev_px, _prev_py, _prev_pz; /** previous point */
   double _prev_vt, _prev_vx, _prev_vy, _prev_vz; /** previous velocity */
-  double _prev_opt_end_time;  /// previous trajectory end time
+  double _prev_opt_end_time;                     /// previous trajectory end time
 
   /********** MAP **********/
-  int   _map_x_limit, _map_y_limit, _map_z_limit; /** Map limits */
-  int   _map_size;
-  float _map_half_length, _map_half_width, _map_half_height;
+  int             _map_x_limit, _map_y_limit, _map_z_limit; /** Map limits */
+  int             _map_size;
+  float           _map_half_length, _map_half_width, _map_half_height;
   Eigen::Vector3d _map_center; /** Map center */
 
   /********** ROS UTILS **********/
@@ -144,8 +150,6 @@ class Planner {
   float         _ref_direction_angle;
 
   /********** DATA **********/
-  // geometry_msgs::PoseStamped _map_center;  // TODO(@siyuan): change this to Eigen::Vector3d
-
   double _traj_planning_start_time;
 
   /** @brief Risk map in map frame. usage: [spatial_index][temporal_index] */
@@ -172,20 +176,30 @@ class Planner {
 
   void init();
 
-  int getPointSpatialIndexInMap(const Eigen::Vector3d &p, const Eigen::Vector3d &c);
+  int    getPointSpatialIndexInMap(const Eigen::Vector3d &p, const Eigen::Vector3d &c);
+  bool   OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6, -1>> &c,
+                                 const std::vector<double> &                      t,
+                                 const Eigen::Matrix3d &                          init,
+                                 const Eigen::Matrix3d &                          final);
+  bool   checkTrajectoryRisk(const polynomial::Trajectory &traj);
+  double getMaxRisk(const polynomial::Trajectory &traj);
+
+  void publishTrajectory(const polynomial::Trajectory &traj);
+  void publishCorridor(const vector<Corridor *> &c);
 
   void FutureRiskCallback(const std_msgs::Float32MultiArrayConstPtr &risk_msg);
   void PoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
   void OdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
   void VelCallback(const geometry_msgs::TwistStamped &msg);
-  void TrajTimerCallback(const ros::TimerEvent &event);
-  bool OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6, -1>> &c,
-                               const std::vector<double> &                      t,
-                               const Eigen::Matrix3d &                          init,
-                               const Eigen::Matrix3d &                          final);
-  void publishTrajectory();
-  void publishCorridor(const vector<Corridor *> &c);
-  // EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+  bool planNewTrajectory();
+  bool executeTrajectory();
+
+  void FSMPrintState();
+  void FSMChangeState(FSM_STATUS new_state);
+  void FSMCallback(const ros::TimerEvent &event);
+
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   typedef std::shared_ptr<Planner> Ptr;
 };
 
