@@ -17,6 +17,7 @@
 #include "traj_utils/poly_traj.hpp"
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 
+
 ros::Publisher _pos_cmd_pub, _pva_pub, _vis_pub;
 
 bool _is_traj_received = false;
@@ -35,8 +36,12 @@ double _last_yaw, _last_yaw_dot;
  * @param msg
  */
 void triggerCallback(const geometry_msgs::PoseStampedPtr &msg) {
+  if (_is_triggered) {
+    return;
+  }
   ROS_WARN("[TrajSrv] trigger received");
   _is_triggered = true;
+  _t_str = ros::Time::now();
 }
 
 /**
