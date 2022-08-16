@@ -25,7 +25,7 @@ risk_threshold_corridor: 3.0
 
 
 # Trajectory planner
-planning_time_step: 0.3
+planning_time_step: 0.05
 trajectory_piece_max_size: 8
 
 pos_factor: 0.0

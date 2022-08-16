@@ -108,6 +108,11 @@ struct PlannerConfig {
 };
 
 enum FSM_STATUS { INIT, WAIT_TARGET, NEW_PLAN, REPLAN, EXEC_TRAJ, EMERGENCY_STOP, EXIT };
+enum PLAN_TYPE {
+  NEW,      /* plan a new trajectory from current position */
+  CONTINUE, /* continue the current trajectory from the final position */
+  EMERGENCY /* emergency replan from current position */
+};
 
 class Planner {
  private:
@@ -118,6 +123,7 @@ class Planner {
   polynomial::CorridorMiniSnap _traj_optimizer; /** Trajectory optimizer */
   polynomial::Trajectory       _traj;           /** Trajectory */
   int                          _traj_idx;       /** Trajectory index */
+  ros::Time                    _last_plan_time;
   ros::Time                    _traj_start_time;
   ros::Time                    _traj_end_time;
   double                       _traj_duration;
@@ -142,7 +148,7 @@ class Planner {
   /********** ROS UTILS **********/
   ros::NodeHandle _nh;
   ros::Timer      _traj_timer;
-  ros::Subscriber _future_risk_sub, _pose_sub, _vel_sub;
+  ros::Subscriber _future_risk_sub, _pose_sub, _vel_sub, _trigger_sub;
   ros::Publisher  _traj_pub, _corridor_pub;
 
   /********** CONFIG **********/
@@ -163,7 +169,7 @@ class Planner {
   bool _is_safety_mode_enabled;
   bool _is_velocity_received;
   bool _is_odom_received;
-  bool _is_trajectory_initialized;
+  bool _is_exec_triggered;
   bool _is_local_frame;
   bool _is_state_locked;
 
@@ -189,13 +195,15 @@ class Planner {
 
   void FutureRiskCallback(const std_msgs::Float32MultiArrayConstPtr &risk_msg);
   void PoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
+  void TriggerCallback(const geometry_msgs::PoseStampedPtr &msg);
   void OdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
   void VelCallback(const geometry_msgs::TwistStamped &msg);
 
-  bool planNewTrajectory();
+  bool planTrajectory(PLAN_TYPE type);
   bool executeTrajectory();
+  bool checkTimeLapse(double time);
 
-  void FSMPrintState();
+  void FSMPrintState(FSM_STATUS new_state);
   void FSMChangeState(FSM_STATUS new_state);
   void FSMCallback(const ros::TimerEvent &event);
 

@@ -2,9 +2,6 @@
   <arg name="obj_num" value="10" />
   <arg name="drone_id" value="0" />
 
-  <arg name="map_size_x" value="20.0" />
-  <arg name="map_size_y" value="10.0" />
-  <arg name="map_size_z" value=" 2.0" />
   <arg name="odom_topic" value="/mavros/local_position/odom" />
   <arg name="pose_topic" value="/mavros/local_position/pose" />
 
@@ -13,14 +10,14 @@
   <arg name="init_z" value="0.5" />
 
   <group ns="uav$(arg drone_id)">
-    <node pkg="rast_corridor_planning" name="mapping" type="mapping" output="screen">
-    <!-- <node pkg="rast_corridor_planning" name="mapping" type="mapping"> -->
+    <!-- <node pkg="rast_corridor_planning" name="mapping" type="mapping" output="screen"> -->
+    <node pkg="rast_corridor_planning" name="mapping" type="mapping">
       <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
     </node>
 
-    <!-- <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node" output="screen"> -->
-    <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node">
+    <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node" output="screen">
       <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
+      <remap from="~future_risk_full_array" to="mapping/future_risk_full_array" />
     </node>
 
     <node pkg="traj_server" name="traj_server" type="poly_traj_server" output="screen">

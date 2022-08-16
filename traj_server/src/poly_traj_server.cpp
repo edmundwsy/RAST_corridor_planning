@@ -11,12 +11,12 @@
 #include <ros/ros.h>
 
 #include <Eigen/Eigen>
+#include <queue>
 
 #include "quadrotor_msgs/PositionCommand.h"
 #include "traj_utils/PolyTraj.h"
 #include "traj_utils/poly_traj.hpp"
 #include "trajectory_msgs/JointTrajectoryPoint.h"
-
 
 ros::Publisher _pos_cmd_pub, _pva_pub, _vis_pub;
 
@@ -26,62 +26,25 @@ bool _is_triggered     = false;
 int                    _traj_id;
 polynomial::Trajectory _traj;
 ros::Time              _t_str;     // start time
+ros::Time              _t_end;     // end time
 ros::Time              _t_cur;     // current time
 double                 _duration;  // duration of the trajectory in seconds
 
 double _last_yaw, _last_yaw_dot;
 
-/**
- * @brief receive trigger message, start the trajectory
- * @param msg
- */
-void triggerCallback(const geometry_msgs::PoseStampedPtr &msg) {
-  if (_is_triggered) {
-    return;
-  }
-  ROS_WARN("[TrajSrv] trigger received");
-  _is_triggered = true;
-  _t_str = ros::Time::now();
-}
+Eigen::Vector3d _odom_pos;
 
-/**
- * @brief recieve parametric polynomial trajectory
- *
- * @param msg
- */
-void polyCallback(traj_utils::PolyTrajConstPtr msg) {
-  _traj_id    = msg->traj_id;
-  int order   = msg->order;
-  int N       = order + 1;
-  int n_piece = msg->duration.size();  // number of pieces
-
-  _t_str = msg->start_time;
-
-  _duration = 0.0;
-  std::vector<double> time_alloc;
-  for (auto it = msg->duration.begin(); it != msg->duration.end(); ++it) {
-    _duration += (*it);
-    time_alloc.push_back(*it);
-  }
-
-  Eigen::VectorXd coeff;
-  coeff.resize(N * DIM * n_piece);
-  for (int i = 0; i < n_piece; i++) {
-    for (int j = 0; j < ORDER + 1; j++) {
-      coeff[i * N * DIM + j]         = msg->coef_x[i * N + j];
-      coeff[i * N * DIM + j + N]     = msg->coef_y[i * N + j];
-      coeff[i * N * DIM + j + 2 * N] = msg->coef_z[i * N + j];
-    }
-  }
-
-  if (time_alloc.size() > 0) {
-    _traj.setDuration(time_alloc);
-    _traj.setCoeffs(coeff);
-    _is_traj_received = true; /** only when traj is valid */
-  } else {
-    _is_traj_received = false;
-  }
-}
+/** Trajectory queue */
+struct TrajPoint {
+  ros::Time       t;
+  Eigen::Vector3d pos;
+  Eigen::Vector3d vel;
+  Eigen::Vector3d acc;
+  Eigen::Vector3d jrk;
+  double          yaw;
+  double          yaw_dot;
+};
+std::queue<TrajPoint> _traj_queue;
 
 // TODO: calculate yaw angle
 
@@ -90,6 +53,7 @@ void getYaw(const Eigen::Vector3d &p, const double &t, double &yaw, double &yaw_
   yaw_dot = 0.0;
 }
 
+/** publish position command for gazebo simulation and real world test */
 void publishPVA(const Eigen::Vector3d &pos,
                 const Eigen::Vector3d &vel,
                 const Eigen::Vector3d &acc,
@@ -109,6 +73,7 @@ void publishPVA(const Eigen::Vector3d &pos,
   _pva_pub.publish(pva_msg);
 }
 
+/** Publish position command for fake drone simulation */
 void publishCmd(const Eigen::Vector3d &pos,
                 const Eigen::Vector3d &vel,
                 const Eigen::Vector3d &acc,
@@ -135,6 +100,113 @@ void publishCmd(const Eigen::Vector3d &pos,
 }
 
 /**
+ * @brief discretize trajectory, push points to the queue
+ *
+ * @param traj
+ */
+void fillTrajQueue(const polynomial::Trajectory &traj) {
+  double T = traj.getDuration();
+
+  double dt = 0.01;  // frequency 100Hz
+  for (double t = 0; t < T; t += dt) {
+    double          yaw, yaw_dot;
+    Eigen::Vector3d pos;
+    Eigen::Vector3d vel;
+    Eigen::Vector3d acc;
+    Eigen::Vector3d jrk;
+
+    pos = traj.getPos(t);
+    vel = traj.getVel(t);
+    acc = traj.getAcc(t);
+    jrk = traj.getJrk(t);
+    getYaw(pos, t, yaw, yaw_dot);
+
+    TrajPoint p = {_t_str + ros::Duration(t), pos, vel, acc, jrk, yaw, yaw_dot};
+    _traj_queue.push(p);
+  }
+}
+
+/**
+ * @brief receive trigger message, start the trajectory
+ * @param msg
+ */
+void triggerCallback(const geometry_msgs::PoseStampedPtr &msg) {
+  if (_is_triggered) {
+    return;
+  }
+  ROS_WARN("[TrajSrv] trigger received");
+  _is_triggered = true;
+
+  _t_str = ros::Time::now();
+  _t_end = _t_str + ros::Duration(_duration);
+}
+
+// void odomCallback(const nav_msgs::OdometryPtr &msg) {
+//   _odom_pos = Eigen::Vector3d(msg->pose.pose.position.x,
+//                               msg->pose.pose.position.y,
+//                               msg->pose.pose.position.z);
+// }
+
+void odomCallback(const geometry_msgs::PoseStampedPtr &msg) {
+  _odom_pos = Eigen::Vector3d(msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
+}
+
+/**
+ * @brief recieve parametric polynomial trajectory
+ *
+ * @param msg
+ */
+void polyCallback(traj_utils::PolyTrajConstPtr msg) {
+  _traj_id    = msg->traj_id;
+  int order   = msg->order;
+  int N       = order + 1;
+  int n_piece = msg->duration.size();  // number of pieces
+
+  _t_str = msg->start_time;
+
+  /* get duration and time allocation */
+  _duration = 0.0;
+  std::vector<double> time_alloc;
+  for (auto it = msg->duration.begin(); it != msg->duration.end(); ++it) {
+    _duration += (*it);
+    time_alloc.push_back(*it);
+  }
+
+  /* get coefficients */
+  Eigen::VectorXd coeff;
+  coeff.resize(N * DIM * n_piece);
+  for (int i = 0; i < n_piece; i++) {
+    for (int j = 0; j < ORDER + 1; j++) {
+      coeff[i * N * DIM + j]         = msg->coef_x[i * N + j];
+      coeff[i * N * DIM + j + N]     = msg->coef_y[i * N + j];
+      coeff[i * N * DIM + j + 2 * N] = msg->coef_z[i * N + j];
+    }
+  }
+
+  if (time_alloc.size() <= 0) {
+    _is_traj_received = false;
+  } else { /** only when traj is valid */
+    _is_traj_received = true;
+    _traj.setDuration(time_alloc);
+    _traj.setCoeffs(coeff);
+    if (_t_str >= _t_end && _is_triggered) { /* look ahead */
+      // ROS_INFO("[TrajSrv] %f < %f | adding to the end", _t_str.toSec(), _t_end.toSec());
+      fillTrajQueue(_traj);
+      auto tmp = _t_end;
+      _t_str   = _t_end;
+      _t_end   = _t_str + ros::Duration(_duration);
+    } else {  /* emergency and before trigger */
+      // ROS_INFO("[TrajSrv] %f < %f | clearing and reloading", _t_str.toSec(), _t_end.toSec());
+      std::queue<TrajPoint> empty;
+      std::swap(_traj_queue, empty);
+      fillTrajQueue(_traj);
+      _t_end = _t_str + ros::Duration(_duration);
+    }
+    ROS_INFO("[TrajSrv] queue size %li", _traj_queue.size());
+  }
+}
+
+/**
  * @brief publish quadrotor_msgs::PositionCommand for fake simulation
  *
  * @param e
@@ -147,46 +219,38 @@ void PubCallback(const ros::TimerEvent &e) {
     ROS_INFO_ONCE("[TrajSrv] waiting for trigger");
     return;
   }
+  _t_cur = ros::Time::now();
 
-  Eigen::Vector3d pos;
-  Eigen::Vector3d vel;
-  Eigen::Vector3d acc;
-  double          yaw, yaw_dot;
-
-  _t_cur   = ros::Time::now();
-  double t = (_t_cur - _t_str).toSec();
-
-  if (t >= 0.0 && t < _duration) { /* TRAJ EXEC IN PROGRESS */
-    pos = _traj.getPos(t);
-    vel = _traj.getVel(t);
-    acc = _traj.getAcc(t);
-    getYaw(pos, t, yaw, yaw_dot);
-  } else if (t >= _duration) { /* TRAJ EXEC COMPLETE */
-    ROS_WARN_ONCE("[TrajSrv] trajectory execution complete");
-    pos = _traj.getPos(_duration);
-    vel.setZero();
-    acc.setZero();
-    yaw     = _last_yaw;
-    yaw_dot = 0;
+  if (_traj_queue.size() == 1) {
+    TrajPoint p = _traj_queue.front();
+    p.vel       = Eigen::Vector3d::Zero();
+    p.acc       = Eigen::Vector3d::Zero();
+    p.yaw_dot   = 0.0;
+    publishPVA(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
+    publishCmd(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
   } else {
-    ROS_ERROR_ONCE("[TrajSrv]: invalid time, relative t is negative");
+    TrajPoint p = _traj_queue.front();
+    _traj_queue.pop();
+    publishPVA(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
+    publishCmd(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
   }
-  publishPVA(pos, vel, acc, yaw, yaw_dot);
-  publishCmd(pos, vel, acc, yaw, yaw_dot);
+  return;
 }
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "poly_traj_server");
   ros::NodeHandle nh("~");
-  ros::Timer cmd_timer = nh.createTimer(ros::Duration(0.01), PubCallback);
+  ros::Timer      cmd_timer   = nh.createTimer(ros::Duration(0.01), PubCallback);
   ros::Subscriber traj_sub    = nh.subscribe("trajectory", 1, polyCallback);
   ros::Subscriber trigger_sub = nh.subscribe("/traj_start_trigger", 10, triggerCallback);
-
+  ros::Subscriber odom_sub    = nh.subscribe("odom", 10, odomCallback);
   _pva_pub     = nh.advertise<trajectory_msgs::JointTrajectoryPoint>("/pva_setpoint", 1);
   _pos_cmd_pub = nh.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 1);
 
   ros::Duration(3.0).sleep();
   ROS_INFO("[TrajSrv]: ready to receive trajectory");
-  ros::spin();
+  ros::AsyncSpinner spinner(2);
+  spinner.start();
+  ros::waitForShutdown();
   return 0;
 }

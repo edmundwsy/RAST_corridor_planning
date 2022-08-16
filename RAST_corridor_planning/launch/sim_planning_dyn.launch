@@ -29,6 +29,7 @@
     <node pkg="traj_server" name="traj_server" type="poly_traj_server" output="screen">
       <remap from="~trajectory" to="planning/trajectory" />
       <remap from="/position_cmd" to="planning/pos_cmd" />
+      <remap from="~odom" to="$(arg pose_topic)" />
     </node>
 
   </group>

@@ -80,6 +80,31 @@ graph TD
 
 ## Structure
 
+### [rast_corridor_planning]: Main Planning Package
+Risk-aware map building, corridor generation and planning package for single uav.
+- DSP Map
+- Risk-aware A star path searching
+- Finite State Machine
+- Corridor generation
+- Trajectory optimization
+  
+```mermaid
+graph TD
+ INIT --> EXIT
+ INIT --> WAIT_TARGET
+ WAIT_TARGET --> EXIT
+ WAIT_TARGET --> NEW_PLAN
+ EXEC_TRAJ --> WAIT_TARGET
+ EXEC_TRAJ --> REPLAN
+ EXEC_TRAJ --> EXIT
+ REPLAN --> WAIT_TARGET
+ REPLAN --> EXEC_TRAJ
+ NEW_PLAN --> EXIT
+ NEW_PLAN --> EXEC_TRAJ
+ EMERGENCY_STOP --> NEW_PLAN
+ A([collision]) --> EMERGENCY_STOP
+```
+
 ### [traj_utils]: Trajectory utilities
 
 A library for parametric trajectories message and related visualization.
@@ -99,6 +124,9 @@ A node for discretize parametric trajectory into separate waypoints and poses.
 - Input: parametric trajectory message (`~trajectory`)
 - Output: discretized trajectory message (`~position_cmd`, `~pva_setpoint`, `/traj_start_trigger`)
 - Note: `/traj_start_trigger` is a `geometry_msgs::PoseStamped` message, which is used to trigger the discretization and trajectory execution.
+- Note: There are two behavior of trajectory queue, one is adding new trajectory to the end of the queue, and the other is clearing the queue and adding new trajectory. We use the stating time of the incoming trajectory and the end time of the previous trajectory to decide which behavior is used. 
+  - if t_start >= t_end, then add new trajectory to the end of the queue
+  - if t_start < t_end, then clear the queue and add new trajectory 
 
 <!-- No commit, only discuss in zoom meeting -->
 ## Discuss
@@ -109,9 +137,12 @@ A node for discretize parametric trajectory into separate waypoints and poses.
 ## TODO
 - [x] (Aug. w1) Refactor the code in `rast_corridor_planning` to make it fit this framework. Extract `traj_server` from `planning_node`.
 - [x] (Aug. w1) Merge MiniSnap trajectory optimization `corridor_minisnap` to `traj_opt`
-- [ ] (Aug. w3) Move trajectory queue to `traj_server`
-- [ ] (Aug. w3) Include B-Spline trajectory optimization to `traj_opt` 
-- [ ] (Aug. w3) Include `decomp_ros` for convex corridor generation
+- [x] (Aug. w3) Move trajectory queue to `traj_server`
+- [ ] (Aug. w3) Add `drone_id` to the planner class
+- [ ] (Aug. w3) Refine visualizations
+- [ ] (Aug. w3) Work with Moji on the fake simulation
+- [ ] (Aug. w4) Include B-Spline trajectory optimization to `traj_opt` 
+- [ ] (Aug. w4) Include `decomp_ros` for convex corridor generation
 - [ ] Implement conflict-based search (CBS) method to `path_searching`
 
 
