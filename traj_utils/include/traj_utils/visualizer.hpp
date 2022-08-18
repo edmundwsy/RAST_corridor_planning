@@ -36,10 +36,11 @@ namespace visualizer {
 /**
  * @brief jet color map
  * to display colorful velocity on trajectories
- * @param a
+ * @param a [0, 1]
  * @return Eigen::Vector3d
  */
-inline Eigen::Vector3d jetColor(double a) {
+template <typename T>
+inline Eigen::Vector3d jetColorMap(T a) {
   double          s = a * 4;
   Eigen::Vector3d c;  // [r, g, b]
   switch (static_cast<int>(floor(s))) {
@@ -54,6 +55,27 @@ inline Eigen::Vector3d jetColor(double a) {
       break;
     case 3:
       c << 1, 4 - s, 0;
+      break;
+    default:
+      c << 1, 0, 0;
+      break;
+  }
+  return c;
+}
+
+template <typename T>
+inline Eigen::Vector3d hotColorMap(T a) {
+  double          s = a * 3;
+  Eigen::Vector3d c;
+  switch (static_cast<int>(floor(s))) {
+    case 0:
+      c << s, 0, 0;
+      break;
+    case 1:
+      c << 1, s - 1, 0;
+      break;
+    case 2:
+      c << 1, 1, s - 2;
       break;
     default:
       c << 1, 0, 0;
@@ -84,7 +106,7 @@ inline void displayTrajectory(const Eigen::Vector3d&        start_pos,
   Eigen::Vector3d lastX = traj.getPos(0.0) + start_pos;
   for (double t = T; t < traj.getDuration(); t += T) {
     std_msgs::ColorRGBA c;
-    Eigen::Vector3d     jets = jetColor(traj.getVel(t).norm() / max_vel);
+    Eigen::Vector3d     jets = jetColorMap(traj.getVel(t).norm() / max_vel);
     c.r                      = jets[0];
     c.g                      = jets[1];
     c.b                      = jets[2];

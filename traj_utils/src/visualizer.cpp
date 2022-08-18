@@ -41,7 +41,7 @@ void Visualizer::visualizeTrajectory(const Eigen::Vector3d&        start_pos,
   Eigen::Vector3d lastX = traj.getPos(0.0) + start_pos;
   for (double t = T; t < traj.getDuration(); t += T) {
     std_msgs::ColorRGBA c;
-    Eigen::Vector3d     jets = jetColor(traj.getVel(t).norm() / max_vel);
+    Eigen::Vector3d     jets = jetColorMap(traj.getVel(t).norm() / max_vel);
     c.r                      = jets[0];
     c.g                      = jets[1];
     c.b                      = jets[2];

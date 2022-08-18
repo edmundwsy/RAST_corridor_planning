@@ -14,6 +14,7 @@
 #include <queue>
 
 #include "quadrotor_msgs/PositionCommand.h"
+#include "traj_server/visualizer.hpp"
 #include "traj_utils/PolyTraj.h"
 #include "traj_utils/poly_traj.hpp"
 #include "trajectory_msgs/JointTrajectoryPoint.h"
@@ -34,17 +35,9 @@ double _last_yaw, _last_yaw_dot;
 
 Eigen::Vector3d _odom_pos;
 
-/** Trajectory queue */
-struct TrajPoint {
-  ros::Time       t;
-  Eigen::Vector3d pos;
-  Eigen::Vector3d vel;
-  Eigen::Vector3d acc;
-  Eigen::Vector3d jrk;
-  double          yaw;
-  double          yaw_dot;
-};
 std::queue<TrajPoint> _traj_queue;
+
+TrajSrvVisualizer::Ptr _vis_ptr;
 
 // TODO: calculate yaw angle
 
@@ -195,13 +188,14 @@ void polyCallback(traj_utils::PolyTrajConstPtr msg) {
       auto tmp = _t_end;
       _t_str   = _t_end;
       _t_end   = _t_str + ros::Duration(_duration);
-    } else {  /* emergency and before trigger */
+    } else { /* emergency and before trigger */
       // ROS_INFO("[TrajSrv] %f < %f | clearing and reloading", _t_str.toSec(), _t_end.toSec());
       std::queue<TrajPoint> empty;
       std::swap(_traj_queue, empty);
       fillTrajQueue(_traj);
       _t_end = _t_str + ros::Duration(_duration);
     }
+    _vis_ptr->visualizeTraj(_traj_queue);
     ROS_INFO("[TrajSrv] queue size %li", _traj_queue.size());
   }
 }
@@ -246,6 +240,8 @@ int main(int argc, char **argv) {
   ros::Subscriber odom_sub    = nh.subscribe("odom", 10, odomCallback);
   _pva_pub     = nh.advertise<trajectory_msgs::JointTrajectoryPoint>("/pva_setpoint", 1);
   _pos_cmd_pub = nh.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 1);
+
+  _vis_ptr.reset(new TrajSrvVisualizer(nh));
 
   ros::Duration(3.0).sleep();
   ROS_INFO("[TrajSrv]: ready to receive trajectory");
