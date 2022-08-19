@@ -56,7 +56,7 @@
 		</node>
 
 		<!-- visualize drone odometry -->
-		<node pkg="odom_visualization" name="odom_visualization" type="odom_visualization" output="screen">
+		<!-- <node pkg="odom_visualization" name="odom_visualization" type="odom_visualization" output="screen">
 			<remap from="~odom" to="$(arg odometry_topic)" />
 			<param name="color/a" value="1.0" />
 			<param name="color/r" value="0.0" />
@@ -66,7 +66,7 @@
 			<param name="robot_scale" value="1.0" />
 			<param name="tf45" value="true" />
 			<param name="drone_id" value="drone_id" />
-		</node>
+		</node> -->
 
 		<!-- fake camera sensing -->
 		<node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">

@@ -142,6 +142,7 @@ void triggerCallback(const geometry_msgs::PoseStampedPtr &msg) {
 
 void odomCallback(const geometry_msgs::PoseStampedPtr &msg) {
   _odom_pos = Eigen::Vector3d(msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
+  _vis_ptr->visualizeOdom(msg);
 }
 
 /**

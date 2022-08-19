@@ -13,9 +13,11 @@
 #define _TRAJ_SRV_VISUALIZER_HPP
 
 #include <geometry_msgs/Point.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
 
+// #include <Eigen/Eigen.h>
 #include <memory>
 #include <queue>
 #include <string>
@@ -31,12 +33,13 @@
 class TrajSrvVisualizer {
  private:
   ros::NodeHandle _nh;
-  ros::Publisher  _vis_queue_pub;
+  ros::Publisher  _vis_queue_pub, _vis_drone_pub;
   Eigen::Vector3d _prev_pos;
 
  public:
   TrajSrvVisualizer(ros::NodeHandle& nh) : _nh(nh) {
     _vis_queue_pub = _nh.advertise<visualization_msgs::Marker>("vis_traj", 1);
+    _vis_drone_pub = _nh.advertise<visualization_msgs::Marker>("vis_drone", 1);
   }
   ~TrajSrvVisualizer() {}
   typedef std::shared_ptr<TrajSrvVisualizer> Ptr;
@@ -90,6 +93,42 @@ class TrajSrvVisualizer {
       _prev_pos = pos;
     }
     _vis_queue_pub.publish(vis_mk);
+  }
+
+  void visualizeOdom(const geometry_msgs::PoseStampedPtr& pose, const std::string     frame_id = "world") {
+    // Eigen::Vector3d p;
+    // p[0] = pose->pose.position.x;
+    // p[1] = pose->pose.position.y;
+    // p[2] = pose->pose.position.z;
+    // Eigen::Quaterniond q;
+    // q.w() = pose->pose.orientation.w;
+    // q.x() = pose->pose.orientation.x;
+    // q.y() = pose->pose.orientation.y;
+    // q.z() = pose->pose.orientation.z;
+
+    visualization_msgs::Marker mesh_mk;
+    mesh_mk.header.frame_id = frame_id;
+    mesh_mk.header.stamp    = ros::Time::now();
+    mesh_mk.ns              = "drone";
+    mesh_mk.id              = 0;
+    mesh_mk.type            = visualization_msgs::Marker::MESH_RESOURCE;
+    mesh_mk.action          = visualization_msgs::Marker::ADD;
+    mesh_mk.mesh_resource   = "package://traj_server/meshes/drone.mesh";
+    mesh_mk.pose.position.x = pose->pose.position.x;
+    mesh_mk.pose.position.y = pose->pose.position.y;
+    mesh_mk.pose.position.z = pose->pose.position.z;
+    mesh_mk.pose.orientation.w = pose->pose.orientation.w;
+    mesh_mk.pose.orientation.x = pose->pose.orientation.x;
+    mesh_mk.pose.orientation.y = pose->pose.orientation.y;
+    mesh_mk.pose.orientation.z = pose->pose.orientation.z;
+    mesh_mk.scale.x = 2.0;
+    mesh_mk.scale.y = 2.0;
+    mesh_mk.scale.z = 2.0;
+    mesh_mk.color.r = 0.0;
+    mesh_mk.color.g = 0.0;
+    mesh_mk.color.b = 0.0;
+    mesh_mk.color.a = 1.0;
+    _vis_drone_pub.publish(mesh_mk);
   }
 };
 // }  // namespace visualizer
