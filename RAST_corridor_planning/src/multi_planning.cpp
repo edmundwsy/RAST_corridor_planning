@@ -122,7 +122,7 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
       } else {
         bool is_success = false;
         if (checkTimeLapse(1.0)) {
-          is_success = planTrajectory(PLAN_TYPE::NEW);
+          is_success = localReplan(PLAN_TYPE::NEW);
         }
         // bool is_safe    = checkTrajectoryRisk(_traj);
         bool is_safe = true;         // TODO: checkTrajectoryRisk(_traj);
@@ -154,7 +154,7 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
       if (!_is_future_risk_updated || !_is_odom_received) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       } else {
-        bool is_success = planTrajectory(PLAN_TYPE::CONTINUE);
+        bool is_success = localReplan(PLAN_TYPE::CONTINUE);
         bool is_safe    = true;  // TODO: checkTrajectoryRisk(_traj);
         // bool is_safe    = checkTrajectoryRisk(_traj);
         if (is_success && is_safe) { /* publish trajectory */
@@ -395,7 +395,7 @@ bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6,
  * @return true if a trajectory is planned successfully
  * @return false
  */
-bool Planner::planTrajectory(PLAN_TYPE type) {
+bool Planner::localReplan(PLAN_TYPE type) {
   bool is_success = false;
 
   /** @brief  the start position of the planned trajectory in map frame*/

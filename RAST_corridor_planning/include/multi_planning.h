@@ -199,7 +199,7 @@ class Planner {
   void OdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
   void VelCallback(const geometry_msgs::TwistStamped &msg);
 
-  bool planTrajectory(PLAN_TYPE type);
+  bool localReplan(PLAN_TYPE type);
   bool executeTrajectory();
   bool checkTimeLapse(double time);
 

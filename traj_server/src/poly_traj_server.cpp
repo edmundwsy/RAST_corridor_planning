@@ -8,6 +8,7 @@
  *
  */
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PointStamped.h>
 #include <ros/ros.h>
 
 #include <Eigen/Eigen>
@@ -20,6 +21,7 @@
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 
 ros::Publisher _pos_cmd_pub, _pva_pub, _vis_pub;
+ros::Publisher _error_pub;
 
 bool _is_traj_received = false;
 bool _is_triggered     = false;
@@ -202,6 +204,23 @@ void polyCallback(traj_utils::PolyTrajConstPtr msg) {
 }
 
 /**
+ * @brief publish tracking error
+ * 
+ * @param pos_cmd 
+ * @param pos_real 
+ */
+void pubTrackingError(const Eigen::Vector3d & pos_cmd, const Eigen::Vector3d & pos_real) {
+  geometry_msgs::PointStamped error_msg;
+  error_msg.header.frame_id = "world";
+  error_msg.header.stamp    = ros::Time::now();
+  error_msg.point.x         = pos_cmd(0) - pos_real(0);
+  std::cout << pos_cmd(0) << " " << pos_real(0) << std::endl;
+  error_msg.point.y         = pos_cmd(1) - pos_real(1);
+  error_msg.point.z         = pos_cmd(2) - pos_real(2);
+  _error_pub.publish(error_msg);
+}
+
+/**
  * @brief publish quadrotor_msgs::PositionCommand for fake simulation
  *
  * @param e
@@ -216,19 +235,21 @@ void PubCallback(const ros::TimerEvent &e) {
   }
   _t_cur = ros::Time::now();
 
+  TrajPoint p;
   if (_traj_queue.size() == 1) {
-    TrajPoint p = _traj_queue.front();
+    p = _traj_queue.front();
     p.vel       = Eigen::Vector3d::Zero();
     p.acc       = Eigen::Vector3d::Zero();
     p.yaw_dot   = 0.0;
-    publishPVA(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
-    publishCmd(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
   } else {
-    TrajPoint p = _traj_queue.front();
+    p = _traj_queue.front();
     _traj_queue.pop();
-    publishPVA(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
-    publishCmd(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
   }
+  publishCmd(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
+  publishPVA(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
+
+  /** publish tracking error */
+  pubTrackingError(p.pos, _odom_pos);
   return;
 }
 
@@ -241,6 +262,8 @@ int main(int argc, char **argv) {
   ros::Subscriber odom_sub    = nh.subscribe("odom", 10, odomCallback);
   _pva_pub     = nh.advertise<trajectory_msgs::JointTrajectoryPoint>("/pva_setpoint", 1);
   _pos_cmd_pub = nh.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 1);
+
+  _error_pub = nh.advertise<geometry_msgs::PointStamped>("error", 1);
 
   _vis_ptr.reset(new TrajSrvVisualizer(nh));
 

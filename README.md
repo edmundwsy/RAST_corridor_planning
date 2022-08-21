@@ -138,9 +138,10 @@ A node for discretize parametric trajectory into separate waypoints and poses.
 - [x] (Aug. w1) Refactor the code in `rast_corridor_planning` to make it fit this framework. Extract `traj_server` from `planning_node`.
 - [x] (Aug. w1) Merge MiniSnap trajectory optimization `corridor_minisnap` to `traj_opt`
 - [x] (Aug. w3) Move trajectory queue to `traj_server`
+- [x] (Aug. w3) Test tracking error: (x: max 0.5, avg 0.2)
 - [ ] (Aug. w3) Add `drone_id` to the planner class
-- [ ] (Aug. w3) Refine visualizations
-- [ ] (Aug. w3) Work with Moji on the fake simulation
+- [x] (Aug. w3) Refine visualizations
+- [x] (Aug. w3) Work with Moji on the fake simulation
 - [ ] (Aug. w4) Include B-Spline trajectory optimization to `traj_opt` 
 - [ ] (Aug. w4) Include `decomp_ros` for convex corridor generation
 - [ ] Implement conflict-based search (CBS) method to `path_searching`
