@@ -316,16 +316,17 @@ class Astar {
     }
 
     if (found_path) {
-      // cout << "Path found, searched times = "<<step_counter <<", result node size = " <<
-      // result_path_reversed.size() << endl; cout << "x="<<start_node->x<<", y="<<start_node->y<<",
-      // z="<<start_node->z<<endl;
+      cout << "Path found, searched times = " << step_counter
+           << ", result node size = " << result_path_reversed.size() << endl;
+      cout << "x=" << start_node->x << ", y=" << start_node->y
+           << ", z = "<<start_node->z<<endl;
 
-      //            for(auto &n : result_path_reversed){
-      //                cout << "x="<<n->x<<", y="<<n->y<<", z="<<n->z<<endl;
-      //            }
+          for (auto &n : result_path_reversed) {
+        cout << "x=" << n->x << ", y=" << n->y << ", z=" << n->z << endl;
+      }
 
     } else {
-      // cout << "Path not found, searched times = "<<step_counter << endl;
+      cout << "Path not found, searched times = " << step_counter << endl;
     }
   }
 
@@ -361,12 +362,12 @@ class Astar {
       vector<float> expanding_distance  = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
 
       vector<vector<bool>> expanding_order;
-      vector<bool>         expanding_direction2 = {true, true, true, true, false, false};    // xy
-      vector<bool>         expanding_direction3 = {true, true, false, false, false, false};  // x
-      vector<bool> expanding_direction4 = {false, false, true, false, false, false};         // y+
-      vector<bool> expanding_direction5 = {false, false, false, true, false, false};         // y-
-      vector<bool> expanding_direction6 = {false, false, false, false, true, false};         // z+
-      vector<bool> expanding_direction7 = {false, false, false, false, false, true};         // z-
+      vector<bool>         expanding_direction2 = {true, true, true, true, false, false};     // xy
+      vector<bool>         expanding_direction3 = {true, true, false, false, false, false};   // x
+      vector<bool>         expanding_direction4 = {false, false, true, false, false, false};  // y+
+      vector<bool>         expanding_direction5 = {false, false, false, true, false, false};  // y-
+      vector<bool>         expanding_direction6 = {false, false, false, false, true, false};  // z+
+      vector<bool>         expanding_direction7 = {false, false, false, false, false, true};  // z-
       expanding_order.push_back(expanding_direction2);
       expanding_order.push_back(expanding_direction3);
       expanding_order.push_back(expanding_direction4);
@@ -1032,7 +1033,7 @@ class Astar {
         node->x >= map_length_half - boundary_width || node->y < -map_width_half + boundary_width ||
         node->y >=
             map_width_half - boundary_width) {  //|| node->z < -map_height_half + boundary_width ||
-                                                //node->z >= map_height_half - boundary_width
+                                                // node->z >= map_height_half - boundary_width
       return true;
     } else {
       return false;
