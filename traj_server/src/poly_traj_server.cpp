@@ -7,8 +7,8 @@
  * @copyright Copyright (c) 2022
  *
  */
-#include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PointStamped.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <ros/ros.h>
 
 #include <Eigen/Eigen>
@@ -33,7 +33,7 @@ ros::Time              _t_end;     // end time
 ros::Time              _t_cur;     // current time
 double                 _duration;  // duration of the trajectory in seconds
 
-double _last_yaw, _last_yaw_dot;
+double _last_yaw, _last_yawdot;
 
 Eigen::Vector3d _odom_pos;
 
@@ -44,8 +44,87 @@ TrajSrvVisualizer::Ptr _vis_ptr;
 // TODO: calculate yaw angle
 
 void getYaw(const Eigen::Vector3d &p, const double &t, double &yaw, double &yaw_dot) {
-  yaw     = 0.0;
-  yaw_dot = 0.0;
+  constexpr double PI                  = 3.1415926;
+  constexpr double YAW_DOT_MAX_PER_SEC = PI;
+  constexpr double MAX_YAW_CHANGE      = YAW_DOT_MAX_PER_SEC * 0.01;
+
+  yaw    = 0;
+  yaw_dot = 0;
+  Eigen::Vector3d dir = _traj_queue.front().vel.normalized();
+
+  double yaw_temp = dir.norm() > 0.1 ? atan2(dir(1), dir(0)) : _last_yaw;
+  if (yaw_temp - _last_yaw > PI)
+  {
+    if (yaw_temp - _last_yaw - 2 * PI < -MAX_YAW_CHANGE)
+    {
+      yaw = _last_yaw - MAX_YAW_CHANGE;
+      if (yaw < -PI)
+        yaw += 2 * PI;
+
+      yaw_dot = -YAW_DOT_MAX_PER_SEC;
+    }
+    else
+    {
+      yaw = yaw_temp;
+      if (yaw - _last_yaw > PI)
+        yaw_dot = -YAW_DOT_MAX_PER_SEC;
+      else
+        yaw_dot = (yaw_temp - _last_yaw) / 0.01;
+    }
+  }
+  else if (yaw_temp - _last_yaw < -PI)
+  {
+    if (yaw_temp - _last_yaw + 2 * PI > MAX_YAW_CHANGE)
+    {
+      yaw = _last_yaw + MAX_YAW_CHANGE;
+      if (yaw > PI)
+        yaw -= 2 * PI;
+
+      yaw_dot = YAW_DOT_MAX_PER_SEC;
+    }
+    else
+    {
+      yaw = yaw_temp;
+      if (yaw - _last_yaw < -PI)
+        yaw_dot = YAW_DOT_MAX_PER_SEC;
+      else
+        yaw_dot = (yaw_temp - _last_yaw) / 0.01;
+    }
+  }
+  else
+  {
+    if (yaw_temp - _last_yaw < -MAX_YAW_CHANGE)
+    {
+      yaw = _last_yaw - MAX_YAW_CHANGE;
+      if (yaw < -PI)
+        yaw += 2 * PI;
+
+      yaw_dot = -YAW_DOT_MAX_PER_SEC;
+    }
+    else if (yaw_temp - _last_yaw > MAX_YAW_CHANGE)
+    {
+      yaw = _last_yaw + MAX_YAW_CHANGE;
+      if (yaw > PI)
+        yaw -= 2 * PI;
+
+      yaw_dot = YAW_DOT_MAX_PER_SEC;
+    }
+    else
+    {
+      yaw = yaw_temp;
+      if (yaw - _last_yaw > PI)
+        yaw_dot = -YAW_DOT_MAX_PER_SEC;
+      else if (yaw - _last_yaw < -PI)
+        yaw_dot = YAW_DOT_MAX_PER_SEC;
+      else
+        yaw_dot = (yaw_temp - _last_yaw) / 0.01;
+    }
+  }
+  if (fabs(yaw - _last_yaw) <= MAX_YAW_CHANGE)
+  yaw = 0.5 * _last_yaw + 0.5 * yaw; // nieve LPF
+  yaw_dot = 0.5 * _last_yawdot + 0.5 * yaw_dot;
+  _last_yaw = yaw;
+  _last_yawdot = yaw_dot;
 }
 
 /** publish position command for gazebo simulation and real world test */
@@ -205,18 +284,18 @@ void polyCallback(traj_utils::PolyTrajConstPtr msg) {
 
 /**
  * @brief publish tracking error
- * 
- * @param pos_cmd 
- * @param pos_real 
+ *
+ * @param pos_cmd
+ * @param pos_real
  */
-void pubTrackingError(const Eigen::Vector3d & pos_cmd, const Eigen::Vector3d & pos_real) {
+void pubTrackingError(const Eigen::Vector3d &pos_cmd, const Eigen::Vector3d &pos_real) {
   geometry_msgs::PointStamped error_msg;
   error_msg.header.frame_id = "world";
   error_msg.header.stamp    = ros::Time::now();
   error_msg.point.x         = pos_cmd(0) - pos_real(0);
-  std::cout << pos_cmd(0) << " " << pos_real(0) << std::endl;
-  error_msg.point.y         = pos_cmd(1) - pos_real(1);
-  error_msg.point.z         = pos_cmd(2) - pos_real(2);
+  // std::cout << pos_cmd(0) << " " << pos_real(0) << std::endl;
+  error_msg.point.y = pos_cmd(1) - pos_real(1);
+  error_msg.point.z = pos_cmd(2) - pos_real(2);
   _error_pub.publish(error_msg);
 }
 
@@ -237,10 +316,10 @@ void PubCallback(const ros::TimerEvent &e) {
 
   TrajPoint p;
   if (_traj_queue.size() == 1) {
-    p = _traj_queue.front();
-    p.vel       = Eigen::Vector3d::Zero();
-    p.acc       = Eigen::Vector3d::Zero();
-    p.yaw_dot   = 0.0;
+    p         = _traj_queue.front();
+    p.vel     = Eigen::Vector3d::Zero();
+    p.acc     = Eigen::Vector3d::Zero();
+    p.yaw_dot = 0.0;
   } else {
     p = _traj_queue.front();
     _traj_queue.pop();
