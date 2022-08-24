@@ -57,10 +57,10 @@ void getYaw(const Eigen::Vector3d &v, double &yaw, double &yaw_dot) {
   yaw                 = 0;
   yaw_dot             = 0;
   Eigen::Vector3d dir = v.normalized();
-  std::cout << "dir: " << dir.transpose() << std::endl;
+  // std::cout << "dir: " << dir.transpose() << std::endl;
 
   double yaw_temp = dir.norm() > 0.1 ? atan2(dir(1), dir(0)) : _last_yaw;
-  std::cout << "yaw_temp: " << yaw_temp << std::endl;
+  // std::cout << "yaw_temp: " << yaw_temp << std::endl;
   if (yaw_temp - _last_yaw > PI) {
     if (yaw_temp - _last_yaw - 2 * PI < -MAX_YAW_CHANGE) {
       yaw = _last_yaw - MAX_YAW_CHANGE;
@@ -112,7 +112,7 @@ void getYaw(const Eigen::Vector3d &v, double &yaw, double &yaw_dot) {
   yaw_dot      = 0.5 * _last_yawdot + 0.5 * yaw_dot;
   _last_yaw    = yaw;
   _last_yawdot = yaw_dot;
-  std::cout << "yaw: " << yaw << " yaw_dot: " << yaw_dot << std::endl;
+  // std::cout << "yaw: " << yaw << " yaw_dot: " << yaw_dot << std::endl;
 }
 
 /** publish position command for gazebo simulation and real world test */

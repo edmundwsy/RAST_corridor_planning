@@ -207,6 +207,7 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
     case FSM_STATUS::GOAL_REACHED:
       _is_goal_received  = false;  // reset goal
       _is_exec_triggered = false;
+      _waypoints.pop();
       _traj.clear();
       FSMChangeState(FSM_STATUS::WAIT_TARGET);
       break;
@@ -264,6 +265,7 @@ void Planner::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
     _goal.x()         = msg->pose.position.x;
     _goal.y()         = msg->pose.position.y;
     _goal.z()         = msg->pose.position.z;
+    ROS_INFO("[PLANNER] New goal received: %f, %f, %f", _goal.x(), _goal.y(), _goal.z());
     _is_goal_received = true;
   }
 }
@@ -386,6 +388,7 @@ bool Planner::globalPlan() {
   // }
   // _waypoints.push(glb_goal);
   _waypoints.push(_goal);
+  ROS_INFO("[GlbPlan] Add %ld waypoints for global plan", _waypoints.size());
   return true;
 }
 
@@ -408,7 +411,6 @@ bool Planner::executeTrajectory() {
   if (elapsed > 1.0) {
   } else if (err.norm() < 1.0) {
     ROS_INFO("[GlbPlan] Reached waypoint");
-    _waypoints.pop();
   } else {
     return false;
   }
@@ -520,7 +522,7 @@ bool Planner::localReplan(PLAN_TYPE type) {
 
   /** truncate the initial velocity */
   if (fabs(v_start.x()) >
-      _astar_planner.v_max_xy) {  // TODO(@siyuan): v_start = (v_start > M) ? M : v_start;
+      _astar_planner.v_max_xy) {
     v_start.x() = _astar_planner.v_max_xy * v_start.x() / fabs(v_start.x());
   }
   if (fabs(v_start.y()) > _astar_planner.v_max_xy) {
