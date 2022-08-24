@@ -17,6 +17,7 @@
 #include <Eigen/Eigen>
 #include <cmath>
 #include <vector>
+#include <memory>
 
 #include "root_finder.hpp"
 
@@ -218,6 +219,7 @@ class Trajectory {
   int                        _n_pieces;
 
  public:
+  typedef std::shared_ptr<Trajectory> Ptr;
   Trajectory() = default;
   Trajectory(const std::vector<double>& durations, const std::vector<CoefficientMat>& coeffs) {
     int _n_pieces = durations.size();
@@ -249,6 +251,10 @@ class Trajectory {
     for (int i = 0; i < _n_pieces; i++) {
       _pieces[i].setup(coeffs[i]);
     }
+  }
+  void clear() {
+    _pieces.clear();
+    _n_pieces = 0;
   }
 
   inline int    getPieceNum() const { return _n_pieces; }

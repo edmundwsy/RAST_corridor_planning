@@ -27,6 +27,8 @@ void Planner::init() {
                                   _config.risk_threshold_corridor);
 
   _ref_direction_angle = 100.f;
+  /*** INITIALIZE MINISNAP OPT ***/
+  _traj_optimizer.reset(new polynomial::CorridorMiniSnap());
 
   /*** INITIALIZE VISUALIZATION ***/
   std::string frame_id = "world";
@@ -79,7 +81,7 @@ void Planner::init() {
   _is_exec_triggered      = false;
   _is_state_locked        = false;
   _is_goal_received       = true;
-  
+
   _goal << _config.goal_x, _config.goal_y, _config.goal_z;
 
   /*** STATE ***/
@@ -108,12 +110,12 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
   double risk = 0;
   switch (_status) {
     /* initialize */
-    case INIT:
+    case FSM_STATUS::INIT:
       FSMChangeState(FSM_STATUS::WAIT_TARGET);
       break;
 
     /* wait for callback */
-    case WAIT_TARGET:
+    case FSM_STATUS::WAIT_TARGET:
       if (_is_future_risk_updated && _is_odom_received && _is_goal_received) {
         globalPlan();
         FSMChangeState(FSM_STATUS::NEW_PLAN);
@@ -124,7 +126,7 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
       break;
 
     /* plan a new trajectory from current position */
-    case NEW_PLAN:
+    case FSM_STATUS::NEW_PLAN:
       if (!_is_future_risk_updated || !_is_odom_received) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       } else {
@@ -146,7 +148,7 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
       break;
 
     /* execute the trajectory, replan when current traj is about to finish */
-    case EXEC_TRAJ:
+    case FSM_STATUS::EXEC_TRAJ:
       if (!_is_future_risk_updated || !_is_odom_received) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       } else {
@@ -159,28 +161,26 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
         } else if (!is_safe) {
           FSMChangeState(FSM_STATUS::EMERGENCY_REPLAN);
         } else if (isGoalReached(_odom_pos, _goal)) {
-          FSMChangeState(FSM_STATUS::WAIT_TARGET);
-          _is_goal_received = false;  // reset goal
+          FSMChangeState(FSM_STATUS::GOAL_REACHED);
         }
       }
       break;
 
     /* replan based on current trajectory */
-    case REPLAN:
+    case FSM_STATUS::REPLAN:
       if (!_is_future_risk_updated || !_is_odom_received) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       } else {
         bool is_success = localReplan(PLAN_TYPE::CONTINUE);
         // bool is_safe    = true;  // TODO: checkTrajectoryRisk(_traj);
         // bool is_safe    = checkTrajectoryRisk(_traj);
-        if (is_success) { /* publish trajectory */
+        bool is_finished = isGoalReached(_odom_pos, _goal);
+        if (is_success && !is_finished) { /* publish trajectory */
           publishTrajectory(_traj);
           FSMChangeState(FSM_STATUS::EXEC_TRAJ);
         } else {
-          bool is_finished = isGoalReached(_odom_pos, _goal);
           if (is_finished) {
-            FSMChangeState(FSM_STATUS::WAIT_TARGET);
-            _is_goal_received = false;  // reset goal
+            FSMChangeState(FSM_STATUS::GOAL_REACHED);
           } else {
             ROS_WARN("Replanning failed");
           }
@@ -189,7 +189,7 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
       break;
 
     /* emergency replan */
-    case EMERGENCY_REPLAN:
+    case FSM_STATUS::EMERGENCY_REPLAN:
       if (!_is_safety_mode_enabled) {
         FSMChangeState(FSM_STATUS::NEW_PLAN);
       } else {
@@ -203,7 +203,15 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
       }
       break;
 
-    case EXIT:
+    /* reached the goal, clear the buffer and wait new goal */
+    case FSM_STATUS::GOAL_REACHED:
+      _is_goal_received  = false;  // reset goal
+      _is_exec_triggered = false;
+      _traj.clear();
+      FSMChangeState(FSM_STATUS::WAIT_TARGET);
+      break;
+
+    case FSM_STATUS::EXIT:
       break;
 
     default:
@@ -226,8 +234,8 @@ void Planner::FSMChangeState(FSM_STATUS new_state) {
  * This function is used for debugging purposes
  */
 void Planner::FSMPrintState(FSM_STATUS new_state) {
-  static string state_str[7] = {"INIT",      "WAIT_TARGET", "NEW_PLAN", "REPLAN",
-                                "EXEC_TRAJ", "EMERGENCY",   "EXIT"};
+  static string state_str[8] = {"INIT",      "WAIT_TARGET", "NEW_PLAN", "REPLAN",
+                                "EXEC_TRAJ", "EMERGENCY", "GOAL_REACHED",  "EXIT"};
   std::cout << termcolor::dark << termcolor::on_bright_green << "[FSM] status "
             << termcolor::bright_cyan << termcolor::on_white << state_str[static_cast<int>(_status)]
             << " >> " << state_str[static_cast<int>(new_state)] << termcolor::reset << std::endl;
@@ -244,6 +252,7 @@ void Planner::FSMPrintState(FSM_STATUS new_state) {
  */
 void Planner::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
   if (_is_exec_triggered) {
+    ROS_INFO("[PLANNER] Execution has already triggered");
     return;
   }
   ROS_WARN("[PLANNER] trigger received");
@@ -422,12 +431,12 @@ bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6,
   bool is_solved = false;
 
   /* initial optimize */
-  _traj_optimizer.reset(init, final, t, c);
+  _traj_optimizer->reset(init, final, t, c);
   double delta = 0.0;
-  is_solved    = _traj_optimizer.optimize(delta);
+  is_solved    = _traj_optimizer->optimize(delta);
 
   if (is_solved) {
-    _traj_optimizer.getTrajectory(&_traj);
+    _traj_optimizer->getTrajectory(&_traj);
   } else {
     ROS_ERROR("No solution found for these corridors!");
     // return false;
@@ -436,19 +445,19 @@ bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6,
   /* re-optimize */
   int I = 10;  // max iterations
   int i = 0;
-  while (!_traj_optimizer.isCorridorSatisfied(_traj, _config.max_vel_optimization,
-                                              _config.max_acc_optimization,
-                                              _config.delta_corridor) &&
+  while (!_traj_optimizer->isCorridorSatisfied(_traj, _config.max_vel_optimization,
+                                               _config.max_acc_optimization,
+                                               _config.delta_corridor) &&
          i++ < I) {
     try {
-      is_solved = _traj_optimizer.reOptimize();
+      is_solved = _traj_optimizer->reOptimize();
     } catch (int e) {
       ROS_ERROR("Optimizer crashed!");
       // return false;
     }
 
     if (is_solved) {
-      _traj_optimizer.getTrajectory(&_traj);
+      _traj_optimizer->getTrajectory(&_traj);
     } else {
       ROS_ERROR("No solution found for these corridors!");
       // return false;
@@ -545,12 +554,13 @@ bool Planner::localReplan(PLAN_TYPE type) {
     return false;
   } else if (astar_rst.size() == 1) {
     ROS_WARN("[A*] Goal reached!");
-    std::cout << "distance: " << std::pow(start_node->x - end_node->x, 2) +
-                                    std::pow(start_node->y - end_node->y, 2) +
-                                    std::pow(start_node->z - end_node->z, 2)
+    std::cout << "distance: "
+              << std::pow(start_node->x - end_node->x, 2) +
+                     std::pow(start_node->y - end_node->y, 2) +
+                     std::pow(start_node->z - end_node->z, 2)
               << std::endl;
     _last_plan_time = ros::Time::now();
-    return true;
+    return false;
   }
   // at least two nodes are generated to build a corridor
   std::vector<Eigen::Vector3d> points;

@@ -57,6 +57,8 @@
     <arg name="odom_pose_topic" value="$(arg pose_topic)" />
   </include>
 
-  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find rast_corridor_planning)/rviz/sim.rviz" />
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find rast_corridor_planning)/rviz/sim.rviz" >
+    <remap from="/move_base_simple/goal" to="$(arg pose_topic)" />
+  </node>
   <!--	<node pkg="rviz" type="rviz" name="rviz2" args="-d $(find dynamic_occpuancy_map)/rviz/future_status.rviz"/>-->
 </launch>

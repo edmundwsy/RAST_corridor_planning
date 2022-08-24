@@ -76,6 +76,7 @@ class CorridorMiniSnap {
   void   getTrajectory(Trajectory* traj);
   double getMinimumCost() const;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  typedef std::shared_ptr<CorridorMiniSnap> Ptr;
 };
 
 }  // namespace minisnap

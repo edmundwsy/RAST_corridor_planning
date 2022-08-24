@@ -47,7 +47,7 @@ target_link_libraries(traj_opt
     osqp::osqp
 )
 
-add_executable(test_minisnap src/test_minisnap.cpp)
+add_executable(test_minisnap test/test_minisnap.cpp)
 target_link_libraries(test_minisnap
     ${catkin_LIBRARIES}
     # minisnap

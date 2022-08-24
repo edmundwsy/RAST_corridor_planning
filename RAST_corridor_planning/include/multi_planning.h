@@ -69,10 +69,10 @@ struct PlannerConfig {
   double max_differentiated_current_a = 4.0;
   bool   is_rviz_map_center_locked    = false;
 
-  double goal_x = 60.0;
-  double goal_y = 0.0;
-  double goal_z = 1.5;
-  double waypoint_distance = 4.0;
+  double goal_x               = 60.0;
+  double goal_y               = 0.0;
+  double goal_z               = 1.5;
+  double waypoint_distance    = 4.0;
   double goal_reach_threshold = 1.0;
 
   PlannerConfig(const ros::NodeHandle &nh) {
@@ -111,7 +111,17 @@ struct PlannerConfig {
   }
 };
 
-enum FSM_STATUS { INIT, WAIT_TARGET, NEW_PLAN, REPLAN, EXEC_TRAJ, EMERGENCY_REPLAN, EXIT };
+enum class FSM_STATUS {
+  INIT,
+  WAIT_TARGET,
+  NEW_PLAN,
+  REPLAN,
+  EXEC_TRAJ,
+  EMERGENCY_REPLAN,
+  GOAL_REACHED,
+  EXIT
+};
+
 enum PLAN_TYPE {
   NEW,      /* plan a new trajectory from current position */
   CONTINUE, /* continue the current trajectory from the final position */
@@ -124,17 +134,17 @@ class Planner {
   FSM_STATUS _status;
 
   /********** TRAJECTORY PLANNING **********/
-  polynomial::CorridorMiniSnap _traj_optimizer; /** Trajectory optimizer */
-  polynomial::Trajectory       _traj;           /** Trajectory */
-  int                          _traj_idx;       /** Trajectory index */
-  ros::Time                    _last_plan_time;
-  ros::Time                    _traj_start_time;
-  ros::Time                    _traj_end_time;
-  double                       _traj_duration;
+  polynomial::CorridorMiniSnap::Ptr _traj_optimizer; /** Trajectory optimizer */
+  polynomial::Trajectory            _traj;           /** Trajectory */
+  int                               _traj_idx;       /** Trajectory index */
+  ros::Time                         _last_plan_time;
+  ros::Time                         _traj_start_time;
+  ros::Time                         _traj_end_time;
+  double                            _traj_duration;
 
   Astar _astar_planner; /** A* path finding */
 
-  Eigen::Vector3d    _goal; /** Goal position */
+  Eigen::Vector3d    _goal;     /** Goal position */
   Eigen::Vector3d    _odom_pos; /** quadrotor's current position */
   Eigen::Vector3d    _odom_vel; /** quadrotor's current velocity */
   Eigen::Vector3d    _odom_acc; /** quadrotor's current acceleration */
@@ -164,7 +174,7 @@ class Planner {
   double _traj_planning_start_time;
 
   /** @brief Risk map in map frame. usage: [spatial_index][temporal_index] */
-  float _future_risk[VOXEL_NUM][RISK_MAP_NUMBER];
+  float                       _future_risk[VOXEL_NUM][RISK_MAP_NUMBER];
   std::queue<Eigen::Vector3d> _waypoints; /** Waypoint queue */
 
   Eigen::Vector3d _p_store_for_em, _v_store_for_em, _a_store_for_em;
@@ -209,11 +219,11 @@ class Planner {
 
   bool localReplan(PLAN_TYPE type);
   bool globalPlan();
-  bool        setLocalGoal();
+  bool setLocalGoal();
   bool executeTrajectory();
   bool checkTimeLapse(double time);
 
-  inline bool isGoalReached(const Eigen::Vector3d& p, const Eigen::Vector3d& g);
+  inline bool isGoalReached(const Eigen::Vector3d &p, const Eigen::Vector3d &g);
 
   void FSMPrintState(FSM_STATUS new_state);
   void FSMChangeState(FSM_STATUS new_state);
