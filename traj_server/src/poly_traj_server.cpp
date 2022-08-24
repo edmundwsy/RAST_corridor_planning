@@ -33,7 +33,8 @@ ros::Time              _t_end;     // end time
 ros::Time              _t_cur;     // current time
 double                 _duration;  // duration of the trajectory in seconds
 
-double _last_yaw, _last_yawdot;
+double _last_yaw    = 0;
+double _last_yawdot = 0;
 
 Eigen::Vector3d _odom_pos;
 
@@ -41,76 +42,63 @@ std::queue<TrajPoint> _traj_queue;
 
 TrajSrvVisualizer::Ptr _vis_ptr;
 
-// TODO: calculate yaw angle
-
-void getYaw(const Eigen::Vector3d &p, const double &t, double &yaw, double &yaw_dot) {
+/**
+ * @brief Get the yaw angle and yaw dot
+ * 
+ * @param v velocity
+ * @param yaw return yaw angle
+ * @param yaw_dot return yaw dot
+ */
+void getYaw(const Eigen::Vector3d &v, double &yaw, double &yaw_dot) {
   constexpr double PI                  = 3.1415926;
   constexpr double YAW_DOT_MAX_PER_SEC = PI;
   constexpr double MAX_YAW_CHANGE      = YAW_DOT_MAX_PER_SEC * 0.01;
 
-  yaw    = 0;
-  yaw_dot = 0;
-  Eigen::Vector3d dir = _traj_queue.front().vel.normalized();
+  yaw                 = 0;
+  yaw_dot             = 0;
+  Eigen::Vector3d dir = v.normalized();
+  std::cout << "dir: " << dir.transpose() << std::endl;
 
   double yaw_temp = dir.norm() > 0.1 ? atan2(dir(1), dir(0)) : _last_yaw;
-  if (yaw_temp - _last_yaw > PI)
-  {
-    if (yaw_temp - _last_yaw - 2 * PI < -MAX_YAW_CHANGE)
-    {
+  std::cout << "yaw_temp: " << yaw_temp << std::endl;
+  if (yaw_temp - _last_yaw > PI) {
+    if (yaw_temp - _last_yaw - 2 * PI < -MAX_YAW_CHANGE) {
       yaw = _last_yaw - MAX_YAW_CHANGE;
-      if (yaw < -PI)
-        yaw += 2 * PI;
+      if (yaw < -PI) yaw += 2 * PI;
 
       yaw_dot = -YAW_DOT_MAX_PER_SEC;
-    }
-    else
-    {
+    } else {
       yaw = yaw_temp;
       if (yaw - _last_yaw > PI)
         yaw_dot = -YAW_DOT_MAX_PER_SEC;
       else
         yaw_dot = (yaw_temp - _last_yaw) / 0.01;
     }
-  }
-  else if (yaw_temp - _last_yaw < -PI)
-  {
-    if (yaw_temp - _last_yaw + 2 * PI > MAX_YAW_CHANGE)
-    {
+  } else if (yaw_temp - _last_yaw < -PI) {
+    if (yaw_temp - _last_yaw + 2 * PI > MAX_YAW_CHANGE) {
       yaw = _last_yaw + MAX_YAW_CHANGE;
-      if (yaw > PI)
-        yaw -= 2 * PI;
+      if (yaw > PI) yaw -= 2 * PI;
 
       yaw_dot = YAW_DOT_MAX_PER_SEC;
-    }
-    else
-    {
+    } else {
       yaw = yaw_temp;
       if (yaw - _last_yaw < -PI)
         yaw_dot = YAW_DOT_MAX_PER_SEC;
       else
         yaw_dot = (yaw_temp - _last_yaw) / 0.01;
     }
-  }
-  else
-  {
-    if (yaw_temp - _last_yaw < -MAX_YAW_CHANGE)
-    {
+  } else {
+    if (yaw_temp - _last_yaw < -MAX_YAW_CHANGE) {
       yaw = _last_yaw - MAX_YAW_CHANGE;
-      if (yaw < -PI)
-        yaw += 2 * PI;
+      if (yaw < -PI) yaw += 2 * PI;
 
       yaw_dot = -YAW_DOT_MAX_PER_SEC;
-    }
-    else if (yaw_temp - _last_yaw > MAX_YAW_CHANGE)
-    {
+    } else if (yaw_temp - _last_yaw > MAX_YAW_CHANGE) {
       yaw = _last_yaw + MAX_YAW_CHANGE;
-      if (yaw > PI)
-        yaw -= 2 * PI;
+      if (yaw > PI) yaw -= 2 * PI;
 
       yaw_dot = YAW_DOT_MAX_PER_SEC;
-    }
-    else
-    {
+    } else {
       yaw = yaw_temp;
       if (yaw - _last_yaw > PI)
         yaw_dot = -YAW_DOT_MAX_PER_SEC;
@@ -120,11 +108,11 @@ void getYaw(const Eigen::Vector3d &p, const double &t, double &yaw, double &yaw_
         yaw_dot = (yaw_temp - _last_yaw) / 0.01;
     }
   }
-  if (fabs(yaw - _last_yaw) <= MAX_YAW_CHANGE)
-  yaw = 0.5 * _last_yaw + 0.5 * yaw; // nieve LPF
-  yaw_dot = 0.5 * _last_yawdot + 0.5 * yaw_dot;
-  _last_yaw = yaw;
+  if (fabs(yaw - _last_yaw) <= MAX_YAW_CHANGE) yaw = 0.5 * _last_yaw + 0.5 * yaw;  // nieve LPF
+  yaw_dot      = 0.5 * _last_yawdot + 0.5 * yaw_dot;
+  _last_yaw    = yaw;
   _last_yawdot = yaw_dot;
+  std::cout << "yaw: " << yaw << " yaw_dot: " << yaw_dot << std::endl;
 }
 
 /** publish position command for gazebo simulation and real world test */
@@ -193,7 +181,7 @@ void fillTrajQueue(const polynomial::Trajectory &traj) {
     vel = traj.getVel(t);
     acc = traj.getAcc(t);
     jrk = traj.getJrk(t);
-    getYaw(pos, t, yaw, yaw_dot);
+    getYaw(vel, yaw, yaw_dot);
 
     TrajPoint p = {_t_str + ros::Duration(t), pos, vel, acc, jrk, yaw, yaw_dot};
     _traj_queue.push(p);
