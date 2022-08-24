@@ -1,5 +1,5 @@
 <launch>
-  <env name="ROSCONSOLE_FORMAT" value="[${severity}] [${time: %H:%M:%S%F}] [${node}]: ${message}"/>
+  <env name="ROSCONSOLE_FORMAT" value="[${severity}][${time: %H:%M:%S%F}][${node}]:${message}"/>
   <arg name="obj_num" value="10" />
   <arg name="drone_id" value="0" />
 
@@ -12,6 +12,9 @@
   <arg name="init_x" value="-10" />
   <arg name="init_y" value="0.0" />
   <arg name="init_z" value="0.5" />
+  <arg name="goal_x" value="15" />
+  <arg name="goal_y" value="0.0" />
+  <arg name="goal_z" value="0.5" />
 
   <group ns="uav$(arg drone_id)">
     <!-- <node pkg="rast_corridor_planning" name="mapping" type="mapping" output="screen"> -->
@@ -20,16 +23,19 @@
       <remap from="/camera_front/depth/points" to="pcl_render_node/cloud" />
     </node>
 
-    <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node" output="screen">
-    <!-- <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node"> -->
-      <remap from="~future_risk_full_array" to="mapping/future_risk_full_array" />
-      <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
-    </node>
-
     <node pkg="traj_server" name="traj_server" type="poly_traj_server" output="screen">
       <remap from="~trajectory" to="planning/trajectory" />
       <remap from="/position_cmd" to="planning/pos_cmd" />
       <remap from="~odom" to="$(arg pose_topic)" />
+    </node>
+
+    <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node" output="screen">
+    <!-- <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node"> -->
+      <remap from="~future_risk_full_array" to="mapping/future_risk_full_array" />
+      <param name="p_goal_x" value="$(arg goal_x)" />
+      <param name="p_goal_y" value="$(arg goal_y)" />
+      <param name="p_goal_z" value="$(arg goal_z)" />
+      <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
     </node>
 
   </group>

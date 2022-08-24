@@ -1,7 +1,7 @@
 # Goal
-p_goal_x: 40
+p_goal_x: 15
 p_goal_y: 0
-p_goal_z: 1.2
+p_goal_z: 0
 
 
 # A*

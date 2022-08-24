@@ -78,6 +78,9 @@ void Planner::init() {
   _is_odom_received       = false;
   _is_exec_triggered      = false;
   _is_state_locked        = false;
+  _is_goal_received       = true;
+  
+  _goal << _config.goal_x, _config.goal_y, _config.goal_z;
 
   /*** STATE ***/
   _status          = FSM_STATUS::INIT;
@@ -85,15 +88,19 @@ void Planner::init() {
   ROS_INFO("[PLANNING] Initialization complete");
 }
 
+/** ***********************************************************************************************
+ * State Machine
+ * ***********************************************************************************************/
+
 /**
  * @brief finite state machine for planning
  *  States:
  * - INIT: waiting for input information
  * - WAIT_TARGET: waiting for target information
- * - NEW_PLAN: planning a new trajectory
- * - REPLAN: replanning based on current trajectory
+ * - NEW_PLAN: planning a new trajectory from zero velocity
+ * - REPLAN: replanning at the end of current trajectory
  * - EXEC_TRAJ: executing the trajectory
- * - EMERGENCY_STOP: emergency stop
+ * - EMERGENCY_REPLAN: replan the trajectory from current position
  * - EXIT: exit the planner
  * @param event
  */
@@ -107,7 +114,8 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
 
     /* wait for callback */
     case WAIT_TARGET:
-      if (_is_future_risk_updated && _is_odom_received) {
+      if (_is_future_risk_updated && _is_odom_received && _is_goal_received) {
+        globalPlan();
         FSMChangeState(FSM_STATUS::NEW_PLAN);
       } else {
         ROS_INFO_ONCE("[PLANNER] Waiting for odom[%d] and future risk[%d] ", _is_odom_received,
@@ -125,12 +133,13 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
           is_success = localReplan(PLAN_TYPE::NEW);
         }
         // bool is_safe    = checkTrajectoryRisk(_traj);
-        bool is_safe = true;         // TODO: checkTrajectoryRisk(_traj);
+        bool is_safe = true;
         if (is_success && is_safe) { /* publish trajectory */
           publishTrajectory(_traj);
           ROS_WARN("%f", _traj_start_time.toSec());
         }
-        if (_is_exec_triggered) {
+
+        if (_is_exec_triggered) { /* execute trajectory */
           FSMChangeState(FSM_STATUS::EXEC_TRAJ);
         }
       }
@@ -141,10 +150,17 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
       if (!_is_future_risk_updated || !_is_odom_received) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       } else {
-        // bool is_safe            = checkTrajectoryRisk(_traj);
+        std::cout << termcolor::bright_red << "Target: " << _waypoints.front().transpose()
+                  << " now " << _odom_pos.transpose() << std::endl;
+        bool is_safe            = checkTrajectoryRisk(_traj);
         bool is_replan_required = executeTrajectory();
         if (is_replan_required) { /* replan */
           FSMChangeState(FSM_STATUS::REPLAN);
+        } else if (!is_safe) {
+          FSMChangeState(FSM_STATUS::EMERGENCY_REPLAN);
+        } else if (isGoalReached(_odom_pos, _goal)) {
+          FSMChangeState(FSM_STATUS::WAIT_TARGET);
+          _is_goal_received = false;  // reset goal
         }
       }
       break;
@@ -155,21 +171,35 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       } else {
         bool is_success = localReplan(PLAN_TYPE::CONTINUE);
-        bool is_safe    = true;  // TODO: checkTrajectoryRisk(_traj);
+        // bool is_safe    = true;  // TODO: checkTrajectoryRisk(_traj);
         // bool is_safe    = checkTrajectoryRisk(_traj);
-        if (is_success && is_safe) { /* publish trajectory */
+        if (is_success) { /* publish trajectory */
           publishTrajectory(_traj);
           FSMChangeState(FSM_STATUS::EXEC_TRAJ);
         } else {
-          ROS_WARN("Replanning failed");
+          bool is_finished = isGoalReached(_odom_pos, _goal);
+          if (is_finished) {
+            FSMChangeState(FSM_STATUS::WAIT_TARGET);
+            _is_goal_received = false;  // reset goal
+          } else {
+            ROS_WARN("Replanning failed");
+          }
         }
       }
       break;
 
-    /* emergency stop */
-    case EMERGENCY_STOP:
+    /* emergency replan */
+    case EMERGENCY_REPLAN:
       if (!_is_safety_mode_enabled) {
         FSMChangeState(FSM_STATUS::NEW_PLAN);
+      } else {
+        bool is_success = localReplan(PLAN_TYPE::EMERGENCY);
+        if (is_success) {
+          publishTrajectory(_traj);
+          FSMChangeState(FSM_STATUS::EXEC_TRAJ);
+        } else {
+          ROS_WARN("Emergency replanning failed");
+        }
       }
       break;
 
@@ -196,13 +226,22 @@ void Planner::FSMChangeState(FSM_STATUS new_state) {
  * This function is used for debugging purposes
  */
 void Planner::FSMPrintState(FSM_STATUS new_state) {
-  static string state_str[7] = {"INIT",      "WAIT_TARGET",    "NEW_PLAN", "REPLAN",
-                                "EXEC_TRAJ", "EMERGENCY_STOP", "EXIT"};
+  static string state_str[7] = {"INIT",      "WAIT_TARGET", "NEW_PLAN", "REPLAN",
+                                "EXEC_TRAJ", "EMERGENCY",   "EXIT"};
   std::cout << termcolor::dark << termcolor::on_bright_green << "[FSM] status "
             << termcolor::bright_cyan << termcolor::on_white << state_str[static_cast<int>(_status)]
             << " >> " << state_str[static_cast<int>(new_state)] << termcolor::reset << std::endl;
 }
 
+/** ***********************************************************************************************
+ * Callbacks
+ * ***********************************************************************************************/
+
+/**
+ * @brief Trigger can be used to start the planner and receive the goal position
+ *
+ * @param msg
+ */
 void Planner::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
   if (_is_exec_triggered) {
     return;
@@ -211,6 +250,13 @@ void Planner::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
   _traj_start_time   = ros::Time::now() + ros::Duration(0.1);
   _traj_end_time     = _traj_start_time + ros::Duration(_traj_duration);
   _is_exec_triggered = true;
+
+  if (!_is_goal_received) {
+    _goal.x()         = msg->pose.position.x;
+    _goal.y()         = msg->pose.position.y;
+    _goal.z()         = msg->pose.position.z;
+    _is_goal_received = true;
+  }
 }
 
 /**
@@ -313,25 +359,51 @@ void Planner::VelCallback(const geometry_msgs::TwistStamped& msg) {
   _prev_vz = _odom_vel(2);
 }
 
+/******************************************************************************************
+ * Planning behaviors
+ ******************************************************************************************/
 /**
- * @brief get the index of the voxel that contains the given position in the map
- *
- * @param p query position
- * @param c map center
- * @return int index of voxel in the map
+ * @brief plan global trajectory as a straight line, push waypoints to the queue
+ * Only used for giving multiple waypoints to the planner
  */
-int Planner::getPointSpatialIndexInMap(const Eigen::Vector3d& p, const Eigen::Vector3d& c) {
-  int x = static_cast<int>((p(0) - c(0) + _map_half_length) / VOXEL_RESOLUTION);
-  int y = static_cast<int>((p(1) - c(1) + _map_half_width) / VOXEL_RESOLUTION);
-  int z = static_cast<int>((p(2) - c(2) + _map_half_height) / VOXEL_RESOLUTION);
+bool Planner::globalPlan() {
+  // Eigen::Vector3d glb_goal, mdl_wpt;
+  // glb_goal << _config.goal_x, _config.goal_y, _config.goal_z;
+  // mdl_wpt = _odom_pos;
+  // while ((glb_goal - mdl_wpt).norm() > _config.waypoint_distance) {
+  //   mdl_wpt += _config.waypoint_distance * (glb_goal - _odom_pos).normalized();
+  //   std::cout << termcolor::red << "mdl_wpt: " << mdl_wpt.transpose() << std::endl;
+  //   _waypoints.push(mdl_wpt);
+  // }
+  // _waypoints.push(glb_goal);
+  _waypoints.push(_goal);
+  return true;
+}
 
-  int idx = z * _map_z_limit + y * _map_y_limit + x * _map_x_limit;
+/**
+ * @brief return true when current trajectory is almost finished, drone should replan a new
+ * trajectory
+ *
+ * @return true current trajectory is almost finished
+ * @return false current trajectory is still valid
+ */
+bool Planner::executeTrajectory() {
+  ROS_ASSERT_MSG(_waypoints.size() > 0, "[GlbPlan] No waypoints in the queue");
+  ros::Time now = ros::Time::now();
+  // double    total   = _traj_end_time.toSec() - _last_plan_time.toSec();
+  double          elapsed = now.toSec() - _last_plan_time.toSec();
+  Eigen::Vector3d end     = _waypoints.front();
+  Eigen::Vector3d err     = end - _odom_pos;
+  std::cout << termcolor::red << "err: " << err.norm() << std::endl;
 
-  if (idx >= 0 && idx < _map_size) {
-    return idx;
+  if (elapsed > 1.0) {
+  } else if (err.norm() < 1.0) {
+    ROS_INFO("[GlbPlan] Reached waypoint");
+    _waypoints.pop();
   } else {
-    return -1;
+    return false;
   }
+  return true;
 }
 
 /**
@@ -391,18 +463,17 @@ bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6,
  * @param type
  * NEW,      plan a new trajectory from current position
  * CONTINUE, continue the current trajectory from the final position
- * EMERGENCY emergency replan from current position
+ * EMERGENCY_REPLAN emergency replan from current position
  * @return true if a trajectory is planned successfully
  * @return false
  */
 bool Planner::localReplan(PLAN_TYPE type) {
-  bool is_success = false;
-
   /** @brief  the start position of the planned trajectory in map frame*/
   Eigen::Vector3d p_start, v_start, a_start;
 
   /** @brief map center when trajectory planning start */
   Eigen::Vector3d c_start = _map_center;
+  Eigen::Vector3d g       = _waypoints.front();
 
   /**********************************************************/
   /***** STEP1: Clarify Initial States *****/
@@ -452,8 +523,7 @@ bool Planner::localReplan(PLAN_TYPE type) {
 
   Node* start_node =
       new Node(0, p_start.x(), p_start.y(), p_start.z(), v_start.x(), v_start.y(), v_start.z());
-  Node* end_node = new Node(0, _config.goal_x - c_start(0), _config.goal_y - c_start(1),
-                            _config.goal_z - c_start(2), 0, 0, 0);
+  Node* end_node = new Node(0, g(0) - c_start(0), g(1) - c_start(1), g(2) - c_start(2), 0, 0, 0);
 
   std::vector<Node*> astar_rst;  // result of A* planning
 
@@ -468,193 +538,168 @@ bool Planner::localReplan(PLAN_TYPE type) {
   std::vector<TrajPoint> searched_points;
   _astar_planner.getSearchedPoints(searched_points);
   double a_star_time = ros::Time::now().toSec() - astar_planning_start_time;
-  // ROS_INFO("[PLANNING] A* takes %lf s", a_star_time);
+  ROS_INFO("[A*] takes %lf s", a_star_time);
 
-  if (astar_rst.size() <= 1 || astar_rst.size() >= 10) {
-    // ROS_WARN("A* planning failed!");
-    return is_success;
-  } else {
-    // at least two nodes are generated to build a corridor
-    std::vector<Eigen::Vector3d> points;
-    for (auto& p : astar_rst) {
-      Eigen::Vector3d pt;
-      pt.x() = p->x + _map_center.x();
-      pt.y() = p->y + _map_center.y();
-      pt.z() = p->z + _map_center.z();
-      points.push_back(pt);
+  if (astar_rst.size() == 0 || astar_rst.size() >= 10) {
+    ROS_WARN("[A*] planning failed!");
+    return false;
+  } else if (astar_rst.size() == 1) {
+    ROS_WARN("[A*] Goal reached!");
+    std::cout << "distance: " << std::pow(start_node->x - end_node->x, 2) +
+                                    std::pow(start_node->y - end_node->y, 2) +
+                                    std::pow(start_node->z - end_node->z, 2)
+              << std::endl;
+    _last_plan_time = ros::Time::now();
+    return true;
+  }
+  // at least two nodes are generated to build a corridor
+  std::vector<Eigen::Vector3d> points;
+  for (auto& p : astar_rst) {
+    Eigen::Vector3d pt;
+    pt.x() = p->x + _map_center.x();
+    pt.y() = p->y + _map_center.y();
+    pt.z() = p->z + _map_center.z();
+    points.push_back(pt);
+  }
+
+  // Set reference direction angle
+  _ref_direction_angle = atan2(points[1].y() - points[0].y(), points[1].x() - points[0].x());
+
+  // Restore trajectories and publish
+  vector<Eigen::Vector3d> a_star_traj_points_to_show;
+
+  for (int i = 0; i < astar_rst.size() - 1; ++i) {
+    auto node1 = astar_rst[i];
+    auto node2 = astar_rst[i + 1];
+
+    float ax = (node2->vx - node1->vx) / _astar_planner.time_step_node;
+    float ay = (node2->vy - node1->vy) / _astar_planner.time_step_node;
+    float az = (node2->vz - node1->vz) / _astar_planner.time_step_node;
+    auto  point_num_one_piece =
+        (int)(_astar_planner.time_step_node / _astar_planner.time_step_trajectory);
+
+    for (int j = 1; j < point_num_one_piece; ++j) {
+      // Skip the first point. Which is the same as the last point on the last piece.
+      float t = (float)j * _astar_planner.time_step_trajectory;
+
+      Eigen::Vector3d p;
+      p.x() = _map_center.x() + node1->x + node1->vx * t + 0.5 * ax * t * t;
+      p.y() = _map_center.y() + node1->y + node1->vy * t + 0.5 * ay * t * t;
+      p.z() = _map_center.z() + node1->z + node1->vz * t + 0.5 * az * t * t;
+
+      a_star_traj_points_to_show.push_back(p);
     }
+  }
+  _vis->visualizeAstarPath(a_star_traj_points_to_show);
 
-    // Set reference direction angle
-    _ref_direction_angle = atan2(points[1].y() - points[0].y(), points[1].x() - points[0].x());
+  /************************************************************/
+  /***** STEP3: Risk-constrained corridor in global frame *****/
+  /************************************************************/
 
-    // Restore trajectories and publish
-    vector<Eigen::Vector3d> a_star_traj_points_to_show;
+  double            corridor_start_time = ros::Time::now().toSec();
+  vector<Corridor*> corridors;
+  _astar_planner.findCorridors(corridors, 2);
+  double corridor_time = ros::Time::now().toSec() - corridor_start_time;
+  ROS_INFO("[PLANNING]: corridor generation takes %lf s", corridor_time);
 
-    for (int i = 0; i < astar_rst.size() - 1; ++i) {
-      auto node1 = astar_rst[i];
-      auto node2 = astar_rst[i + 1];
+  /// Publish corridors to optimization planner
+  decomp_ros_msgs::DynPolyhedronArray crd_msg;
+  crd_msg.header.stamp = ros::Time::now();
+  crd_msg.start_pos.x  = astar_rst[0]->x + _map_center.x();
+  crd_msg.start_pos.y  = astar_rst[0]->y + _map_center.y();
+  crd_msg.start_pos.z  = astar_rst[0]->z + _map_center.z();
+  crd_msg.start_vel.x  = astar_rst[0]->vx;
+  crd_msg.start_vel.y  = astar_rst[0]->vy;
+  crd_msg.start_vel.z  = astar_rst[0]->vz;
+  crd_msg.start_acc.x  = a_start.x();
+  crd_msg.start_acc.y  = a_start.y();
+  crd_msg.start_acc.z  = a_start.z();
 
-      float ax = (node2->vx - node1->vx) / _astar_planner.time_step_node;
-      float ay = (node2->vy - node1->vy) / _astar_planner.time_step_node;
-      float az = (node2->vz - node1->vz) / _astar_planner.time_step_node;
-      auto  point_num_one_piece =
-          (int)(_astar_planner.time_step_node / _astar_planner.time_step_trajectory);
+  crd_msg.end_pos.x = astar_rst[astar_rst.size() - 1]->x + _map_center.x();
+  crd_msg.end_pos.y = astar_rst[astar_rst.size() - 1]->y + _map_center.y();
+  crd_msg.end_pos.z = astar_rst[astar_rst.size() - 1]->z + _map_center.z();
+  crd_msg.end_vel.x = astar_rst[astar_rst.size() - 1]->vx;
+  crd_msg.end_vel.y = astar_rst[astar_rst.size() - 1]->vy;
+  crd_msg.end_vel.z = astar_rst[astar_rst.size() - 1]->vz;
 
-      for (int j = 1; j < point_num_one_piece; ++j) {
-        // Skip the first point. Which is the same as the last point on the last piece.
-        float t = (float)j * _astar_planner.time_step_trajectory;
+  crd_msg.end_acc.x = 0.f;
+  crd_msg.end_acc.y = 0.f;
+  crd_msg.end_acc.z = 0.f;
 
-        Eigen::Vector3d p;
-        p.x() = _map_center.x() + node1->x + node1->vx * t + 0.5 * ax * t * t;
-        p.y() = _map_center.y() + node1->y + node1->vy * t + 0.5 * ay * t * t;
-        p.z() = _map_center.z() + node1->z + node1->vz * t + 0.5 * az * t * t;
+  /** convert corridor (Corridor) to polyhedra (Eigen::Matrix) and publish **/
+  std::vector<double>                       time_alloc;
+  std::vector<Eigen::Matrix<double, 6, -1>> polyhedra;
+  polyhedra.reserve(corridors.size());
+  time_alloc.reserve(corridors.size());
 
-        a_star_traj_points_to_show.push_back(p);
-      }
+  for (auto& corridor : corridors) {
+    decomp_ros_msgs::DynPolyhedron dyn_crd;
+    Eigen::MatrixXd                polygon;
+    polygon.resize(6, corridor->envelope.surfaces.size());
+    dyn_crd.duration = _config.a_star_search_time_step;
+    time_alloc.push_back(static_cast<double>(_config.a_star_search_time_step));
+    int i = 0;
+    for (const auto& surface : corridor->envelope.surfaces) {
+      geometry_msgs::Point point;
+      geometry_msgs::Point normal;
+      point.x  = surface.point.x + _map_center.x();
+      point.y  = surface.point.y + _map_center.y();
+      point.z  = surface.point.z + _map_center.z();
+      normal.x = surface.normal.x;
+      normal.y = surface.normal.y;
+      normal.z = surface.normal.z;
+
+      polygon.col(i).tail<3>() << point.x, point.y, point.z;
+      polygon.col(i).head<3>() << normal.x, normal.y, normal.z;
+      dyn_crd.points.push_back(point);
+      dyn_crd.normals.push_back(normal);
+      i++;
     }
-    _vis->visualizeAstarPath(a_star_traj_points_to_show);
+    polyhedra.push_back(polygon);
+    crd_msg.dyn_polyhedrons.push_back(dyn_crd);
+  }
+  _corridor_pub.publish(crd_msg);
+  _vis->visualizeCorridors(polyhedra, _odom_pos);
 
-    /************************************************************/
-    /***** STEP3: Risk-constrained corridor in global frame *****/
-    /************************************************************/
+  /**********************************************************/
+  /***** STEP4: Trajectory Optimization in global frame *****/
+  /**********************************************************/
 
-    double            corridor_start_time = ros::Time::now().toSec();
-    vector<Corridor*> corridors;
-    _astar_planner.findCorridors(corridors, 2);
-    double corridor_time = ros::Time::now().toSec() - corridor_start_time;
-    ROS_INFO("[PLANNING]: corridor generation takes %lf s", corridor_time);
+  double optimization_start_time = ros::Time::now().toSec();
 
-    /// Publish corridors to optimization planner
-    decomp_ros_msgs::DynPolyhedronArray crd_msg;
-    crd_msg.header.stamp = ros::Time::now();
-    crd_msg.start_pos.x  = astar_rst[0]->x + _map_center.x();
-    crd_msg.start_pos.y  = astar_rst[0]->y + _map_center.y();
-    crd_msg.start_pos.z  = astar_rst[0]->z + _map_center.z();
-    crd_msg.start_vel.x  = astar_rst[0]->vx;
-    crd_msg.start_vel.y  = astar_rst[0]->vy;
-    crd_msg.start_vel.z  = astar_rst[0]->vz;
-    crd_msg.start_acc.x  = a_start.x();
-    crd_msg.start_acc.y  = a_start.y();
-    crd_msg.start_acc.z  = a_start.z();
+  /** extract init final states from the corridors **/
+  Eigen::Matrix3d init_state, final_state;
+  init_state.col(0) << astar_rst[0]->x + _map_center.x(), astar_rst[0]->y + _map_center.y(),
+      astar_rst[0]->z + _map_center.z();
+  init_state.col(1) << astar_rst[0]->vx, astar_rst[0]->vy, astar_rst[0]->vz;
+  init_state.col(2) << a_start.x(), a_start.y(), a_start.z();
 
-    crd_msg.end_pos.x = astar_rst[astar_rst.size() - 1]->x + _map_center.x();
-    crd_msg.end_pos.y = astar_rst[astar_rst.size() - 1]->y + _map_center.y();
-    crd_msg.end_pos.z = astar_rst[astar_rst.size() - 1]->z + _map_center.z();
-    crd_msg.end_vel.x = astar_rst[astar_rst.size() - 1]->vx;
-    crd_msg.end_vel.y = astar_rst[astar_rst.size() - 1]->vy;
-    crd_msg.end_vel.z = astar_rst[astar_rst.size() - 1]->vz;
+  int n = astar_rst.size() - 1;
+  final_state.col(0) << astar_rst[n]->x + _map_center.x(), astar_rst[n]->y + _map_center.y(),
+      astar_rst[n]->z + _map_center.z();
+  final_state.col(1) << astar_rst[n]->vx, astar_rst[n]->vy, astar_rst[n]->vz;
+  final_state.col(2) << 0.f, 0.f, 0.f;
 
-    crd_msg.end_acc.x = 0.f;
-    crd_msg.end_acc.y = 0.f;
-    crd_msg.end_acc.z = 0.f;
+  Eigen::Vector3d init_pos  = init_state.col(0);
+  Eigen::Vector3d final_pos = final_state.col(0);
+  _vis->visualizeStartGoal(init_pos);
+  _vis->visualizeStartGoal(final_pos);
 
-    /** convert corridor (Corridor) to polyhedra (Eigen::Matrix) and publish **/
-    std::vector<double>                       time_alloc;
-    std::vector<Eigen::Matrix<double, 6, -1>> polyhedra;
-    polyhedra.reserve(corridors.size());
-    time_alloc.reserve(corridors.size());
+  /** apply optimization **/
+  bool is_success = OptimizationInCorridors(polyhedra, time_alloc, init_state, final_state);
+  // _prev_opt_end_time = ros::Time::now().toSec();
+  ROS_INFO("[PLANNING] trajectory optimization takes %lf s",
+           ros::Time::now().toSec() - optimization_start_time);
 
-    for (auto& corridor : corridors) {
-      decomp_ros_msgs::DynPolyhedron dyn_crd;
-      Eigen::MatrixXd                polygon;
-      polygon.resize(6, corridor->envelope.surfaces.size());
-      dyn_crd.duration = _config.a_star_search_time_step;
-      time_alloc.push_back(static_cast<double>(_config.a_star_search_time_step));
-      int i = 0;
-      for (const auto& surface : corridor->envelope.surfaces) {
-        geometry_msgs::Point point;
-        geometry_msgs::Point normal;
-        point.x  = surface.point.x + _map_center.x();
-        point.y  = surface.point.y + _map_center.y();
-        point.z  = surface.point.z + _map_center.z();
-        normal.x = surface.normal.x;
-        normal.y = surface.normal.y;
-        normal.z = surface.normal.z;
-
-        polygon.col(i).tail<3>() << point.x, point.y, point.z;
-        polygon.col(i).head<3>() << normal.x, normal.y, normal.z;
-        dyn_crd.points.push_back(point);
-        dyn_crd.normals.push_back(normal);
-        i++;
-      }
-      polyhedra.push_back(polygon);
-      crd_msg.dyn_polyhedrons.push_back(dyn_crd);
-    }
-    _corridor_pub.publish(crd_msg);
-    _vis->visualizeCorridors(polyhedra, _odom_pos);
-
-    /**********************************************************/
-    /***** STEP4: Trajectory Optimization in global frame *****/
-    /**********************************************************/
-
-    double optimization_start_time = ros::Time::now().toSec();
-
-    /** extract init final states from the corridors **/
-    Eigen::Matrix3d init_state, final_state;
-    init_state.col(0) << astar_rst[0]->x + _map_center.x(), astar_rst[0]->y + _map_center.y(),
-        astar_rst[0]->z + _map_center.z();
-    init_state.col(1) << astar_rst[0]->vx, astar_rst[0]->vy, astar_rst[0]->vz;
-    init_state.col(2) << a_start.x(), a_start.y(), a_start.z();
-
-    int n = astar_rst.size() - 1;
-    final_state.col(0) << astar_rst[n]->x + _map_center.x(), astar_rst[n]->y + _map_center.y(),
-        astar_rst[n]->z + _map_center.z();
-    final_state.col(1) << astar_rst[n]->vx, astar_rst[n]->vy, astar_rst[n]->vz;
-    final_state.col(2) << 0.f, 0.f, 0.f;
-
-    Eigen::Vector3d init_pos  = init_state.col(0);
-    Eigen::Vector3d final_pos = final_state.col(0);
-    _vis->visualizeStartGoal(init_pos);
-    _vis->visualizeStartGoal(final_pos);
-
-    /** apply optimization **/
-    is_success = OptimizationInCorridors(polyhedra, time_alloc, init_state, final_state);
-    // _prev_opt_end_time = ros::Time::now().toSec();
-    ROS_INFO("[PLANNING] trajectory optimization takes %lf s",
-             ros::Time::now().toSec() - optimization_start_time);
-
-    if (is_success) { /* visualize trajectory */
-      double v_max   = _traj.getMaxVelRate();
-      _traj_duration = _traj.getDuration();
-      Eigen::Vector3d zero(0, 0, 0);
-      _vis->visualizeTrajectory(zero, _traj, v_max);
-      _traj_end_time = _traj_start_time + ros::Duration(_traj_duration);
-    }
-  }  // end of if a_star valid
+  if (is_success) { /* visualize trajectory */
+    double v_max   = _traj.getMaxVelRate();
+    _traj_duration = _traj.getDuration();
+    Eigen::Vector3d zero(0, 0, 0);
+    _vis->visualizeTrajectory(zero, _traj, v_max);
+    _traj_end_time = _traj_start_time + ros::Duration(_traj_duration);
+  }
   _last_plan_time = ros::Time::now();
-
   return is_success;
-}
-
-/**
- * @brief return true when current trajectory is almost finished, drone should replan a new
- * trajectory
- *
- * @return true current trajectory is almost finished
- * @return false current trajectory is still valid
- */
-bool Planner::executeTrajectory() {
-  ros::Time now = ros::Time::now();
-  // double    total   = _traj_end_time.toSec() - _last_plan_time.toSec();
-  double          elapsed = now.toSec() - _last_plan_time.toSec();
-  Eigen::Vector3d end     = _traj.getPos(_traj.getDuration());
-  Eigen::Vector3d err     = end - _odom_pos;
-  // if (elapsed > 0.8 * total) {
-  if ((_odom_pos - end).norm() < 1.0 || elapsed > 1.0) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-bool Planner::checkTimeLapse(double time) {
-  ros::Time now     = ros::Time::now();
-  double    elapsed = now.toSec() - _last_plan_time.toSec();
-  if (elapsed > time) {
-    return true;
-  } else {
-    return false;
-  }
 }
 
 /**
@@ -689,6 +734,39 @@ void Planner::publishTrajectory(const polynomial::Trajectory& traj) {
   _traj_pub.publish(poly_msg);
 }
 
+/**********************************************************
+ * Utility Functions
+ * ********************************************************/
+bool Planner::checkTimeLapse(double time) {
+  ros::Time now     = ros::Time::now();
+  double    elapsed = now.toSec() - _last_plan_time.toSec();
+  if (elapsed > time) {
+    return true;
+  } else {
+    return false;
+  }
+}
+/**
+ * @brief get the index of the voxel that contains the given position in the map
+ *
+ * @param p query position
+ * @param c map center
+ * @return int index of voxel in the map
+ */
+int Planner::getPointSpatialIndexInMap(const Eigen::Vector3d& p, const Eigen::Vector3d& c) {
+  int x = static_cast<int>((p(0) - c(0) + _map_half_length) / VOXEL_RESOLUTION);
+  int y = static_cast<int>((p(1) - c(1) + _map_half_width) / VOXEL_RESOLUTION);
+  int z = static_cast<int>((p(2) - c(2) + _map_half_height) / VOXEL_RESOLUTION);
+
+  int idx = z * _map_z_limit + y * _map_y_limit + x * _map_x_limit;
+
+  if (idx >= 0 && idx < _map_size) {
+    return idx;
+  } else {
+    return -1;
+  }
+}
+
 /**
  * @brief
  *
@@ -703,10 +781,22 @@ double Planner::getMaxRisk(const polynomial::Trajectory& traj) {
     Eigen::Vector3d p     = traj.getPos(t);
     int             idx   = getPointSpatialIndexInMap(p - _map_center, _map_center);
     double          r_tmp = _future_risk[idx][0];
-    // TODO ask risk map time step, use current time step by now
     if (r_tmp > r) {
       r = r_tmp;
     }
+  }
+  return r;
+}
+
+double Planner::getTotalRisk(const polynomial::Trajectory& traj) {
+  double r = 0.0;
+  double T = traj.getDuration();
+  T        = (T > 1.0) ? T : 1.0;
+  for (double t = 0.0; t < T; t += 0.1) {
+    Eigen::Vector3d p     = traj.getPos(t);
+    int             idx   = getPointSpatialIndexInMap(p - _map_center, _map_center);
+    double          r_tmp = _future_risk[idx][0];
+    r += r_tmp;
   }
   return r;
 }
@@ -719,13 +809,26 @@ double Planner::getMaxRisk(const polynomial::Trajectory& traj) {
  * @return false this trajectory is not safe
  */
 bool Planner::checkTrajectoryRisk(const polynomial::Trajectory& traj) {
-  double risk = getMaxRisk(traj);
+  // double risk = getMaxRisk(traj);
+  double risk = getTotalRisk(traj);
   std::cout << termcolor::yellow << "Risk: " << risk << termcolor::reset << std::endl;
   if (risk > _config.risk_threshold_motion_primitive) {
     return false;
   } else {
     return true;
   }
+}
+
+/**
+ * @brief check if the given position close to the goal by checking euclidean distance
+ *
+ * @param p Eigen::Vector3d given position
+ * @param g Eigen::Vector3d goal position
+ * @return true input position is close to the goal
+ * @return false
+ */
+inline bool Planner ::isGoalReached(const Eigen::Vector3d& p, const Eigen::Vector3d& g) {
+  return ((p - g).norm() < _config.goal_reach_threshold) ? true : false;
 }
 
 }  // namespace planner

@@ -72,6 +72,8 @@ struct PlannerConfig {
   double goal_x = 60.0;
   double goal_y = 0.0;
   double goal_z = 1.5;
+  double waypoint_distance = 4.0;
+  double goal_reach_threshold = 1.0;
 
   PlannerConfig(const ros::NodeHandle &nh) {
     nh.getParam("max_vel", max_vel);
@@ -102,12 +104,14 @@ struct PlannerConfig {
     nh.getParam("p_goal_x", goal_x);
     nh.getParam("p_goal_y", goal_y);
     nh.getParam("p_goal_z", goal_z);
+    nh.getParam("waypoint_distance", waypoint_distance);
+    nh.getParam("goal_reach_threshold", goal_reach_threshold);
 
     nh.getParam("rviz_map_center_locked", is_rviz_map_center_locked);
   }
 };
 
-enum FSM_STATUS { INIT, WAIT_TARGET, NEW_PLAN, REPLAN, EXEC_TRAJ, EMERGENCY_STOP, EXIT };
+enum FSM_STATUS { INIT, WAIT_TARGET, NEW_PLAN, REPLAN, EXEC_TRAJ, EMERGENCY_REPLAN, EXIT };
 enum PLAN_TYPE {
   NEW,      /* plan a new trajectory from current position */
   CONTINUE, /* continue the current trajectory from the final position */
@@ -130,6 +134,7 @@ class Planner {
 
   Astar _astar_planner; /** A* path finding */
 
+  Eigen::Vector3d    _goal; /** Goal position */
   Eigen::Vector3d    _odom_pos; /** quadrotor's current position */
   Eigen::Vector3d    _odom_vel; /** quadrotor's current velocity */
   Eigen::Vector3d    _odom_acc; /** quadrotor's current acceleration */
@@ -160,6 +165,7 @@ class Planner {
 
   /** @brief Risk map in map frame. usage: [spatial_index][temporal_index] */
   float _future_risk[VOXEL_NUM][RISK_MAP_NUMBER];
+  std::queue<Eigen::Vector3d> _waypoints; /** Waypoint queue */
 
   Eigen::Vector3d _p_store_for_em, _v_store_for_em, _a_store_for_em;
 
@@ -167,11 +173,12 @@ class Planner {
   bool _is_future_risk_updated;
   bool _is_future_risk_locked;
   bool _is_safety_mode_enabled;
-  bool _is_velocity_received;
-  bool _is_odom_received;
-  bool _is_exec_triggered;
   bool _is_local_frame;
   bool _is_state_locked;
+  bool _is_exec_triggered;
+  bool _is_odom_received;
+  bool _is_velocity_received;
+  bool _is_goal_received;
 
   /********** VISUALIZATIONS **********/
   visualizer::Visualizer::Ptr _vis;
@@ -189,6 +196,7 @@ class Planner {
                                  const Eigen::Matrix3d &                          final);
   bool   checkTrajectoryRisk(const polynomial::Trajectory &traj);
   double getMaxRisk(const polynomial::Trajectory &traj);
+  double getTotalRisk(const polynomial::Trajectory &traj);
 
   void publishTrajectory(const polynomial::Trajectory &traj);
   void publishCorridor(const vector<Corridor *> &c);
@@ -200,8 +208,12 @@ class Planner {
   void VelCallback(const geometry_msgs::TwistStamped &msg);
 
   bool localReplan(PLAN_TYPE type);
+  bool globalPlan();
+  bool        setLocalGoal();
   bool executeTrajectory();
   bool checkTimeLapse(double time);
+
+  inline bool isGoalReached(const Eigen::Vector3d& p, const Eigen::Vector3d& g);
 
   void FSMPrintState(FSM_STATUS new_state);
   void FSMChangeState(FSM_STATUS new_state);

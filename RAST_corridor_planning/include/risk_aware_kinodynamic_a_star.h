@@ -3,6 +3,7 @@
 //
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <queue>
 #include <stack>
@@ -284,47 +285,52 @@ class Astar {
       step_counter += 1;
 
       current_node = open_list[0];
+      bool is_reach_end = (getNodeDistance(current_node, end_node) < 1.f);
+      bool is_reach_bound = checkNodeOnBoundary(current_node, boundary_width);
+      bool is_max_step = (step_counter > 300);
 
-      if (nodeEqual(current_node, end_node) || checkNodeOnBoundary(current_node, boundary_width) ||
-          step_counter > 300) {
-        if (checkNodeOnBoundary(current_node, boundary_width)) {
-          cout << "Boundary condition reached !!!" << endl;
-        }
+      if (is_reach_end || is_reach_bound || is_max_step) {
         // Reached goal or boundary
-        addPath(current_node);
+        if (is_reach_bound) {
+          std::cout << "\033[1;33m Kinodynamic A*: Reach boundary. \033[0m" << std::endl;
+          addPath(current_node);
+        } else if (is_max_step) {
+          std::cout << "\033[1;33m Kinodynamic A*: Reach max step. \033[0m" << std::endl;
+          addPath(current_node);
+        } else {
+          std::cout << "\033[1;33m Kinodynamic A*: Reach goal. \033[0m" << std::endl;
+          end_node->time_stamp = current_node->time_stamp;
+          end_node->f         = current_node->f;
+          addPath(end_node);
+        }
+        found_path = true;
 
         // Reverse and Print
-        for (int i = (int)result_path.size() - 1; i > 0; --i) {
-          auto p = result_path[i];
-          result_path_reversed.push_back(p);
-          found_path = true;
-          //                    std::cout << "(" << p->x << ", " << p->y << ", " << p->z << ")" <<
-          //                    std::endl;
+        for (auto it = result_path.end() - 1; it != result_path.begin() - 1; --it) {
+          result_path_reversed.push_back(*it);
         }
-
-        result = result_path_reversed;
         break;
+      } else {
+        nextStep(current_node);
+        close_list.push_back(current_node);
+        open_list.erase(open_list.begin());
+
+        // std::cout << "open_list length=" << open_list.size() << endl;
+        sort(open_list.begin(), open_list.end(), compare);
       }
-
-      nextStep(current_node);
-
-      close_list.push_back(current_node);
-      open_list.erase(open_list.begin());
-
-      //            std::cout << "open_list length=" << open_list.size() << endl;
-      sort(open_list.begin(), open_list.end(), compare);
     }
 
+    result = result_path_reversed;
+    /** Print result */
+    cout << "\033[1;36m Kinodynamic A*: Search finished. \033[0m" << endl;
     if (found_path) {
       cout << "Path found, searched times = " << step_counter
-           << ", result node size = " << result_path_reversed.size() << endl;
-      cout << "x=" << start_node->x << ", y=" << start_node->y
-           << ", z = "<<start_node->z<<endl;
-
-          for (auto &n : result_path_reversed) {
-        cout << "x=" << n->x << ", y=" << n->y << ", z=" << n->z << endl;
+           << ", result node size = " << result.size() << endl;
+      cout << "[init]:x=" << start_node->x << "\ty=" << start_node->y << "\tz = " << start_node->z << endl;
+      for (auto &n : result) {
+        cout << "x=" << n->x << "\ty=" << n->y << "\tz=" << n->z << endl;
       }
-
+      cout << "[rst]:x=" << end_node->x << "\ty=" << end_node->y << "\tz=" << end_node->z << endl;
     } else {
       cout << "Path not found, searched times = " << step_counter << endl;
     }
@@ -510,7 +516,6 @@ class Astar {
                       vector<float> &    searching_dists) {
     /// searching_directions[6]: [x_position, x_negative, y_position, y_negative, z_position,
     /// z_negative]
-
     float center_x = (envelope.vertexes[0].x + envelope.vertexes[2].x + envelope.vertexes[4].x +
                       envelope.vertexes[6].x) /
                      4.f;
@@ -1260,6 +1265,10 @@ class Astar {
     } else {
       return false;
     }
+  }
+
+  static double getNodeDistance(Node *n1, Node *n2) {
+    return sqrt(pow(n1->x - n2->x, 2) + pow(n1->y - n2->y, 2) + pow(n1->z - n2->z, 2));
   }
 
  public:
