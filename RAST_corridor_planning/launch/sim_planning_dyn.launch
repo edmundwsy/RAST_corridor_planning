@@ -40,10 +40,6 @@
 
   </group>
 
-  <!-- <node pkg="rast_corridor_planning" name="planning_node" type="planning_node_sim" output="screen">
-		<rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" /> 
-	</node> -->
-
   <!-- SIMULATOR -->
   <include file="$(find rast_corridor_planning)/launch/simulator_dyn.launch">
     <arg name="drone_id" value="$(arg drone_id)" />

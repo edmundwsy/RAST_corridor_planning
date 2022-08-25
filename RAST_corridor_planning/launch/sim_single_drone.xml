@@ -26,6 +26,7 @@
     <node pkg="traj_server" name="traj_server" type="poly_traj_server" output="screen">
       <remap from="~trajectory" to="planning/trajectory" />
       <remap from="/position_cmd" to="planning/pos_cmd" />
+			<remap from="~odom" to="mavros/local_position/pose" />
     </node>
 
 
@@ -41,7 +42,7 @@
 		</node>
 
 		<!-- visualize drone odometry -->
-		<node pkg="odom_visualization" name="odom_visualization" type="odom_visualization" output="screen">
+		<!-- <node pkg="odom_visualization" name="odom_visualization" type="odom_visualization" output="screen">
 			<remap from="~odom" to="mavros/local_position/odom" />
 			<param name="color/a" value="1.0" />
 			<param name="color/r" value="0.0" />
@@ -51,7 +52,7 @@
 			<param name="robot_scale" value="1.0" />
 			<param name="tf45" value="false" />
 			<param name="drone_id" value="drone_id" />
-		</node>
+		</node> -->
 
 		<!-- fake camera sensing -->
 		<node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
