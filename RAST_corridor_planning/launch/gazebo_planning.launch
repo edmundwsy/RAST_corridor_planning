@@ -8,6 +8,9 @@
   <arg name="init_x" value="-10" />
   <arg name="init_y" value="0.0" />
   <arg name="init_z" value="0.5" />
+  <arg name="goal_x" value="40" />
+  <arg name="goal_y" value="0.0" />
+  <arg name="goal_z" value="0.5" />
 
   <group ns="uav$(arg drone_id)">
     <!-- <node pkg="rast_corridor_planning" name="mapping" type="mapping" output="screen"> -->
@@ -17,6 +20,9 @@
 
     <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node" output="screen">
       <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
+      <param name="p_goal_x" value="$(arg goal_x)" />
+      <param name="p_goal_y" value="$(arg goal_y)" />
+      <param name="p_goal_z" value="$(arg goal_z)" />
       <remap from="~future_risk_full_array" to="mapping/future_risk_full_array" />
     </node>
 

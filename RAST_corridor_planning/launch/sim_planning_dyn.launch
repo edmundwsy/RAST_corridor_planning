@@ -19,7 +19,7 @@
   <group ns="uav$(arg drone_id)">
     <!-- <node pkg="rast_corridor_planning" name="mapping" type="mapping" output="screen"> -->
     <node pkg="rast_corridor_planning" name="mapping" type="mapping">
-      <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
+      <rosparam file="$(find rast_corridor_planning)/config/cfg_sim.yaml" command="load" />
       <remap from="/camera_front/depth/points" to="pcl_render_node/cloud" />
     </node>
 

@@ -1,8 +1,7 @@
 # Goal
-p_goal_x: 45
+p_goal_x: 15
 p_goal_y: 0
 p_goal_z: 0
-
 
 # A*
 max_vel: 2.0
@@ -38,7 +37,7 @@ delta_corridor: 0.4
 max_vel_optimization: 2.5 # Constraint in optimization. A little larger than max_vel
 max_acc_optimization: 3.5 # Constraint in optimization. A little larger than max_acc
 
-risk_threshold_replan: 20
+risk_threshold_replan: 0.1
 
 # Mapping
 observation_stddev: 0.1

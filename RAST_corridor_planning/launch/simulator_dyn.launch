@@ -20,8 +20,8 @@
 		<param name="map/x_size"     value="$(arg map_size_x)" />
 		<param name="map/y_size"     value="$(arg map_size_y)" />
 		<param name="map/z_size"     value="$(arg map_size_z)" />
-		<param name="map/resolution" value="0.1"/>        
-		<param name="map/frame_id"     value="world" />
+		<param name="map/resolution" value="0.15"/>        
+		<param name="map/frame_id"   value="world" />
 
 		<param name="ObstacleShape/seed" value="-1"/>
 		<param name="map/obs_num"    value="20"/>
@@ -39,7 +39,7 @@
 		<param name="ObstacleShape/theta" value="0.5"/>        
 
 		<param name="sensing/radius" value="5.0"/>        
-		<param name="sensing/rate"   value="5.0"/>   
+		<param name="sensing/rate"   value="10.0"/>   
 </node>
 
 
@@ -71,7 +71,7 @@
 		<!-- fake camera sensing -->
 		<node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
 			<rosparam command="load" file="$(find local_sensing_node)/params/camera.yaml" />
-			<param name="sensing_horizon" value="5.0" />
+			<param name="sensing_horizon" value="6.0" />
 			<param name="sensing_rate" value="30.0" />
 			<param name="estimation_rate" value="30.0" />
 			<param name="is_camera_frame" value="true" />
