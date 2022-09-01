@@ -11,8 +11,9 @@
 #include <multi_planning.h>
 
 namespace planner {
-// Planner::Planner(ros::NodeHandle& nh, const PlannerConfig& conf) : _nh(nh), _config(conf) {
 void Planner::init() {
+    _drone_id = getDroneID();
+
   /*** ASTAR SETTINGS ***/
   _astar_planner.setTimeParameters(_config.a_star_search_time_step, _config.planning_time_step);
   _astar_planner.setHeightLimit(_config.use_height_limit, _config.height_limit_max,
@@ -116,7 +117,7 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
 
     /* wait for callback */
     case FSM_STATUS::WAIT_TARGET:
-      if (_is_future_risk_updated && _is_odom_received && _is_goal_received) {
+      if (!isInputLost() && _is_goal_received) {
         globalPlan();
         FSMChangeState(FSM_STATUS::NEW_PLAN);
       } else {
@@ -127,7 +128,7 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
 
     /* plan a new trajectory from current position */
     case FSM_STATUS::NEW_PLAN:
-      if (!_is_future_risk_updated || !_is_odom_received) {
+      if (isInputLost()) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       } else {
         bool is_success = false;
@@ -135,7 +136,7 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
           is_success = localReplan(PLAN_TYPE::NEW);
         }
         // bool is_safe    = checkTrajectoryRisk(_traj);
-        bool is_safe = true;
+        bool is_safe = true;  /** TODO: time delay !!! */
         if (is_success && is_safe) { /* publish trajectory */
           publishTrajectory(_traj);
           ROS_WARN("%f", _traj_start_time.toSec());
@@ -149,11 +150,11 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
 
     /* execute the trajectory, replan when current traj is about to finish */
     case FSM_STATUS::EXEC_TRAJ:
-      if (!_is_future_risk_updated || !_is_odom_received) {
+      if (isInputLost()) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       } else {
-        std::cout << termcolor::bright_red << "Target: " << _waypoints.front().transpose()
-                  << " now " << _odom_pos.transpose() << std::endl;
+        // std::cout << termcolor::bright_red << "Target: " << _waypoints.front().transpose()
+        //           << " now " << _odom_pos.transpose() << std::endl;
         bool is_safe            = checkTrajectoryRisk(_traj);
         bool is_replan_required = executeTrajectory();
         if (is_replan_required) { /* replan */
@@ -168,7 +169,7 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
 
     /* replan based on current trajectory */
     case FSM_STATUS::REPLAN:
-      if (!_is_future_risk_updated || !_is_odom_received) {
+      if (isInputLost()) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       } else {
         bool is_success = localReplan(PLAN_TYPE::CONTINUE);
@@ -406,7 +407,7 @@ bool Planner::executeTrajectory() {
   double          elapsed = now.toSec() - _last_plan_time.toSec();
   Eigen::Vector3d end     = _waypoints.front();
   Eigen::Vector3d err     = end - _odom_pos;
-  std::cout << termcolor::red << "err: " << err.norm() << std::endl;
+  // std::cout << termcolor::red << "err: " << err.norm() << std::endl;
 
   if (elapsed > 1.0) {
   } else if (err.norm() < 1.0) {
@@ -556,11 +557,11 @@ bool Planner::localReplan(PLAN_TYPE type) {
     return false;
   } else if (astar_rst.size() == 1) {
     ROS_WARN("[A*] Goal reached!");
-    std::cout << "distance: "
-              << std::pow(start_node->x - end_node->x, 2) +
-                     std::pow(start_node->y - end_node->y, 2) +
-                     std::pow(start_node->z - end_node->z, 2)
-              << std::endl;
+    // std::cout << "distance: "
+    //           << std::pow(start_node->x - end_node->x, 2) +
+    //                  std::pow(start_node->y - end_node->y, 2) +
+    //                  std::pow(start_node->z - end_node->z, 2)
+    //           << std::endl;
     _last_plan_time = ros::Time::now();
     return false;
   }
@@ -824,7 +825,7 @@ bool Planner::checkTrajectoryRisk(const polynomial::Trajectory& traj) {
   // double risk = getMaxRisk(traj);
   double risk = getTotalRisk(traj);
   std::cout << termcolor::yellow << "Risk: " << risk << termcolor::reset << std::endl;
-  if (risk > _config.risk_threshold_motion_primitive) {
+  if (risk > _config.risk_threshold_replan) {
     return false;
   } else {
     return true;
@@ -841,6 +842,20 @@ bool Planner::checkTrajectoryRisk(const polynomial::Trajectory& traj) {
  */
 inline bool Planner ::isGoalReached(const Eigen::Vector3d& p, const Eigen::Vector3d& g) {
   return ((p - g).norm() < _config.goal_reach_threshold) ? true : false;
+}
+
+/**
+ * @brief if future risk map or odometry is not updating, return true
+ * @return true   no update
+ * @return false 
+ */
+inline bool Planner::isInputLost() { return !_is_future_risk_updated || !_is_odom_received; }
+
+inline int Planner::getDroneID() {
+  std::string name = ros::this_node::getNamespace();
+  int id = name.substr(name.size() - 1, 1).c_str()[0] - '0';
+  // std::cout << "|" << name << "| " << id << std::endl;
+  return id;
 }
 
 }  // namespace planner

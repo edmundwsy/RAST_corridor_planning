@@ -61,6 +61,7 @@ struct PlannerConfig {
   float risk_threshold_motion_primitive = 0.15;
   float risk_threshold_single_voxel     = 0.15;
   float risk_threshold_corridor         = 2.5;
+  float risk_threshold_replan           = 20;
 
   int trajectory_piece_max_size = 12;
   int nmpc_receive_points_num   = 20;
@@ -100,6 +101,7 @@ struct PlannerConfig {
     nh.getParam("risk_threshold_motion_primitive", risk_threshold_motion_primitive);
     nh.getParam("risk_threshold_single_voxel", risk_threshold_single_voxel);
     nh.getParam("risk_threshold_corridor", risk_threshold_corridor);
+    nh.getParam("risk_threshold_replan", risk_threshold_replan);
 
     nh.getParam("p_goal_x", goal_x);
     nh.getParam("p_goal_y", goal_y);
@@ -111,6 +113,10 @@ struct PlannerConfig {
   }
 };
 
+/**
+ * @brief finite state machine for multi planning
+ *
+ */
 enum class FSM_STATUS {
   INIT,
   WAIT_TARGET,
@@ -172,6 +178,7 @@ class Planner {
 
   /********** DATA **********/
   double _traj_planning_start_time;
+  int    _drone_id;
 
   /** @brief Risk map in map frame. usage: [spatial_index][temporal_index] */
   float                       _future_risk[VOXEL_NUM][RISK_MAP_NUMBER];
@@ -194,7 +201,7 @@ class Planner {
   visualizer::Visualizer::Ptr _vis;
 
  public:
-  Planner(ros::NodeHandle &nh, const PlannerConfig &conf) : _nh(nh), _config(conf){};
+  Planner(ros::NodeHandle &nh, const PlannerConfig &conf) : _nh(nh), _config(conf) {}
   ~Planner() {}
 
   void init();
@@ -217,17 +224,21 @@ class Planner {
   void OdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
   void VelCallback(const geometry_msgs::TwistStamped &msg);
 
+  /********** STATE MACHINE **********/
+  void FSMPrintState(FSM_STATUS new_state);
+  void FSMChangeState(FSM_STATUS new_state);
+  void FSMCallback(const ros::TimerEvent &event);
+
   bool localReplan(PLAN_TYPE type);
   bool globalPlan();
   bool setLocalGoal();
   bool executeTrajectory();
   bool checkTimeLapse(double time);
 
+  /********** HELPER FUNCTIONS **********/
   inline bool isGoalReached(const Eigen::Vector3d &p, const Eigen::Vector3d &g);
-
-  void FSMPrintState(FSM_STATUS new_state);
-  void FSMChangeState(FSM_STATUS new_state);
-  void FSMCallback(const ros::TimerEvent &event);
+  inline bool isInputLost();
+  inline int  getDroneID();
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   typedef std::shared_ptr<Planner> Ptr;

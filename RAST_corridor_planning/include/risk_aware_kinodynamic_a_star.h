@@ -264,6 +264,8 @@ class Astar {
       std::cout << "Invalid start point index or end point index." << std::endl;
       std::cout << "start_node px=" << start_node->x << " py=" << start_node->y
                 << " pz=" << start_node->z << std::endl;
+      std::cout << "end_node px=" << end_node->x << " py=" << end_node->y << " pz=" << end_node->z
+                << std::endl;
       return;
     }
 
@@ -284,23 +286,23 @@ class Astar {
     while (!open_list.empty()) {
       step_counter += 1;
 
-      current_node = open_list[0];
-      bool is_reach_end = (getNodeDistance(current_node, end_node) < 1.f);
+      current_node        = open_list[0];
+      bool is_reach_end   = (getNodeDistance(current_node, end_node) < 1.f);
       bool is_reach_bound = checkNodeOnBoundary(current_node, boundary_width);
-      bool is_max_step = (step_counter > 300);
+      bool is_max_step    = (step_counter > 300);
 
       if (is_reach_end || is_reach_bound || is_max_step) {
         // Reached goal or boundary
         if (is_reach_bound) {
-          std::cout << "\033[1;33m Kinodynamic A*: Reach boundary. \033[0m" << std::endl;
+          // std::cout << "\033[1;33m Kinodynamic A*: Reach boundary. \033[0m" << std::endl;
           addPath(current_node);
         } else if (is_max_step) {
-          std::cout << "\033[1;33m Kinodynamic A*: Reach max step. \033[0m" << std::endl;
+          // std::cout << "\033[1;33m Kinodynamic A*: Reach max step. \033[0m" << std::endl;
           addPath(current_node);
         } else {
-          std::cout << "\033[1;33m Kinodynamic A*: Reach goal. \033[0m" << std::endl;
+          // std::cout << "\033[1;33m Kinodynamic A*: Reach goal. \033[0m" << std::endl;
           end_node->time_stamp = current_node->time_stamp;
-          end_node->f         = current_node->f;
+          end_node->f          = current_node->f;
           addPath(end_node);
         }
         found_path = true;
@@ -322,18 +324,19 @@ class Astar {
 
     result = result_path_reversed;
     /** Print result */
-    cout << "\033[1;36m Kinodynamic A*: Search finished. \033[0m" << endl;
-    if (found_path) {
-      cout << "Path found, searched times = " << step_counter
-           << ", result node size = " << result.size() << endl;
-      cout << "[init]:x=" << start_node->x << "\ty=" << start_node->y << "\tz = " << start_node->z << endl;
-      for (auto &n : result) {
-        cout << "x=" << n->x << "\ty=" << n->y << "\tz=" << n->z << endl;
-      }
-      cout << "[rst]:x=" << end_node->x << "\ty=" << end_node->y << "\tz=" << end_node->z << endl;
-    } else {
-      cout << "Path not found, searched times = " << step_counter << endl;
-    }
+    // cout << "\033[1;36m Kinodynamic A*: Search finished. \033[0m" << endl;
+    // if (found_path) {
+    //   cout << "Path found, searched times = " << step_counter
+    //        << ", result node size = " << result.size() << endl;
+    //   cout << "[init]:x=" << start_node->x << "\ty=" << start_node->y << "\tz = " <<
+    //   start_node->z << endl; for (auto &n : result) {
+    //     cout << "x=" << n->x << "\ty=" << n->y << "\tz=" << n->z << endl;
+    //   }
+    //   cout << "[rst]:x=" << end_node->x << "\ty=" << end_node->y << "\tz=" << end_node->z <<
+    //   endl;
+    // } else {
+    //   cout << "Path not found, searched times = " << step_counter << endl;
+    // }
   }
 
   bool checkIfAllTrueVector(const vector<bool> &vector) {

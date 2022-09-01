@@ -1,7 +1,9 @@
 # M-RAST: multi-robot risk-aware spatial-temporal corridors for uav navigation
 
+[toc]
 
-## File Structure
+
+## Structure
 
 * [RAST_corridor_planning/](./RAST_corridor_planning): RAST corridor generation and planning for single uav
 * [path_searching/](./path_searching): path finding library (dynamic A star and Conflict-based Search)
@@ -14,60 +16,18 @@
 * [.gitmodules](./.gitmodules)
 * [README.md](./README.md)
 
-## Mermaid Graph
+### RQT Graph
 
-dotted line: introduced as a library (by class & class pointer)
-solid line: ros message
+- **dotted line** represents introduced as a library (by class & class pointer)
+- **solid line** represents ros message
+- each **subgraph** represents a individual package with its own test samples. Main functionalities should be encapsulated in `.h` or `.hpp` files.
 
 - `~trajectory`: parametric trajectory message
 - `~other_traj`: parametric trajectory message related to other agents
-
-Subgraph: individual package with its own test samples. Main functionalities are encapsulated in `.h` or `.hpp` files.
+- `~/command/pva_setpoint`: discretized trajectory messages
 
 ```mermaid
 graph TD
-  subgraph uav0
-    subgraph rast_corridor_planning
-      map_sim_example --"~map/future_risk"--> planning_node
-    end
-
-    subgraph path_searching
-      astar -.-> planning_node
-    end
-
-    subgraph swarm_bridge
-    bridge_node_tcp 
-    end
-
-    subgraph corridor_gen
-    dcomps -.-> planning_node
-    end
-
-    subgraph traj_opt
-    minisnap -.-> planning_node
-    end
-    
-    subgraph traj_server
-    traj_server_node
-    end
-
-    C("~pointcloud")-->map_sim_example
-      style C fill:#eee,stroke:#333,stroke-width:0px
-    
-    I("~mavros/local_position/pose")-->map_sim_example
-      style I fill:#eee,stroke:#333,stroke-width:0px
-    I-->planning_node
-    I-->traj_server_node
-
-    T("~trajectory")-->bridge_node_tcp
-    T-->traj_server_node
-    planning_node-->T
-      style T fill:#eee,stroke:#333,stroke-width:0px
-
-    bridge_node_tcp --"~other_traj"--> planning_node
-    minisnap -.-> traj_server_node
-    traj_server_node --"~/command/pva_setpoint"-->pva_tracker
-  end
 
   subgraph uav1
     subgraph uav1_swarm_bridge
@@ -75,19 +35,87 @@ graph TD
     end
   end
 
+  subgraph uav0
+    subgraph rast_corridor_planning
+      mapping --"~map/future_risk"--> planning
+    end
+
+    subgraph path_searching
+      astar -.-> planning
+    end
+
+    subgraph swarm_bridge
+    bridge_node_tcp 
+    end
+
+    subgraph corridor_gen
+    dcomps -.-> planning
+    end
+
+    subgraph traj_opt
+    minisnap -.-> planning
+    end
+
+    subgraph traj_server
+    poly_traj_server
+    end
+    
+    subgraph traj_utils
+    poly_traj -.-> minisnap
+    poly_traj -.-> planning
+    other_parametric_traj
+    end
+
+    C("~pointcloud")-->mapping
+      style C fill:#eee,stroke:#333,stroke-width:0px
+    
+    I("~mavros/local_position/pose")-->mapping
+      style I fill:#eee,stroke:#333,stroke-width:0px
+    I-->planning
+    I-->poly_traj_server
+
+    T("~trajectory")-->bridge_node_tcp
+    T-->poly_traj_server
+    planning-->T
+      style T fill:#eee,stroke:#333,stroke-width:0px
+
+    bridge_node_tcp --"~other_traj"--> planning
+    poly_traj -.-> poly_traj_server
+    poly_traj_server --"~/command/pva_setpoint"-->pva_tracker
+  end
+
+
   bridge_node_tcp =="/boardcast_traj<br>/uav0/odom"==> uav1_bridge_node_tcp
 ```
 
-## Structure
+
 
 ### [rast_corridor_planning]: Main Planning Package
 Risk-aware map building, corridor generation and planning package for single uav.
+
+Features including
+
 - DSP Map
 - Risk-aware A star path searching
-- Finite State Machine
-- Corridor generation
-- Trajectory optimization
-  
+- finite state machine
+- call safety corridor generation functions
+- call trajectory optimization functions
+
+#### Finite State Machine (FSM)
+
+| Current State     | Status                                                       | Next State                             |
+| ----------------- | ------------------------------------------------------------ | -------------------------------------- |
+| INIT              | Wait for input information                                   | WAIT_TARGET                            |
+| WAIT_TARGET       | Wait for risk map, odometry and global goal. If risk map and odometry is not updating, switch to this state. | NEW_PLAN                               |
+| NEW_PLAN          | Plan a new trajectory from stationary state, then switch to executing state. | EXEC_TRAJ, WAIT_TARGET                 |
+| EXEC_TRAJ         | Execute current trajectory, check the global planning progress and the total risk. | REPLAN, EMERGENCY_REPLAN, GOAL_REACHED |
+| REPLAN            | Replan the trajectory from last state of the trajectory.     | EXEC_TRAJ, GOAL_REACHED                |
+| EMERGENCY_REPLALN | Replan a trajectory from current state and velocity. If safety mode is enabled (too close to the people) | NEW_PLAN, EXEC_TRAJ                    |
+| GOAL_REACHED      | Drone reached the goal, wait new goal from the goal queue.   | WAIT_TARGET                            |
+| EXIT              |                                                              |                                        |
+
+state diagram
+
 ```mermaid
 graph TD
  INIT --> EXIT
@@ -102,13 +130,13 @@ graph TD
  NEW_PLAN --> EXIT
  NEW_PLAN --> EXEC_TRAJ
  GOAL_REACHED --> WAIT_TARGET
- EMERGENCY_STOP --> NEW_PLAN
- A([collision]) --> EMERGENCY_STOP
+ EMERGENCY_REPLAN --> NEW_PLAN
+ A([collision]) --> EMERGENCY_REPLAN
 ```
 
 ### [traj_utils]: Trajectory utilities
 
-A library for parametric trajectories message and related visualization.
+A library for parametric trajectories message and related visualization. 
 
 ### [traj_opt]: Trajectory optimizer
 
@@ -129,14 +157,10 @@ A node for discretize parametric trajectory into separate waypoints and poses.
   - if t_start >= t_end, then add new trajectory to the end of the queue
   - if t_start < t_end, then clear the queue and add new trajectory 
 
-<!-- No commit, only discuss in zoom meeting -->
-## Discuss
-- Good architecture for multi-robot navigation?
-- What if we communicate by **safety corridors**?
-- !!!WARNING: No convergence proofs of this pipeline!!!
+
 
 ## TODO
-- [x] (Aug. w1) Refactor the code in `rast_corridor_planning` to make it fit this framework. Extract `traj_server` from `planning_node`.
+- [x] (Aug. w1) Refactor the code in `rast_corridor_planning` to make it fit this framework. Extract `traj_server` from `planning`.
 - [x] (Aug. w1) Merge MiniSnap trajectory optimization `corridor_minisnap` to `traj_opt`
 - [x] (Aug. w3) Move trajectory queue to `traj_server`
 - [x] (Aug. w3) Test tracking error: (x: max 0.5, avg 0.2)
@@ -148,13 +172,13 @@ A node for discretize parametric trajectory into separate waypoints and poses.
 - [ ] Implement conflict-based search (CBS) method to `path_searching`
 
 
-## Note
+## Style Note
 
 ### ROS Launch
 Use `.launch` file to start a group of nodes for each uav.
 ```xml
   <group ns="uav$(arg drone_id)">
-    <node pkg="rast_corridor_planning" name="map_sim_example" type="map_sim_example" output="screen">
+    <node pkg="rast_corridor_planning" name="mapping" type="mapping" output="screen">
       <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
       <remap from="/camera_front/depth/points" to="/uav$(arg drone_id)/pcl_render_node/cloud" />
     </node>

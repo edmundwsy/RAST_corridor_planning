@@ -4,6 +4,7 @@
 
 #include "ros/ros.h"
 #include "dsp_map/dsp_map.h"
+#include <nav_msgs/OccupancyGrid.h>
 #include <pcl/common/transforms.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/point_types.h>
@@ -36,7 +37,7 @@ float z_min = -MAP_HEIGHT_VOXEL_NUM * VOXEL_RESOLUTION / 2;
 float z_max = MAP_HEIGHT_VOXEL_NUM * VOXEL_RESOLUTION / 2;
 
 ros::Publisher cloud_pub, map_center_pub, gazebo_model_states_pub;
-ros::Publisher future_risk_pub, future_risk_full_array_pub, current_marker_pub, fov_pub, cluster_status_pub;
+ros::Publisher future_risk_pub, future_risk_full_array_pub, current_marker_pub, fov_pub, cluster_status_pub, risk_2dmap_pub;
 gazebo_msgs::ModelStates ground_truth_model_states;
 
 Eigen::Vector3d uav_position_global;
@@ -328,8 +329,8 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud)
     clock_t start1, finish1;
     start1 = clock();
 
-    std::cout << "uav_position="<<uav_position.x() <<", "<<uav_position.y()<<", "<<uav_position.z()<<std::endl;
-    std::cout << "position queue size="<<uav_position_global_queue.size()<<std::endl;
+    // std::cout << "uav_position="<<uav_position.x() <<", "<<uav_position.y()<<", "<<uav_position.z()<<std::endl;
+    // std::cout << "position queue size="<<uav_position_global_queue.size()<<std::endl;
 
     if(!my_map.update(useful_point_num, 3, point_clouds,
                   uav_position.x(), uav_position.y(), uav_position.z(), this_time,
@@ -368,32 +369,53 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud)
         }
     }
 
-
     /// Publish future status with multi-array
     std_msgs::Float32MultiArray future_risk_array_msg;
     std_msgs::MultiArrayDimension future_risk_array_dimension;
     future_risk_array_dimension.size = VOXEL_NUM;
     future_risk_array_dimension.stride = RISK_MAP_NUMBER;
     future_risk_array_msg.layout.dim.push_back(future_risk_array_dimension);
-
-
     future_risk_array_msg.data.reserve(VOXEL_NUM*RISK_MAP_NUMBER + 3);
     for(int i=0; i<VOXEL_NUM; ++i){
         for(int j=0; j<RISK_MAP_NUMBER; ++j){
             future_risk_array_msg.data.push_back(risk_maps[i][j]);
         }
     }
-
     future_risk_array_msg.data.push_back(uav_position.x());
     future_risk_array_msg.data.push_back(uav_position.y());
     future_risk_array_msg.data.push_back(uav_position.z());
-
     future_risk_full_array_pub.publish(future_risk_array_msg);
-
 
     finish2 = clock();
     double duration2 = (double)(finish2 - start2) / CLOCKS_PER_SEC;
     printf( "****** Map publish time %f seconds\n \n", duration2);
+
+    /** Publish 2D risk map */
+    nav_msgs::OccupancyGrid occ_grid_msg;
+    occ_grid_msg.header.frame_id = "world";
+    occ_grid_msg.header.stamp    = cloud->header.stamp;
+    occ_grid_msg.info.resolution = res;
+    occ_grid_msg.info.height = MAP_LENGTH_VOXEL_NUM;
+    occ_grid_msg.info.width = MAP_WIDTH_VOXEL_NUM;
+    occ_grid_msg.info.origin.position.x = uav_position.x() - (MAP_LENGTH_VOXEL_NUM-1)*res/2;
+    occ_grid_msg.info.origin.position.y = uav_position.y() - (MAP_WIDTH_VOXEL_NUM-1)*res/2;
+    occ_grid_msg.info.origin.position.z = 0;
+
+    int k = 0; // risk map index
+    for (int w = 0; w < MAP_WIDTH_VOXEL_NUM; w++) {
+        for (int h = 0; h < MAP_LENGTH_VOXEL_NUM; h++) {
+            float max_risk = 0.0;
+            for (int z = 0; z < MAP_HEIGHT_VOXEL_NUM; z++) {
+                int idx = z * MAP_WIDTH_VOXEL_NUM * MAP_LENGTH_VOXEL_NUM + w * MAP_LENGTH_VOXEL_NUM + h;
+                if (risk_maps[idx][k] > max_risk) {
+                    max_risk = risk_maps[idx][k];
+                }
+                max_risk = std::min(max_risk, 1.0f);
+            } 
+            occ_grid_msg.data.push_back(static_cast<int>(max_risk * 100));
+        }
+    }
+    risk_2dmap_pub.publish(occ_grid_msg);
 
 
     /// Publish Point cloud and center position
@@ -568,8 +590,8 @@ int main(int argc, char **argv)
 
     future_risk_pub = n.advertise<sensor_msgs::PointCloud2>("future_risk", 1, true);
     future_risk_full_array_pub = n.advertise<std_msgs::Float32MultiArray>("future_risk_full_array", 1, true);
-
-    cluster_status_pub = n.advertise<sensor_msgs::PointCloud2>("cluster_status", 1, true);
+    risk_2dmap_pub             = n.advertise<nav_msgs::OccupancyGrid>("risk2d", 1, true);
+    cluster_status_pub         = n.advertise<sensor_msgs::PointCloud2>("cluster_status", 1, true);
 
     current_marker_pub = n.advertise<visualization_msgs::MarkerArray>("/visualization_marker", 1);
 

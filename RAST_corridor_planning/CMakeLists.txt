@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   image_transport
   mav_msgs
+  nav_msgs
   quadrotor_msgs
   traj_utils
   traj_opt
