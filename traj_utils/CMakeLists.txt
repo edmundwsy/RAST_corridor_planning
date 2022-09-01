@@ -57,6 +57,7 @@ include_directories(
 add_library( traj_utils
     # src/planning_visualization.cpp 
     src/visualizer.cpp
+    src/uniform_bspline.cpp
     )
 target_link_libraries( traj_utils
     ${catkin_LIBRARIES} 
