@@ -1,6 +1,65 @@
-# M-RAST: multi-robot risk-aware spatial-temporal corridors for uav navigation
+# M-RAST: a multi-agent quadrotor planning framework with risk-aware spatial-temporal corridors
 
 [toc]
+
+## Introduction
+
+**M-RAST** is a multi-agent quadrotor planning framework with risk-aware spatial-temporal safety corridors. This project is based on [RAST](https://github.com/g-ch/RAST_corridor_planning), which is a risk-aware motion planning algorithm with safety guarantees in dynamic uncertain environments.
+
+
+
+## Installation
+
+__Tested environment__: Ubuntu 18.04 + ROS Melodic and Ubuntu 20.04 + ROS Noetic
+
+To compile the source code, you need:
+1. PCL, mavros, Eigen. PCL and Eigen are included in the desktop-full version of ROS. The mavros package is only used for ROS message subscriptions. If it's not installed on your laptop, check [mavros](https://github.com/mavlink/mavros) for installation guidance.
+
+2. Install [munkers-cpp](https://github.com/saebyn/munkres-cpp) with the following steps.
+    ```shell
+    git clone https://github.com/saebyn/munkres-cpp.git
+    cd munkres-cpp
+    mkdir build && cd build
+    cmake ..
+    make
+    sudo make install
+    ```
+    
+3. Install [OSQP](https://github.com/osqp/osqp), which is a lightweight QP solver. You can follow these [installation guidelines](https://osqp.org/docs/get_started/sources.html#build-the-binaries).
+    ```shell
+    git clone --recursive https://github.com/osqp/osqp
+    cd osqp
+    mkdir build && cd build
+    cmake -G "Unix Makefiles" ..
+    cmake --build .
+    sudo cmake --build . --target install
+    ```
+
+4. Create a ROS workspace
+   
+   ```shell
+   mkdir -p catkin_ws/src
+   cd catkin_ws/src
+   ```
+   
+4. Clone the simulator from [GitHub](https://github.com/edmundwsy/uav_simulator).
+   
+   ```shell
+   git clone --recursive https://github.com/edmundwsy/uav_simulator.git
+   ```
+   
+4. Clone the code in the ROS workspace, update the submodule, and compile.
+   
+   ```shell
+   git clone https://github.com/edmundwsy/multi-agent-rast.git
+   cd multi-agent-rast
+   git submodule init & git submodule update
+   cd ../..
+   catkin build
+   ```
+
+
+
 
 
 ## Structure
@@ -112,9 +171,9 @@ Features including
 | REPLAN            | Replan the trajectory from last state of the trajectory.     | EXEC_TRAJ, GOAL_REACHED                |
 | EMERGENCY_REPLALN | Replan a trajectory from current state and velocity. If safety mode is enabled (too close to the people) | NEW_PLAN, EXEC_TRAJ                    |
 | GOAL_REACHED      | Drone reached the goal, wait new goal from the goal queue.   | WAIT_TARGET                            |
-| EXIT              |                                                              |                                        |
+| EXIT              | Exit the FSM                                                 |                                        |
 
-state diagram
+state diagram is shown as follows
 
 ```mermaid
 graph TD
@@ -159,22 +218,52 @@ A node for discretize parametric trajectory into separate waypoints and poses.
 
 
 
-## TODO
+### RVIZ Simulation
+
+
+
+### Gazebo Simulation
+
+
+
+
+
+## Quick Start
+
+### Test in RVIZ simulation 
+
+```shell
+source devel/setup.bash
+roslaunch rast_corridor_planning sim_planning_dyn.launch
+```
+
+
+
+### Test in Gazebo simulation
+
+
+
+## Future Work
+
 - [x] (Aug. w1) Refactor the code in `rast_corridor_planning` to make it fit this framework. Extract `traj_server` from `planning`.
 - [x] (Aug. w1) Merge MiniSnap trajectory optimization `corridor_minisnap` to `traj_opt`
 - [x] (Aug. w3) Move trajectory queue to `traj_server`
 - [x] (Aug. w3) Test tracking error: (x: max 0.5, avg 0.2)
-- [ ] (Aug. w3) Add `drone_id` to the planner class
+- [x] (Aug. w3) Add `drone_id` to the planner class
 - [x] (Aug. w3) Refine visualizations
 - [x] (Aug. w3) Work with Moji on the fake simulation
 - [ ] (Aug. w4) Include B-Spline trajectory optimization to `traj_opt` 
-- [ ] (Aug. w4) Include `decomp_ros` for convex corridor generation
-- [ ] Implement conflict-based search (CBS) method to `path_searching`
+- [x] (Aug. w4) Include `decomp_ros` for convex corridor generation
 
 
-## Style Note
+
+
+## ROS Style
 
 ### ROS Launch
+
+In this project, the  `<group>` tag is used to make it easier to apply setting to a single agent. Each agent is assigned to a independent namespace where all topics are published with the group name prefix. This design is to avoid mutual communication in simulation environment.
+
 Use `.launch` file to start a group of nodes for each uav.
 ```xml
   <group ns="uav$(arg drone_id)">
@@ -246,4 +335,24 @@ class Visualizer {
 };
 ```
 
-`std::shared_ptr` is recommended for ==better memory management==.
+`std::shared_ptr` is recommended for better memory management.
+
+
+
+## License
+
+MIT License
+
+
+
+## Reference
+
+[1] X. Zhou, J. Zhu, H. Zhou, C. Xu, and F. Gao, “EGO-Swarm: A Fully Autonomous and Decentralized Quadrotor Swarm System in Cluttered Environments,” in *2021 IEEE International Conference on Robotics and Automation (ICRA)*, May 2021, pp. 4101–4107. doi: [10.1109/ICRA48506.2021.9561902](https://doi.org/10.1109/ICRA48506.2021.9561902).
+
+[2] J. Hou, X. Zhou, Z. Gan, and F. Gao, “Enhanced Decentralized Autonomous Aerial Swarm with Group Planning.” arXiv, Mar. 02, 2022. Accessed: Jun. 29, 2022. [Online]. Available: http://arxiv.org/abs/2203.01069
+
+[3] B. Zhou, F. Gao, L. Wang, C. Liu, and S. Shen, “Robust and Efficient Quadrotor Trajectory Generation for Fast Autonomous Flight,” *IEEE Robotics and Automation Letters*, vol. 4, no. 4, pp. 3529–3536, Oct. 2019, doi: [10.1109/LRA.2019.2927938](https://doi.org/10.1109/LRA.2019.2927938).
+
+[4] F. Gao, L. Wang, B. Zhou, X. Zhou, J. Pan, and S. Shen, “Teach-Repeat-Replan: A Complete and Robust System for Aggressive Flight in Complex Environments,” *IEEE Transactions on Robotics*, vol. 36, no. 5, pp. 1526–1545, 2020, doi: [10.1109/TRO.2020.2993215](https://doi.org/10.1109/TRO.2020.2993215).
+
+[5] G. Chen, W. Dong, P. Peng, J. Alonso-Mora, and X. Zhu, “Continuous Occupancy Mapping in Dynamic Environments Using Particles.” arXiv, Feb. 13, 2022. doi: [10.48550/arXiv.2202.06273](https://doi.org/10.48550/arXiv.2202.06273).

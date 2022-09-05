@@ -24,6 +24,7 @@
 #include <termcolor.hpp>  // for colored output
 #include <traj_utils/poly_traj.hpp>
 #include <vector>
+#include <memory>
 
 #include "decomp_ros_msgs/DynPolyhedronArray.h"
 #include "gazebo_msgs/ModelStates.h"

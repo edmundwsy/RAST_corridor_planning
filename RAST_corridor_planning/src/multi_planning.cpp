@@ -723,7 +723,7 @@ void Planner::publishTrajectory(const polynomial::Trajectory& traj) {
   _traj_idx++;
   traj_utils::PolyTraj poly_msg;
   int                  piece_num = traj.getPieceNum();
-  poly_msg.drone_id              = 0;
+  poly_msg.drone_id              = _drone_id;
   poly_msg.traj_id               = _traj_idx;
   poly_msg.start_time            = _traj_start_time;
   poly_msg.order                 = 7;
@@ -804,12 +804,13 @@ double Planner::getMaxRisk(const polynomial::Trajectory& traj) {
 double Planner::getTotalRisk(const polynomial::Trajectory& traj) {
   double r = 0.0;
   double T = traj.getDuration();
+  int map_idx = 0;
   T        = (T > 1.0) ? T : 1.0;
-  for (double t = 0.0; t < T; t += 0.1) {
+  for (double t = 0.0; t < T; t += 0.02) {
+    map_idx               = static_cast<int>(floor(t / 0.2));
     Eigen::Vector3d p     = traj.getPos(t);
     int             idx   = getPointSpatialIndexInMap(p - _map_center, _map_center);
-    double          r_tmp = _future_risk[idx][0];
-    r += r_tmp;
+    r += _future_risk[idx][map_idx];
   }
   return r;
 }
@@ -851,6 +852,10 @@ inline bool Planner ::isGoalReached(const Eigen::Vector3d& p, const Eigen::Vecto
  */
 inline bool Planner::isInputLost() { return !_is_future_risk_updated || !_is_odom_received; }
 
+/**
+ * @brief read drone ID from the ros node handle
+ * @return int drone ID
+ */
 inline int Planner::getDroneID() {
   std::string name = ros::this_node::getNamespace();
   int id = name.substr(name.size() - 1, 1).c_str()[0] - '0';
