@@ -1,6 +1,10 @@
 # M-RAST: a multi-agent quadrotor planning framework with risk-aware spatial-temporal corridors
 
+**Table of Contents**
+
 [toc]
+
+
 
 ## Introduction
 
@@ -10,10 +14,20 @@
 
 ## Installation
 
-__Tested environment__: Ubuntu 18.04 + ROS Melodic and Ubuntu 20.04 + ROS Noetic
+__Tested environment__: Ubuntu 20.04 + ROS Noetic
+
+**Requirements:** Ubuntu 16.04, 18.04, or 20.04 with `ros-<your_distribution>-desktop-full` installation
 
 To compile the source code, you need:
-1. PCL, mavros, Eigen. PCL and Eigen are included in the desktop-full version of ROS. The mavros package is only used for ROS message subscriptions. If it's not installed on your laptop, check [mavros](https://github.com/mavlink/mavros) for installation guidance.
+
+1. PCL, `mavros`, Eigen. 
+    PCL and Eigen are included in the desktop-full version of ROS. The `mavros` package is only used for ROS message subscriptions. Install `mavros` by following command
+
+    ```shell
+    sudo apt install ros-<your_distribution>-mavros ros-<your_distribution>-mavros-msgs
+    ```
+
+    
 
 2. Install [munkers-cpp](https://github.com/saebyn/munkres-cpp) with the following steps.
     ```shell
@@ -35,21 +49,27 @@ To compile the source code, you need:
     sudo cmake --build . --target install
     ```
 
-4. Create a ROS workspace
+4. Install `zmqpp` for mutual communication, which provides utilities for multi-robot trajectory communication via a high-speed protocal [ZeroMQ](https://zeromq.org/)
    
+   ```shell
+   sudo apt install libzmqpp-dev
+   ```
+   
+5. Create a ROS workspace
+
    ```shell
    mkdir -p catkin_ws/src
    cd catkin_ws/src
    ```
-   
-4. Clone the simulator from [GitHub](https://github.com/edmundwsy/uav_simulator).
-   
+
+6. Clone the simulator from [GitHub](https://github.com/edmundwsy/uav_simulator). This repository provides a lightweight simulation and visualization environment for UAV system based on a [open-source project](https://github.com/HKUST-Aerial-Robotics/Fast-Planner). In our project, we only use the mapping, localization modules and ROS message. We will use it as a "fake" simulator, which means we only consider **ideal** mapping, localization and planning without any real physics and disturbance.
+
    ```shell
    git clone --recursive https://github.com/edmundwsy/uav_simulator.git
    ```
-   
-4. Clone the code in the ROS workspace, update the submodule, and compile.
-   
+
+7. Clone the code in the ROS workspace, update the submodule, and compile.
+
    ```shell
    git clone https://github.com/edmundwsy/multi-agent-rast.git
    cd multi-agent-rast
@@ -58,32 +78,125 @@ To compile the source code, you need:
    catkin build
    ```
 
+## Quick Start
+
+### RViz simulation 
+
+The RViz simulation is a fake simulation without physical contact and disturbance. It can simply debug the code and visualize the planning algorithm, which is vital for early-stage development. Before start, you need to go to your workspace directory and source the setup script
+
+```shell
+cd catkin_ws
+source devel/setup.bash
+```
+
+If you would like to test the algorithm in single agent dynamic environment, you can run following command:
+
+```shell
+roslaunch rast_corridor_planning sim_planning_dyn.launch
+```
+
+It will launch all ROS nodes for single agent planning and start a RViz window to visualize environment and trajectory. 
+
+<img src="assets/README/rviz_simulation_single2.png" alt="rviz_simulation_single2" style="zoom: 33%;" />
+
+You can also launch multi-agent path planning similarly
+
+```shell
+roslaunch rast_corridor_planning sim_multi_dyn.launch
+```
+
+The RViz simulation will display three agents in a dynamic environment. You can send a trigger by `rosrun traj_server trigger ` or use the `2D Nav Goal` tool in `RViz`to start planning.
+
+<img src="assets/README/rviz_simulation.png" alt="rviz_simulation" style="zoom: 50%;" />
 
 
 
+### Gazebo Simulation & Real-World Test
 
-## Structure
+If you would like to test this system in Gazebo simulation and real world, here are the instructions
+
+1. Install [PX4-Autopilot](https://github.com/PX4/PX4-Autopilot). PX4 is a professional open-source autopilot supported by an active world wide community. You can either follow the [installation manual](https://docs.px4.io/v1.12/en/simulation/multi_vehicle_simulation_gazebo.html) or copy following commands:
+
+   ```shell
+   git clone https://github.com/PX4/PX4-Autopilot.git
+   git submodule update --init --recursive
+   make px4_sitl_default gazebo
+   ```
+   
+2. Clone `pva_tracker` to your workspace.    `pva_tracker` receives position, velocity, acceleration and yaw command from the planner and commands to attitude and thrust setpoints which will be read by PX4 firmware. 
+
+   ```
+   cd catkin_ws/src
+   git clone https://github.com/g-ch/pva_tracker.git
+   cd ..
+   catkin build
+   ```
+
+   
+
+3. Next you can source the environment by
+
+   ```shell
+   source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/px4_sitl_default
+   export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd):$(pwd)/Tools/sitl_gazebo
+   ```
+
+   then change directory back to the workspace and launch the simulation
+
+   ```shell
+   cd catkin_ws
+   source devel/setup.bash
+   roslaunch rast_corridor_planning street.launch
+   ```
+
+4. In an separate terminal you can start `mavros` by
+
+   ```shell
+   source devel/setup.bash
+   roslaunch rast_corridor_planning mavros.launch
+   ```
+
+5. Then open another separate terminal, type following commands to launch `pva_tracker`
+
+   ```shell
+   source devel/setup.bash
+   rosrun pva_tracker tracker_sim_auto_arm_takeoff
+   ```
+
+6. Next open another separate terminal and launch all the planning nodes
+
+   ```shell
+   source devel/setup.bash
+   roslaunch rast_corridor_planning gazebo_planning.launch
+   ```
+
+7. All agents start planning after receiving a trigger, you can either send the trigger via use commands or use the `2D Nav Goal` tool in `RViz`. Agents will not use triggered position in the initial plan. When agents reach the initial goal you can send a new goal in the same way.
+
+![gazebo_simulation](assets/README/gazebo_simulation.png)
+
+
+
+## Project Structure
 
 * [RAST_corridor_planning/](./RAST_corridor_planning): RAST corridor generation and planning for single uav
-* [path_searching/](./path_searching): path finding library (dynamic A star and Conflict-based Search)
+* [path_searching/](./path_searching): path finding library (E.g. hybrid A star and Conflict-based Search)
 * [plan_env/](./plan_env): mapping library (only grid map now, we can use DSP map in `rast_corridor_planning` to replace this package)
-* [swarm_bridge/](./swarm_bridge): package for multi-robot trajectory communication via [ZeroMQ](https://zeromq.org/), which increases the communication stability and makes it distributed.
-* [traj_opt/](./traj_opt): package for trajectory optimization. [GCOPTER](https://github.com/ZJU-FAST-Lab/GCOPTER) is already included. 
-* [traj_utils/](./traj_utils): package contains trajectory visualization class and parametric trajectory message.
+* [swarm_bridge/](./swarm_bridge): package for multi-robot trajectory communication via [ZeroMQ](https://zeromq.org/), which increases the communication stability and makes it distributed easier.
+* [traj_opt/](./traj_opt): package for trajectory optimization including state-of-the-art trajectory optimization algorithms ([GCOPTER](https://github.com/ZJU-FAST-Lab/GCOPTER) , Minimum Snap)
+* [traj_utils/](./traj_utils): package contains parametric trajectory definition and related ROS message. A general-purpose trajectory visualization class is also implemented.
 * [traj_server/](./traj_server): package for discretize parametric trajectory into separate waypoints and poses. 
 * [.gitignore](./.gitignore)
 * [.gitmodules](./.gitmodules)
 * [README.md](./README.md)
 
+
+
 ### RQT Graph
 
-- **dotted line** represents introduced as a library (by class & class pointer)
-- **solid line** represents ros message
-- each **subgraph** represents a individual package with its own test samples. Main functionalities should be encapsulated in `.h` or `.hpp` files.
-
-- `~trajectory`: parametric trajectory message
-- `~other_traj`: parametric trajectory message related to other agents
-- `~/command/pva_setpoint`: discretized trajectory messages
+- dotted line represents introduced as a library (by class & class pointer)
+- solid line represents communication via ros message
+- large yellow box represents namespace
+- each subgraph inside the large box represents a individual package with its own test samples. Main functionalities should be encapsulated in `.h` or `.hpp` files.
 
 ```mermaid
 graph TD
@@ -147,6 +260,14 @@ graph TD
   bridge_node_tcp =="/boardcast_traj<br>/uav0/odom"==> uav1_bridge_node_tcp
 ```
 
+#### ROS messages
+
+- `~pointcloud`: point cloud message from depth camera
+- `~mavros/local_position/pose`: local odometry message from onboard IMU or motion capture system
+- `~trajectory`: parametric trajectory message
+- `~other_traj`: parametric trajectory message related to other agents
+- `~/command/pva_setpoint`: discretized trajectory messages to controller
+
 
 
 ### [rast_corridor_planning]: Main Planning Package
@@ -195,13 +316,92 @@ graph TD
 
 ### [traj_utils]: Trajectory utilities
 
-A library for parametric trajectories message and related visualization. 
+A library for parametric trajectories message and related visualization. Following components are implemented in this package
+
+- **polynomial trajectory piece**: a 7th-order polynoimal.
+- **uniform B-spline**: a class to describe a 4th-order uniform B-spline.
+- **Bezier spline**: a class to describe a 4-th order Bezier curve.
+- **polyhedron**: a 6 rows matrix with data type `Eigen::Matrix<double, 6, -1>` . The first 3 elements indicates the normal vector pointing outwards, the last 3 elements are points on the plane.
+
+**File Tree View**
+
+```
+traj_utils                         
+├─ include                        // trajectory definitions
+│  └─ traj_utils                   
+│     ├─ basis_converter.hpp       
+│     ├─ corridor.hpp              
+│     ├─ planning_visualization.h  // visualization
+│     ├─ poly_traj.hpp             
+│     ├─ root_finder.hpp           
+│     ├─ uniform_bspline.h         
+│     └─ visualizer.hpp            // visualization
+├─ msg                             // trajectory messages
+│  ├─ BsplineTraj.msg              
+│  ├─ GoalSet.msg                  
+│  ├─ MINCOTraj.msg                
+│  ├─ MultiBsplines.msg            
+│  └─ PolyTraj.msg                 
+├─ src                             
+│  ├─ planning_visualization.cpp   
+│  ├─ uniform_bspline.cpp          
+│  └─ visualizer.cpp               
+├─ CMakeLists.txt                  
+└─ package.xml                     
+```
+
+
 
 ### [traj_opt]: Trajectory optimizer
 
 **Dependency**: `traj_utils`
 
-A library for trajectory optimization, which includes polynomial ✅, bernstein 📝, bspline 📝, MINCO ✅ trajectories and related optimization algorithms. Trajectory optimizations are recommended to implement as a library, and a self-contained ROS node should be included for test.
+A library for trajectory optimization, which includes polynomial, Bernstein, B-spline, MINCO trajectories and related optimization algorithms. Trajectory optimizations are recommended to implement as a library, and a self-contained ROS node should be included for test.
+
+**File Tree View**
+
+```
+traj_opt                              
+├─ include                            
+│  ├─ bernstein                       // optimizer for Bezier  
+│  │  └─ bernstein_optimizer.hpp        
+│  ├─ bspline                         // optimizer for B-spline
+│  │  └─ bspline_optimizer.h          
+│  ├─ polynomial                      // optimizer for polynomial
+│  │  ├─ gcopter.hpp                  // GCOPTER optimizer
+│  │  ├─ mini_snap.h                  // minisnap optimizer
+│  │  ├─ poly_traj_optimizer.h        
+│  │  └─ poly_traj_utils.hpp          
+│  ├─ iosqp.hpp                       // OSQP interface for QP problem
+│  ├─ lbfgs.hpp                       // L-BFGS for unconstrained optimization
+│  ├─ lbfgs_robust.hpp                
+│  └─ plan_container.hpp              
+├─ launch                             
+│  └─ test_minisnap.launch            // test Minimun Snap optimizer
+├─ rviz                               
+│  └─ test_minisnap.rviz              // test Minimun Snap optimizer
+├─ src                                // class & function definitions
+│  ├─ bspline_optimizer.cpp           
+│  ├─ gradient_descent_optimizer.cpp  
+│  ├─ mini_snap.cpp                   
+│  └─ poly_traj_optimizer.cpp         
+├─ test                               
+│  └─ test_minisnap.cpp               
+├─ CMakeLists.txt                     
+├─ README.md                          
+└─ package.xml                        
+```
+
+`iosqp.hpp` is a header-only interface for [OSQP](https://osqp.org/docs/solver/index.html) which solves convex quadratic programs problem as
+$$
+\min \frac{1}{2} x^\intercal P x + q^\intercal x \\
+s.t . \quad lb \leq Ax \leq ub
+$$
+In trajectory optimization problem, the QP solve can not deal with safety constraints and dynamical feasibility constraint. This solver can be applied to minimum snap problems and Bernstein optimizer.
+
+`lbfgs.hpp` is a header-only L-BFGS solver for unconstrained optimization problems with many engineering adjustments to improve robustness and efficiency. It requires cost function to be $C^2$ smooth or $C^0$ but piecewise $C^2$. This optimizer can be applied to B-spline optimizer with soft constraints.
+
+
 
 ### [traj_server]: Trajectory server
 
@@ -211,48 +411,60 @@ A node for discretize parametric trajectory into separate waypoints and poses.
 
 - Input: parametric trajectory message (`~trajectory`)
 - Output: discretized trajectory message (`~position_cmd`, `~pva_setpoint`, `/traj_start_trigger`)
-- Note: `/traj_start_trigger` is a `geometry_msgs::PoseStamped` message, which is used to trigger the discretization and trajectory execution.
 - Note: There are two behavior of trajectory queue, one is adding new trajectory to the end of the queue, and the other is clearing the queue and adding new trajectory. We use the stating time of the incoming trajectory and the end time of the previous trajectory to decide which behavior is used. 
   - if t_start >= t_end, then add new trajectory to the end of the queue
   - if t_start < t_end, then clear the queue and add new trajectory 
 
+**Trigger**
+
+Note: `/traj_start_trigger` is a `geometry_msgs::PoseStamped` message, which is used to trigger the discretization and trajectory execution. The `traj_server` node will save the discretized trajectory in a queue until it's been triggered. After trigger received, trajectory points in the queue will be popped up and published to the controller every 10ms, and new trajectory points will be pushed into the queue.
 
 
-### RVIZ Simulation
 
+### RViz Simulation
 
+You will see a hovering drone (black) and its FoV (pink line). 
+
+[TODO]
 
 ### Gazebo Simulation
 
+[TODO]
 
+### Launch Files
 
+**File Tree View**
 
-
-## Quick Start
-
-### Test in RVIZ simulation 
-
-```shell
-source devel/setup.bash
-roslaunch rast_corridor_planning sim_planning_dyn.launch
+```
+launch                           
+├─ empty_world.launch            // a empty world in gazebo simulation
+├─ gazebo_planning.launch        // planning in gazebo simulation
+├─ mavros.launch                 
+├─ multi_uav_mavros_sitl.launch  // multi-drone gazebo simulation
+├─ planning.launch               
+├─ quick_test.launch             
+├─ sim_multi_dyn.launch          // multi planning in RViz simulation
+├─ sim_planning.launch           // planning in static RViz simulation
+├─ sim_planning_dyn.launch       // planning in dynamic RViz simulation
+├─ sim_single_drone.xml          
+├─ simulator.launch              // static RViz simulation
+├─ simulator_dyn.launch          // dynamic RViz simulation
+├─ street.launch                 // a street in gazebo simulation
+├─ test_control.launch           
+└─ test_multi_planning.launch    
 ```
 
 
 
-### Test in Gazebo simulation
-
-
-
 ## Future Work
-
 - [x] (Aug. w1) Refactor the code in `rast_corridor_planning` to make it fit this framework. Extract `traj_server` from `planning`.
-- [x] (Aug. w1) Merge MiniSnap trajectory optimization `corridor_minisnap` to `traj_opt`
+- [x] (Aug. w1) Merge Minimum Snap trajectory optimization `corridor_minisnap` to `traj_opt`
 - [x] (Aug. w3) Move trajectory queue to `traj_server`
 - [x] (Aug. w3) Test tracking error: (x: max 0.5, avg 0.2)
-- [x] (Aug. w3) Add `drone_id` to the planner class
+- [x] (Aug. w3) Add `drone_id` to the planner class, display to prompt
 - [x] (Aug. w3) Refine visualizations
 - [x] (Aug. w3) Work with Moji on the fake simulation
-- [ ] (Aug. w4) Include B-Spline trajectory optimization to `traj_opt` 
+- [ ] (Aug. w4) Include Bernstein & B-Spline trajectory optimization to `traj_opt` 
 - [x] (Aug. w4) Include `decomp_ros` for convex corridor generation
 
 
@@ -330,7 +542,7 @@ class Visualizer {
                                   double                      max_vel);
   void visualizeCorridors(std::vector<Corridor*>&     corridors,
                           geometry_msgs::PoseStamped& map_pose,
-                          bool                        rviz_map_center_locked,
+                          bool                        RViz_map_center_locked,
                           bool                        clear_corridors = false);
 };
 ```
