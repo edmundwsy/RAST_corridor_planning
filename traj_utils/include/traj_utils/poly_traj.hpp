@@ -33,7 +33,7 @@ namespace polynomial {
 typedef Eigen::Matrix<double, DIM, ORDER + 1> CoefficientMat;
 typedef Eigen::SparseMatrix<double>           SparMat;
 
-class Piece {
+class PolyPiece {
  private:
   double _duration;
   /** normalized coefficients
@@ -43,8 +43,8 @@ class Piece {
   CoefficientMat _coeffs;
 
  public:
-  Piece() = default;
-  Piece(double duration, const CoefficientMat& coeffs) : _duration(duration), _coeffs(coeffs) {}
+  PolyPiece() = default;
+  PolyPiece(double duration, const CoefficientMat& coeffs) : _duration(duration), _coeffs(coeffs) {}
 
   void setup(const double duration) { _duration = duration; }
   void setup(const CoefficientMat& coeffs) { _coeffs = coeffs; }
@@ -210,11 +210,11 @@ class Piece {
     }
   }
 
-};  // class Piece
+};  // class PolyPiece
 
 class Trajectory {
  private:
-  typedef std::vector<Piece> Pieces;
+  typedef std::vector<PolyPiece> Pieces;
   Pieces                     _pieces;
   int                        _n_pieces;
 
@@ -224,7 +224,7 @@ class Trajectory {
   Trajectory(const std::vector<double>& durations, const std::vector<CoefficientMat>& coeffs) {
     int _n_pieces = durations.size();
     for (int i = 0; i < _n_pieces; i++) {
-      _pieces.push_back(Piece(durations[i], coeffs[i]));
+      _pieces.push_back(PolyPiece(durations[i], coeffs[i]));
     }
   }
 
@@ -338,8 +338,8 @@ class Trajectory {
     return max_acc_rate;
   }
 
-  const Piece& operator[](int i) const { return _pieces[i]; }
-  Piece&       operator[](int i) { return _pieces[i]; }
+  const PolyPiece& operator[](int i) const { return _pieces[i]; }
+  PolyPiece&       operator[](int i) { return _pieces[i]; }
 };
 
 } // namespace minisnap
