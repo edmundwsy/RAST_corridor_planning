@@ -26,10 +26,9 @@ To compile the source code, you need:
     ```shell
     sudo apt install ros-<your_distribution>-mavros ros-<your_distribution>-mavros-msgs
     ```
-
     
-
 2. Install [munkers-cpp](https://github.com/saebyn/munkres-cpp) with the following steps.
+    
     ```shell
     git clone https://github.com/saebyn/munkres-cpp.git
     cd munkres-cpp
@@ -62,13 +61,21 @@ To compile the source code, you need:
    cd catkin_ws/src
    ```
 
+6. Clone [mav_comm](https://github.com/ethz-asl/mav_comm) package. It contains message and service definitions used for mavs. 
+
+   ```shell
+   git clone https://github.com/ethz-asl/mav_comm.git
+   ```
+
+   
+
 6. Clone the simulator from [GitHub](https://github.com/edmundwsy/uav_simulator). This repository provides a lightweight simulation and visualization environment for UAV system based on a [open-source project](https://github.com/HKUST-Aerial-Robotics/Fast-Planner). In our project, we only use the mapping, localization modules and ROS message. We will use it as a "fake" simulator, which means we only consider **ideal** mapping, localization and planning without any real physics and disturbance.
 
    ```shell
    git clone --recursive https://github.com/edmundwsy/uav_simulator.git
    ```
 
-7. Clone the code in the ROS workspace, update the submodule, and compile.
+7. Clone the code in the ROS workspace, update the submodules, and compile.
 
    ```shell
    git clone https://github.com/edmundwsy/multi-agent-rast.git
