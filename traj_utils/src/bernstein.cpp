@@ -15,7 +15,7 @@ namespace planner {
 
 /**
  * @brief
- * p(t) = C^T * A * [t^4, t^3, t^2, t, 1]^T
+ * p(t) = C^T * A * [1, t, t^2, t^3, t^4]^T
  * C: (N+1)x3 control points
  * A: 5x5 coefficient matrix
  * T: 5x1 time vector
@@ -63,9 +63,7 @@ void BernsteinPiece::calcCoeffMat() {
   A_.setZero();
   switch (N_) {
     case 1:
-      A_(0, 0) = 1;
-      A_(1, 0) = -1;
-      A_(1, 1) = 1;
+      A_ << 1, -1, 0, 1;
       break;
     case 2:
       A_ << 1, -2, 1, 0, 2, -2, 0, 0, 1;
@@ -92,5 +90,63 @@ void BernsteinPiece::calcCoeffMat() {
   }
 }
 
+void BernsteinPiece::calcCoeffMat(int n, Eigen::MatrixXd &A) {
+  A.resize(n + 1, n + 1);
+  A.setZero();
+  switch (n) {
+    case 1:
+      A << 1, -1, 0, 1;
+      break;
+    case 2:
+      A << 1, -2, 1, 0, 2, -2, 0, 0, 1;
+      break;
+    case 3:
+      A <<
+          // clang-format off
+      1, -3, 3, 1,
+      0, 3, -6, 3,
+      0, 0, 3, -3,
+      0, 0, 0, 1;
+      // clang-format on
+      break;
+    case 4:
+      A <<
+          // clang-format off
+      1, -4,   6,  -4,  1,
+      0,  4, -12,  12, -4,
+      0,  0,   6, -12,  6,
+      0,  0,   0,   4, -4,
+      0,  0,   0,   0,  1;
+      // clang-format on
+      break;
+  }
+}
+
+Eigen::MatrixXd BernsteinPiece::calcDerivativeCtrlPts(const Eigen::MatrixXd &cpts) const {
+  int n = cpts.rows() - 1;
+  assert(n >= 1);
+  Eigen::MatrixXd d_cpts;
+  d_cpts.resize(n, 3);
+  for (int i = 0; i < n; i++) {
+    d_cpts.row(i) = n * (cpts.row(i + 1) - cpts.row(i));
+  }
+  return d_cpts;
+}
+
+/**
+ * @brief TODO: check this function
+ * 
+ * @return double 
+ */
+double BernsteinPiece::getMaxVelRate() const {
+  double max_vel_rate = 0;
+  for (int i = 0; i <= N_; i++) {
+    double vel_rate = cpts_.row(i).norm() / (i + 1);
+    if (vel_rate > max_vel_rate) {
+      max_vel_rate = vel_rate;
+    }
+  }
+  return max_vel_rate;
+}
 
 }  // namespace planner

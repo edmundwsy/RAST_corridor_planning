@@ -58,8 +58,16 @@ add_library( traj_utils
     # src/planning_visualization.cpp 
     src/visualizer.cpp
     src/uniform_bspline.cpp
+    src/bernstein.cpp
     )
 target_link_libraries( traj_utils
     ${catkin_LIBRARIES} 
     ${Eigen3_LIBRARIES} 
     )  
+
+if (CATKIN_ENABLE_TESTING)
+  find_package(rostest REQUIRED)
+  catkin_add_gtest(test_bernstein test/test_bernstein.cpp)
+  # add_rostest_gtest(test_bernstein test/test_bernstein.cpp)
+  target_link_libraries(test_bernstein traj_utils ${catkin_LIBRARIES} ${GTEST_LIBRARIES})
+endif()

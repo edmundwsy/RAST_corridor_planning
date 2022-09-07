@@ -15,8 +15,8 @@
 #include <Eigen/Eigen>
 #include <algorithm>
 #include <iostream>
-#include <vector>
 #include <memory>
+#include <vector>
 
 namespace planner {
 
@@ -44,7 +44,7 @@ class BernsteinPiece {
     tf_   = tf;
     t_    = tf_ - t0_;
     assert(cpts_.rows() == N_ + 1);  // 4th order curve has 5 control points
-    calcCoeffMat();
+    calcCoeffMat(N_, A_);
   }
   BernsteinPiece(const Eigen::MatrixXd &cpts, const double &t) {
     cpts_ = cpts;
@@ -53,11 +53,21 @@ class BernsteinPiece {
     tf_   = t;
     t_    = t;
     assert(cpts_.rows() == N_ + 1);
-    calcCoeffMat();
+    calcCoeffMat(N_, A_);
   }
 
   ~BernsteinPiece() {}
-
+  void setControlPoints(const Eigen::MatrixXd &cpts) {
+    cpts_ = cpts;
+    N_ = ORDER;
+    assert(cpts_.rows() == N_ + 1);
+    calcCoeffMat(N_, A_);
+  }
+  void setTimeInterval(const double &t0, const double &tf) {
+    t0_ = t0;
+    tf_ = tf;
+    t_  = tf_ - t0_;
+  }
   inline int    getDim() { return DIM; }
   inline int    getOrder() { return N_; }
   inline double getStartTime() { return t0_; }
@@ -70,25 +80,31 @@ class BernsteinPiece {
   Eigen::Vector3d getJrk(double t) const;
 
   Eigen::MatrixXd getPosCtrlPts() const { return cpts_; }
-  Eigen::MatrixXd getVelCtrlPts() const;
-  Eigen::MatrixXd getAccCtrlPts() const;
-
+  Eigen::MatrixXd getVelCtrlPts() const { return calcDerivativeCtrlPts(getPosCtrlPts()); }
+  Eigen::MatrixXd getAccCtrlPts() const { return calcDerivativeCtrlPts(getVelCtrlPts()); }
+  Eigen::MatrixXd getCoeffMat() const { return A_; }
   double getMaxVelRate() const;
   double getMaxAccRate() const;
 
+ private:
+  Eigen::MatrixXd calcDerivativeCtrlPts(const Eigen::MatrixXd &cpts) const;
+
   void calcCoeffMat();
+  void calcCoeffMat(int n, Eigen::MatrixXd &A);
+
+ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-}
+};
 
 class Bezier {
  private:
   typedef std::vector<BernsteinPiece> Pieces;
-  Pieces pieces_;
-  Eigen::MatrixXd     cpts_;  // control points
-  int                 N_;     // order
-  int                 M_;     // number of pieces
-  double              T_;     // total time
-  std::vector<double> t_;     // time interval for each piece
+  Pieces                              pieces_;
+  Eigen::MatrixXd                     cpts_;  // control points
+  int                                 N_;     // order
+  int                                 M_;     // number of pieces
+  double                              T_;     // total time
+  std::vector<double>                 t_;     // time interval for each piece
 
  public:
   Bezier() {}
@@ -98,7 +114,7 @@ class Bezier {
   /* get & set basic info */
   void   setOrder(const int &order) { N_ = order; }
   void   setTime(const std::vector<double> &t) { t_ = t; }
-  int    getOrder() { return N_ }
+  int    getOrder() { return N_; }
   double getDuration() { return T_; }
 
   inline Eigen::Vector3d getPos(double t);

@@ -70,7 +70,12 @@
   <exec_depend>decomp_ros_msgs</exec_depend>
   <exec_depend>message_runtime</exec_depend>
 
-
+  <build_depend> gtrostestest </build_depend>
+  <build_depend> gtest </build_depend>
+  <build_export_depend> rostest </build_export_depend>
+  <build_export_depend> gtest </build_export_depend>
+  <exec_depend> rostest </exec_depend>
+  <exec_depend> gtest </exec_depend>
   <!-- The export tag contains other, unspecified, tags -->
   <export>
     <!-- Other tools can request additional information be placed here -->
