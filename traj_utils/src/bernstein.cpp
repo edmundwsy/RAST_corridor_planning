@@ -135,18 +135,86 @@ Eigen::MatrixXd BernsteinPiece::calcDerivativeCtrlPts(const Eigen::MatrixXd &cpt
 
 /**
  * @brief TODO: check this function
- * 
- * @return double 
+ *
+ * @return double
  */
+// double BernsteinPiece::getMaxVelRate() const {
+//   double max_vel_rate = 0;
+//   for (int i = 0; i <= N_; i++) {
+//     double vel_rate = cpts_.row(i).norm() / (i + 1);
+//     if (vel_rate > max_vel_rate) {
+//       max_vel_rate = vel_rate;
+//     }
+//   }
+//   return max_vel_rate;
+// }
+
 double BernsteinPiece::getMaxVelRate() const {
+  Eigen::MatrixXd d_cpts       = getVelCtrlPts();
+  double          max_vel_rate = 0;
+  for (int i = 0; i <= d_cpts.rows(); i++) {
+    double vel_rate = d_cpts.row(i).norm();
+    if (vel_rate > max_vel_rate) {
+      max_vel_rate = vel_rate;
+    }
+  }
+  return max_vel_rate / t_;
+}
+
+double BernsteinPiece::getMaxAccRate() const {
+  Eigen::MatrixXd d_cpts       = getAccCtrlPts();
+  double          max_acc_rate = 0;
+  for (int i = 0; i <= d_cpts.rows(); i++) {
+    double acc_rate = d_cpts.row(i).norm();
+    if (acc_rate > max_acc_rate) {
+      max_acc_rate = acc_rate;
+    }
+  }
+  return max_acc_rate / pow(t_, 2);
+}
+
+/********** Bezier Curve **********/
+void Bezier::setControlPoints(const Eigen::MatrixXd &cpts) {
+  cpts_ = cpts;
+  assert(cpts_.rows() == M_ * (N_ + 1) && "Piece number does not match time interval number");
+  assert(cpts_.cols() == DIM && "Dimension does not match");
+  calcPieces();
+}
+
+void Bezier::calcPieces() {
+  pieces_.reserve(M_);
+  double t = 0;
+  for (int i = 0; i < M_; i++) {
+    Eigen::MatrixXd cpts;
+    cpts.resize(N_ + 1, 3);
+    for (int j = 0; j <= N_; j++) {
+      cpts.row(j) = cpts_.row(i * N_ + j);
+    }
+    pieces_.emplace_back(cpts, t, t + t_[i]);
+    t += t_[i];
+  }
+}
+
+double Bezier::getMaxVelRate() const {
   double max_vel_rate = 0;
-  for (int i = 0; i <= N_; i++) {
-    double vel_rate = cpts_.row(i).norm() / (i + 1);
+  for (int i = 0; i < M_; i++) {
+    double vel_rate = pieces_[i].getMaxVelRate();
     if (vel_rate > max_vel_rate) {
       max_vel_rate = vel_rate;
     }
   }
   return max_vel_rate;
+}
+
+double Bezier::getMaxAccRate() const {
+  double max_acc_rate = 0;
+  for (int i = 0; i < M_; i++) {
+    double acc_rate = pieces_[i].getMaxAccRate();
+    if (acc_rate > max_acc_rate) {
+      max_acc_rate = acc_rate;
+    }
+  }
+  return max_acc_rate;
 }
 
 }  // namespace planner

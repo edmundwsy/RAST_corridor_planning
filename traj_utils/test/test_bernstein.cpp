@@ -8,9 +8,7 @@
 namespace planner {
 class BernsteinTest : public ::testing::Test {
  protected:
-  BernsteinTest() {
-    std::cout << "BernsteinTest" << std::endl;
-  }
+  BernsteinTest() { std::cout << "BernsteinTest" << std::endl; }
   ~BernsteinTest() {}
   virtual void SetUp() override {
     std::cout << "enter into SetUp()" << std::endl;
@@ -18,8 +16,43 @@ class BernsteinTest : public ::testing::Test {
     cpts << 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4;
     bp = BernsteinPiece(cpts, 2, 4);
   }
-  void TearDown() override { std::cout << "exit from TearDown" << std::endl; }
+  void           TearDown() override { std::cout << "exit from TearDown" << std::endl; }
   BernsteinPiece bp;
+};
+
+class BezierTest : public ::testing::Test {
+ protected:
+  BezierTest() { std::cout << "BezierTest" << std::endl; }
+  ~BezierTest() {}
+  virtual void SetUp() override {
+    std::cout << "Bezier Test: Setup()" << std::endl;
+    std::vector<double> ts = {1, 2, 3};
+    Eigen::MatrixXd     cpts(15, 3);
+    cpts <<
+        // clang-format off
+    0, 0, 0,
+    1, 1, 1,
+    2, 2, 2,
+    3, 3, 3,
+    4, 4, 4,
+
+    4, 4, 4,
+    4, 5, 4,
+    5, 4, 4,
+    5, 6, 4,
+    6, 5, 4,
+
+    6, 5, 4,
+    7, 5, 4,
+    7, 6, 4,
+    8, 5, 4,
+    8, 6, 4;
+    // clang-format on
+    bc = Bezier(ts, cpts);
+  }
+  virtual void TearDown() override {}
+
+  Bezier bc;
 };
 
 TEST_F(BernsteinTest, TestCase1) {
@@ -46,7 +79,6 @@ TEST_F(BernsteinTest, TestControlPoints) {
   Eigen::MatrixXd a_cpts(3, 3);
   a_cpts << 0, 0, 0, 0, 0, 0, 0, 0, 0;
   EXPECT_EQ(bp.getAccCtrlPts(), a_cpts);
-
 }
 
 TEST_F(BernsteinTest, TestGetPos) {
@@ -55,6 +87,20 @@ TEST_F(BernsteinTest, TestGetPos) {
     p = bp.getPos(t);
     v = bp.getVel(t);
     a = bp.getAcc(t);
+    std::cout << "t: " << t << ", p: " << p.transpose() << ", v: " << v.transpose()
+              << ", a: " << a.transpose() << std::endl;
+  }
+}
+
+TEST_F(BezierTest, TestBezierCurve) {
+  EXPECT_DOUBLE_EQ(bc.getDuration(), 6);
+  EXPECT_EQ(3, bc.getNumPieces());
+
+  for (double t = 0; t < 6; t += 0.1) {
+    Eigen::Vector3d p, v, a;
+    p = bc.getPos(t);
+    v = bc.getVel(t);
+    a = bc.getAcc(t);
     std::cout << "t: " << t << ", p: " << p.transpose() << ", v: " << v.transpose()
               << ", a: " << a.transpose() << std::endl;
   }

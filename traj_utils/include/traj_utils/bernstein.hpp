@@ -59,7 +59,7 @@ class BernsteinPiece {
   ~BernsteinPiece() {}
   void setControlPoints(const Eigen::MatrixXd &cpts) {
     cpts_ = cpts;
-    N_ = ORDER;
+    N_    = ORDER;
     assert(cpts_.rows() == N_ + 1);
     calcCoeffMat(N_, A_);
   }
@@ -83,8 +83,8 @@ class BernsteinPiece {
   Eigen::MatrixXd getVelCtrlPts() const { return calcDerivativeCtrlPts(getPosCtrlPts()); }
   Eigen::MatrixXd getAccCtrlPts() const { return calcDerivativeCtrlPts(getVelCtrlPts()); }
   Eigen::MatrixXd getCoeffMat() const { return A_; }
-  double getMaxVelRate() const;
-  double getMaxAccRate() const;
+  double          getMaxVelRate() const;
+  double          getMaxAccRate() const;
 
  private:
   Eigen::MatrixXd calcDerivativeCtrlPts(const Eigen::MatrixXd &cpts) const;
@@ -108,24 +108,72 @@ class Bezier {
 
  public:
   Bezier() {}
-  Bezier(const int &order, const double &time);
-  ~Bezier();
+  Bezier(const double &time) : T_(time) {
+    N_ = ORDER;
+    M_ = 1;
+    t_.push_back(T_);
+  }
+
+  Bezier(const std::vector<double> &time) : t_(time) {
+    N_ = ORDER;
+    M_ = t_.size();
+    T_ = 0;
+    for (int i = 0; i < M_; i++) {
+      T_ += t_[i];
+    }
+  }
+
+  Bezier(const std::vector<double> &time, const Eigen::MatrixXd &cpts) : t_(time), cpts_(cpts) {
+    N_ = ORDER;
+    M_ = t_.size();
+    T_ = 0;
+    for (int i = 0; i < M_; i++) {
+      T_ += t_[i];
+    }
+    setControlPoints(cpts_);
+  }
+  ~Bezier() {}
 
   /* get & set basic info */
-  void   setOrder(const int &order) { N_ = order; }
-  void   setTime(const std::vector<double> &t) { t_ = t; }
-  int    getOrder() { return N_; }
-  double getDuration() { return T_; }
+  void setOrder(const int &order) { N_ = order; }
+  void setTime(const std::vector<double> &t) { t_ = t; }
+  void setControlPoints(const Eigen::MatrixXd &cpts);
 
-  inline Eigen::Vector3d getPos(double t);
-  inline Eigen::Vector3d getVel(double t);
-  inline Eigen::Vector3d getAcc(double t);
+  int    getOrder() { return N_; }
+  int    getNumPieces() { return M_; }
+  double getDuration() { return T_; }
+  void   calcPieces();
+
+  inline int locatePiece(double t) const {
+    for (int i = 0; i < M_; i++) {
+      t -= t_[i];
+      if (t < 0) {
+        return i;
+      }
+    }
+    return M_ - 1;
+  }
+
+  inline Eigen::Vector3d getPos(double t) const {
+    int i = locatePiece(t);
+    return pieces_[i].getPos(t);
+  }
+
+  inline Eigen::Vector3d getVel(double t) const {
+    int i = locatePiece(t);
+    return pieces_[i].getVel(t);
+  }
+
+  inline Eigen::Vector3d getAcc(double t) const {
+    int i = locatePiece(t);
+    return pieces_[i].getAcc(t);
+  }
 
   double getMaxVelRate() const;
   double getMaxAccRate() const;
 
-  const BernsteinPiece& operator[](int i) const { return pieces_[i]; }
-  BernsteinPiece& operator[](int i) { return pieces_[i]; }
+  const BernsteinPiece &operator[](int i) const { return pieces_[i]; }
+  BernsteinPiece &      operator[](int i) { return pieces_[i]; }
 
   typedef std::shared_ptr<Bezier> Ptr;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
