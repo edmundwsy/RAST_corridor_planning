@@ -8,7 +8,7 @@
 #include <Eigen/Eigen>
 #include "plan_container.hpp"
 
-#include "polynomial/lbfgs.hpp"
+#include "lbfgs.hpp"
 #include "polynomial/poly_traj_utils.hpp"
 
 namespace ego_planner {
