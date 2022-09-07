@@ -463,6 +463,8 @@ launch
 
 
 
+
+
 ## Future Work
 - [x] (Aug. w1) Refactor the code in `rast_corridor_planning` to make it fit this framework. Extract `traj_server` from `planning`.
 - [x] (Aug. w1) Merge Minimum Snap trajectory optimization `corridor_minisnap` to `traj_opt`
