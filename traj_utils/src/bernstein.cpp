@@ -11,7 +11,7 @@
 
 #include "traj_utils/bernstein.hpp"
 
-namespace planner {
+namespace Bernstein {
 
 /**
  * @brief
@@ -217,4 +217,4 @@ double Bezier::getMaxAccRate() const {
   return max_acc_rate;
 }
 
-}  // namespace planner
+}  // namespace Bernstein

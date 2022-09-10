@@ -18,10 +18,10 @@
 #include <memory>
 #include <vector>
 
-namespace planner {
-
 const int ORDER = 4;  // order of Bezier curve, default 4
 const int DIM   = 3;  // dimension of the trajectory
+
+namespace Bernstein {
 
 class BernsteinPiece {
  private:
@@ -179,6 +179,6 @@ class Bezier {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-}  // namespace planner
+}  // namespace Bernstein
 
 #endif

@@ -186,10 +186,10 @@ If you would like to test this system in Gazebo simulation and real world, here 
 ## Project Structure
 
 * [RAST_corridor_planning/](./RAST_corridor_planning): RAST corridor generation and planning for single uav
-* [path_searching/](./path_searching): path finding library (E.g. hybrid A star and Conflict-based Search)
+* [path_searching/](./path_searching): path finding library (E.g. hybrid A star [1] [3] and Conflict-based Search [2])
 * [plan_env/](./plan_env): mapping library (only grid map now, we can use DSP map in `rast_corridor_planning` to replace this package)
 * [swarm_bridge/](./swarm_bridge): package for multi-robot trajectory communication via [ZeroMQ](https://zeromq.org/), which increases the communication stability and makes it distributed easier.
-* [traj_opt/](./traj_opt): package for trajectory optimization including state-of-the-art trajectory optimization algorithms ([GCOPTER](https://github.com/ZJU-FAST-Lab/GCOPTER) , Minimum Snap)
+* [traj_opt/](./traj_opt): package for trajectory optimization including state-of-the-art trajectory optimization algorithms ([GCOPTER](https://github.com/ZJU-FAST-Lab/GCOPTER) [5], Minimum Snap)
 * [traj_utils/](./traj_utils): package contains parametric trajectory definition and related ROS message. A general-purpose trajectory visualization class is also implemented.
 * [traj_server/](./traj_server): package for discretize parametric trajectory into separate waypoints and poses. 
 * [.gitignore](./.gitignore)
@@ -204,6 +204,7 @@ If you would like to test this system in Gazebo simulation and real world, here 
 - solid line represents communication via ros message
 - large yellow box represents namespace
 - each subgraph inside the large box represents a individual package with its own test samples. Main functionalities should be encapsulated in `.h` or `.hpp` files.
+- The communication of cooperative agents is relied on trajectory boardcasting via `/boardcast_traj`
 
 ```mermaid
 graph TD
@@ -274,6 +275,7 @@ graph TD
 - `~trajectory`: parametric trajectory message
 - `~other_traj`: parametric trajectory message related to other agents
 - `~/command/pva_setpoint`: discretized trajectory messages to controller
+- `/boardcast_traj`: multi-agent communication
 
 
 
@@ -282,7 +284,7 @@ Risk-aware map building, corridor generation and planning package for single uav
 
 Features including
 
-- DSP Map
+- DSP Map [4]
 - Risk-aware A star path searching
 - finite state machine
 - call safety corridor generation functions
@@ -398,6 +400,20 @@ traj_opt
 ├─ README.md                          
 └─ package.xml                        
 ```
+
+`mini_snap.h` is a minimun-snap trajectory optimizer for polynomial trajectory splines. Each piece of the trajectory is a 7-th order polynomial with 8 coefficients as $f_j(t) = \bf{c}_j^\intercal \bf{\beta}(t_j)$ . The optimization problem for a $M$-piece trajectory can be formed as follows:
+$$
+\begin{gathered}
+\min _{\mathbf{c}_j} \sum_{j=1}^M \int_{t_{j-1}}^{t_j}\left\|\frac{\mathrm{d}^4 f_j(t)}{\mathrm{d} t^4}\right\|^2 d t \\
+\text { s.t. } \quad f_1\left(t_0\right)=f_0, f_M\left(t_M\right)=f_M \\
+f_j(t) \in \hat{\mathbb{E}}_j, \forall t \in\left[t_{j-1}, t_j\right] \\
+f_j\left(t_j\right)=f_{j+1}\left(t_j\right) \\
+f_j^{(m)}(t) \leq f_{\max }^{(m)}, \forall t \in\left[t_0, t_M\right], \quad m=1,2
+\end{gathered}
+$$
+where $\hat{\mathbb{E}}_j$ is the safety corridor constraints, $f_{\max }^{(1)}$ and $f_{\max }^{(2)}$ are the upper bound of velocityies and accelerations.
+
+`gcopter.hpp` is a state-of-the-art trajectory optimizer for polynomial trajectory [5]. 
 
 `iosqp.hpp` is a header-only interface for [OSQP](https://osqp.org/docs/solver/index.html) which solves convex quadratic programs problem as
 $$
@@ -574,6 +590,6 @@ MIT License
 
 [3] B. Zhou, F. Gao, L. Wang, C. Liu, and S. Shen, “Robust and Efficient Quadrotor Trajectory Generation for Fast Autonomous Flight,” *IEEE Robotics and Automation Letters*, vol. 4, no. 4, pp. 3529–3536, Oct. 2019, doi: [10.1109/LRA.2019.2927938](https://doi.org/10.1109/LRA.2019.2927938).
 
-[4] F. Gao, L. Wang, B. Zhou, X. Zhou, J. Pan, and S. Shen, “Teach-Repeat-Replan: A Complete and Robust System for Aggressive Flight in Complex Environments,” *IEEE Transactions on Robotics*, vol. 36, no. 5, pp. 1526–1545, 2020, doi: [10.1109/TRO.2020.2993215](https://doi.org/10.1109/TRO.2020.2993215).
+[4] G. Chen, W. Dong, P. Peng, J. Alonso-Mora, and X. Zhu, “Continuous Occupancy Mapping in Dynamic Environments Using Particles.” arXiv, Feb. 13, 2022. doi: [10.48550/arXiv.2202.06273](https://doi.org/10.48550/arXiv.2202.06273).
 
-[5] G. Chen, W. Dong, P. Peng, J. Alonso-Mora, and X. Zhu, “Continuous Occupancy Mapping in Dynamic Environments Using Particles.” arXiv, Feb. 13, 2022. doi: [10.48550/arXiv.2202.06273](https://doi.org/10.48550/arXiv.2202.06273).
+[5] Z. Wang, X. Zhou, C. Xu, and F. Gao, “Geometrically Constrained Trajectory Optimization for Multicopters,” *IEEE Trans. Robot.*, pp. 1–10, 2022, doi: [10.1109/TRO.2022.3160022](https://doi.org/10.1109/TRO.2022.3160022).

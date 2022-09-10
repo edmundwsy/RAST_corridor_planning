@@ -5,7 +5,7 @@
 
 #include "traj_utils/bernstein.hpp"
 
-namespace planner {
+namespace Bernstein {
 class BernsteinTest : public ::testing::Test {
  protected:
   BernsteinTest() { std::cout << "BernsteinTest" << std::endl; }
@@ -105,7 +105,7 @@ TEST_F(BezierTest, TestBezierCurve) {
               << ", a: " << a.transpose() << std::endl;
   }
 }
-}  // namespace planner
+}  // namespace Bernstein
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
