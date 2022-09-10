@@ -63,6 +63,12 @@ TEST_F(BezierOptTest, TestCvtMat) {
   std::cout << "p2j: " << std::endl << p2j << std::endl;
 }
 
+TEST_F(BezierOptTest, TestMinJerkCost) {
+  Eigen::MatrixXd Q = _optimizer->getQ();
+  std::cout << "cost: " << std::endl << Q << std::endl;
+  EXPECT_EQ(Q.rows(), 5 * 3);
+  EXPECT_EQ(Q.cols(), 5 * 3);
+}
 }  // namespace traj_opt
 
 int main(int argc, char** argv) {
