@@ -20,8 +20,8 @@
 #include <memory>
 #include <traj_utils/bernstein.hpp>
 // #include <sdqp.hpp>
-#include <vector>
 #include <iosqp.hpp>
+#include <vector>
 
 namespace traj_opt {
 
@@ -31,7 +31,7 @@ typedef Bernstein::Bezier BezierCurve;
  * Each row is a constraint
  * h0 * x + h1 * y + h2 * z + h3 <= 0
  */
-typedef Eigen::MatrixX4d  PolyhedronH;
+typedef Eigen::MatrixX4d PolyhedronH;
 
 class BezierOpt {
  public:
@@ -56,10 +56,14 @@ class BezierOpt {
   void calcCtrlPtsCvtMat();
   void calcMinJerkCost();
 
-  void setup(const Eigen::Matrix3d& start, const Eigen::Matrix3d& end,
-             const std::vector<double>&          time_allocation,
-             const std::vector<PolyhedronH>& constraints);
+  void setup(const Eigen::Matrix3d&          start,
+             const Eigen::Matrix3d&          end,
+             const std::vector<double>&      time_allocation,
+             const std::vector<PolyhedronH>& constraints,
+             const double&                   max_vel = 3.0,
+             const double&                   max_acc = 3.0);
   bool optimize();
+  bool optimizeSDQP();
 
   /* getters */
   inline Eigen::MatrixXd getPos2VelMat() { return p2v_; }
@@ -68,26 +72,36 @@ class BezierOpt {
   inline Eigen::MatrixXd getQ() { return Q_; }
   inline Eigen::MatrixXd getA() { return A_; }
   inline Eigen::VectorXd getb() { return b_; }
+  inline Eigen::VectorXd getOptCtrlPts() { return x_; }
+  inline Eigen::MatrixXd getOptCtrlPtsMat() {
+    return Eigen::Map<Eigen::MatrixXd>(x_.data(), 3, N_ + 1);
+  }
 
  private:
   BezierCurve bc_;
 
-  int M_;  // number of segments
-  int N_;  // order of the polynomial
+  int    idx_;  // index of the current constraint
+  int    M_;    // number of segments
+  int    N_;    // order of the polynomial
+  int    DM_;   // dimension of the optimization problem
+  double max_vel_;
+  double max_acc_;
 
   std::vector<PolyhedronH> constraints_;
-  std::vector<double>          t_;  // time allocation
-  Eigen::MatrixXd              init_, end_;
+  std::vector<double>      t_;            // time allocation
+  Eigen::MatrixXd          init_, goal_;  // [pos; vel; acc]
 
-  Eigen::MatrixXd Q_;  // cost matrix
-  Eigen::MatrixXd A_;  // constraint matrix
-  Eigen::VectorXd q_;  // cost vector
-  Eigen::VectorXd b_;  // bound vector
-  Eigen::VectorXd x_;  // vector of control points
+  Eigen::MatrixXd Q_;   // cost matrix
+  Eigen::MatrixXd A_;   // constraint matrix
+  Eigen::VectorXd q_;   // cost vector
+  Eigen::VectorXd b_;   // bound vector
+  Eigen::VectorXd ub_;  // bound vector
+  Eigen::VectorXd lb_;  // bound vector
+  Eigen::VectorXd x_;   // vector of control points
 
   Eigen::MatrixXd p2v_;  // position control points to velocity control points
-  Eigen::MatrixXd v2a_;  // position control points to acceleration control points
-  Eigen::MatrixXd a2j_;  // position control points to jerk control points
+  Eigen::MatrixXd v2a_;  // velocity control points to acceleration control points
+  Eigen::MatrixXd a2j_;  // acceleration control points to jerk control points
 
  public:
   typedef std::shared_ptr<BezierOpt> Ptr;

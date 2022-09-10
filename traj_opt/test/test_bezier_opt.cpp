@@ -52,6 +52,7 @@ TEST_F(BezierOptTest, TestCvtMat) {
   std::cout << "p2v: " << std::endl << p2v << std::endl;
   std::cout << "v2a: " << std::endl << v2a << std::endl;
   std::cout << "a2j: " << std::endl << a2j << std::endl;
+  std::cout << "p2a: " << std::endl << v2a * p2v << std::endl;
   EXPECT_EQ(p2v.rows(), 4 * 3);
   EXPECT_EQ(p2v.cols(), 5 * 3);
   EXPECT_EQ(v2a.rows(), 3 * 3);
@@ -69,6 +70,22 @@ TEST_F(BezierOptTest, TestMinJerkCost) {
   EXPECT_EQ(Q.rows(), 5 * 3);
   EXPECT_EQ(Q.cols(), 5 * 3);
 }
+
+TEST_F(BezierOptTest, TestOpt) { 
+  Eigen::MatrixXd A = _optimizer->getA();
+  Eigen::VectorXd b = _optimizer->getb();
+  EXPECT_EQ(A.rows(), 90);
+  EXPECT_EQ(A.cols(), 5 * 3);
+  EXPECT_EQ(b.rows(), 90);
+  bool flag = _optimizer->optimize(); 
+  EXPECT_TRUE(flag);
+  std::cout << "x_:" << std::endl << _optimizer->getOptCtrlPts() << std::endl;
+  Eigen::MatrixXd X = _optimizer->getOptCtrlPtsMat();
+  std::cout << "X: " << std::endl << X << std::endl;
+  EXPECT_EQ(X.rows(), 3);
+  EXPECT_EQ(X.cols(), 5);
+}
+
 }  // namespace traj_opt
 
 int main(int argc, char** argv) {

@@ -40,6 +40,7 @@ include_directories(
 add_library(traj_opt
     src/poly_traj_optimizer.cpp
     src/mini_snap.cpp
+    src/bezier_optimizer.cpp
 )
 
 target_link_libraries(traj_opt
@@ -53,3 +54,14 @@ target_link_libraries(test_minisnap
     # minisnap
     traj_opt
 )
+
+##########
+## Test ##
+##########
+
+if (CATKIN_ENABLE_TESTING)
+#   find_package(rostest REQUIRED)
+  catkin_add_gtest(test_bezier_opt test/test_bezier_opt.cpp)
+  # add_rostest_gtest(test_bernstein test/test_bernstein.cpp)
+  target_link_libraries(test_bezier_opt traj_opt ${catkin_LIBRARIES} ${GTEST_LIBRARIES})
+endif()
