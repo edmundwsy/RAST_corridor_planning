@@ -104,11 +104,10 @@ void BezierOpt::addConstraints() {
   for (auto& c : constraints_) {
     num_const += c.rows();
   }
-  num_const *= N_ + 1;                      // all points inside the polyhedron
-  int num_continuous = (1 + M_) * DIM * 3;  // continuous between segments
-  int num_dynamical =
-      M_ * (2 * DIM * N_ + 2 * DIM * (N_ - 1));  // maximum velocity and acceleration
-  int num = num_const + num_continuous + num_dynamical;
+  num_const *= N_ + 1;                                    // all points inside the polyhedron
+  int num_continuous = (1 + M_) * DIM * 3;                // continuous between segments
+  int num_dynamical  = M_ * (DIM * N_ + DIM * (N_ - 1));  // maximum velocity and acceleration
+  int num            = num_const + num_continuous + num_dynamical;
   std::cout << "num: " << num_continuous << " | " << num_const << " | " << num_dynamical << " || "
             << num << std::endl;
   A_.resize(num, DM_);
@@ -206,51 +205,42 @@ void BezierOpt::addDynamicalConstraints() {
 
   /* maximum velocity */
   for (int i = 0; i < M_; i++) {
+    double t = t_[i];
     for (int j = 0; j < N_; j++) {
       A_.block(idx_, i * DIM * (N_ + 1) + j * DIM, DIM, DIM2) = p2v;
-      b_.segment(idx_, DIM)                                   = max_vel_ * v;
-      lb_.segment(idx_, DIM)                                  = -OSQP_INFTY * v;
-      idx_ += DIM;
-    }
-    for (int j = 0; j < N_; j++) {
-      A_.block(idx_, i * DIM * (N_ + 1) + j * DIM, DIM, DIM2) = -p2v;
-      b_.segment(idx_, DIM)                                   = max_vel_ * v;
-      lb_.segment(idx_, DIM)                                  = -OSQP_INFTY * v;
+      b_.segment(idx_, DIM)                                   = max_vel_ * v * t;
+      lb_.segment(idx_, DIM)                                  = -max_vel_ * v * t;
       idx_ += DIM;
     }
   }
 
   /* maximum acceleration */
   for (int i = 0; i < M_; i++) {
+    double t = t_[i];
     for (int j = 0; j < N_ - 1; j++) {
       A_.block(idx_, i * DIM * (N_ + 1) + j * DIM, DIM, DIM3) = p2a;
-      b_.segment(idx_, DIM)                                   = max_acc_ * v;
-      lb_.segment(idx_, DIM)                                  = -OSQP_INFTY * v;
-      idx_ += DIM;
-    }
-    for (int j = 0; j < N_ - 1; j++) {
-      A_.block(idx_, i * DIM * (N_ + 1) + j * DIM, DIM, DIM3) = -p2a;
-      b_.segment(idx_, DIM)                                   = max_acc_ * v;
-      lb_.segment(idx_, DIM)                                  = -OSQP_INFTY * v;
+      b_.segment(idx_, DIM)                                   = max_acc_ * v * t * t;
+      lb_.segment(idx_, DIM)                                  = -max_acc_ * v * t * t;
       idx_ += DIM;
     }
   }
   std::cout << "idx: " << idx_ << std::endl;
 }
+
 void BezierOpt::addSafetyConstraints() {
   for (int i = 0; i < M_; i++) {
     auto c = constraints_[i];
     for (int j = 0; j < c.rows(); j++) {
-      std::cout << "c: " << c.row(j) << std::endl;
       Eigen::Vector4d p = c.row(j);
       for (int n = 0; n < N_ + 1; n++) {
-        std::cout << idx_ << "|" << i * DIM * (N_ + 1) + n * DIM << "|" << p.head(DIM).transpose() << std::endl;
+        // std::cout << idx_ << "|" << i * DIM * (N_ + 1) + n * DIM << "|" <<
+        // p.head(DIM).transpose()
+        //           << std::endl;
         A_.block(idx_, i * DIM * (N_ + 1) + n * DIM, 1, DIM) = p.head(DIM).transpose();
 
-        b_[idx_]  = p[3];
+        b_[idx_]  = -p[3];
         lb_[idx_] = -OSQP_INFTY;
         idx_++;
-        std::cout << idx_ << std::endl;
       }
     }
   }
@@ -266,12 +256,14 @@ bool BezierOpt::optimize() {
 
   c_int flag = solver.setMats(Q, q_, A, lb_, b_, 1e-3, 1e-3);
 
-  if (!flag) {
+  if (flag != 0) {
+    std::cout << "Problem non-convex. " << std::endl;
     return false;
   } else {
     solver.solve();
     c_int status = solver.getStatus();
-    x_           = solver.getPrimalSol();
+    std::cout << "STATUS: " << status << std::endl;
+    x_ = solver.getPrimalSol();
     if (status == 1 || status == 2) {
       return true;
     } else {

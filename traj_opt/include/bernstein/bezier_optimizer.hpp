@@ -72,9 +72,10 @@ class BezierOpt {
   inline Eigen::MatrixXd getQ() { return Q_; }
   inline Eigen::MatrixXd getA() { return A_; }
   inline Eigen::VectorXd getb() { return b_; }
+  inline Eigen::MatrixXd getlb() { return lb_; }
   inline Eigen::VectorXd getOptCtrlPts() { return x_; }
   inline Eigen::MatrixXd getOptCtrlPtsMat() {
-    return Eigen::Map<Eigen::MatrixXd>(x_.data(), 3, N_ + 1);
+    return Eigen::Map<Eigen::MatrixXd>(x_.data(), 3, M_ *(N_ + 1));
   }
 
  private:
