@@ -65,7 +65,7 @@ void Visualizer::visualizeTrajectory(const Eigen::Vector3d&        start_pos,
 
 /**
  * @brief visualize corridors
- *
+ * Corridor is given by normal vector and offset
  * @param corridors
  * @param pose
  * @param rviz_map_center_locked true if map center is locked
@@ -73,6 +73,45 @@ void Visualizer::visualizeTrajectory(const Eigen::Vector3d&        start_pos,
  */
 void Visualizer::visualizeCorridors(const planner::Corridors& corridors,
                                     const Eigen::Vector3d&    map_pose) {
+  displayCorridors(corridors, map_pose, _corridor_pub, _frame_id);
+}
+
+/**
+ * @brief if corridor is given in H-representation
+ * @param corridors H-representation of corridors
+ * @param map_pose
+ * @param crd_pub
+ * @param frame_id
+ */
+void displayCorridors(const std::vector<Eigen::MatrixX4d>& corridors,
+                      const Eigen::Vector3d&               map_pose,
+                      const ros::Publisher&                crd_pub,
+                      const std::string                    frame_id = "world") {
+  vec_E<Polyhedron3D> polyhedra;
+  polyhedra.reserve(corridors.size());
+  for (const auto& crd : corridors) {
+    Polyhedron3D poly;
+    for (int i = 0; i < crd.rows(); i++) {
+      Eigen::Vector3d pos;
+      pos << 0, 0, -crd(i, 3)/crd(i, 2);
+      poly.add(Hyperplane3D(pos, crd.row(i).head<3>()));
+    }
+    polyhedra.push_back(poly);
+  }
+  decomp_ros_msgs::PolyhedronArray msg = DecompROS::polyhedron_array_to_ros(polyhedra);
+  msg.header.frame_id                  = frame_id;
+  msg.header.stamp                     = ros::Time::now();
+  crd_pub.publish(msg);
+}
+
+/**
+ * @brief if corridor is given in H-representation
+ * c[0]x + c[1]y + c[2]z + c[3] <= 0
+ * @param corridors 
+ * @param map_pose 
+ */
+void Visualizer::visualizeCorridors(const std::vector<Eigen::MatrixX4d>& corridors,
+                                    const Eigen::Vector3d&                map_pose) {
   displayCorridors(corridors, map_pose, _corridor_pub, _frame_id);
 }
 
@@ -178,4 +217,74 @@ void Visualizer::visualizeStartGoal(const Eigen::Vector3d& center, int sg) {
   }
   _start_goal_pub.publish(sphereMarkers);
 }
+
+void Visualizer::visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
+                                      const Bernstein::Bezier& traj,
+                                      double                   max_vel) {
+  visualization_msgs::Marker traj_marker;
+  traj_marker.header.frame_id    = _frame_id;
+  traj_marker.header.stamp       = ros::Time::now();
+  traj_marker.type               = visualization_msgs::Marker::LINE_LIST;
+  traj_marker.pose.orientation.w = 1.00;
+  traj_marker.action             = visualization_msgs::Marker::ADD;
+  traj_marker.id                 = 0;
+  traj_marker.ns                 = "trajectory";
+  traj_marker.color.r            = 0.00;
+  traj_marker.color.g            = 0.50;
+  traj_marker.color.b            = 1.00;
+  traj_marker.color.a            = 1.00;
+  traj_marker.scale.x            = 0.10;
+
+  double          T     = 0.05;
+  Eigen::Vector3d lastX = traj.getPos(0.0) + start_pos;
+  for (double t = T; t < traj.getDuration(); t += T) {
+    std_msgs::ColorRGBA c;
+    Eigen::Vector3d     jets = jetColorMap(traj.getVel(t).norm() / max_vel);
+    c.r                      = jets[0];
+    c.g                      = jets[1];
+    c.b                      = jets[2];
+
+    geometry_msgs::Point point;
+    Eigen::Vector3d      X = traj.getPos(t) + start_pos;
+    point.x                = lastX(0);
+    point.y                = lastX(1);
+    point.z                = lastX(2);
+    traj_marker.points.push_back(point);
+    traj_marker.colors.push_back(c);
+    point.x = X(0);
+    point.y = X(1);
+    point.z = X(2);
+    traj_marker.points.push_back(point);
+    traj_marker.colors.push_back(c);
+    lastX = X;
+  }
+  _colorful_traj_pub.publish(traj_marker);
+
+  /* visualize control pointss */
+  visualization_msgs::Marker cpts_marker;
+  cpts_marker.header = traj_marker.header;
+  cpts_marker.type = visualization_msgs::Marker::POINTS;
+  cpts_marker.pose = traj_marker.pose;
+  cpts_marker.action = traj_marker.action;
+  cpts_marker.id = 1;
+  cpts_marker.ns = "control_points";
+  cpts_marker.color.r = 0.00;
+  cpts_marker.color.g = 1.00;
+  cpts_marker.color.b = 0.00;
+  cpts_marker.color.a = 1.00;
+  cpts_marker.scale.x = 0.10;
+  Eigen::MatrixXd cpts;
+  traj.getCtrlPoints(cpts);
+
+  for (int i = 0; i < cpts.rows(); i++) {
+    geometry_msgs::Point point;
+    point.x = cpts(0, i);
+    point.y = cpts(1, i);
+    point.z = cpts(2, i);
+    cpts_marker.points.push_back(point);
+  }
+  _ctrl_pts_pub.publish(cpts_marker);
+
+}
+
 }  // namespace visualizer

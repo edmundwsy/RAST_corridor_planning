@@ -26,6 +26,7 @@ catkin_package(
     INCLUDE_DIRS include
     LIBRARIES traj_opt
     CATKIN_DEPENDS plan_env traj_utils
+
     # DEPENDS osqp
 )
 
@@ -48,20 +49,25 @@ target_link_libraries(traj_opt
     osqp::osqp
 )
 
-add_executable(test_minisnap test/test_minisnap.cpp)
-target_link_libraries(test_minisnap
+add_executable(vis_minisnap test/vis_minisnap.cpp)
+target_link_libraries(vis_minisnap
     ${catkin_LIBRARIES}
-    # minisnap
     traj_opt
 )
 
-##########
-## Test ##
-##########
+add_executable(vis_bezier_opt test/vis_bezier_opt.cpp)
+target_link_libraries(vis_bezier_opt
+    ${catkin_LIBRARIES}
+    traj_opt
+)
 
-if (CATKIN_ENABLE_TESTING)
-#   find_package(rostest REQUIRED)
-  catkin_add_gtest(test_bezier_opt test/test_bezier_opt.cpp)
-  # add_rostest_gtest(test_bernstein test/test_bernstein.cpp)
-  target_link_libraries(test_bezier_opt traj_opt ${catkin_LIBRARIES} ${GTEST_LIBRARIES})
+# #########
+# # Test ##
+# #########
+if(CATKIN_ENABLE_TESTING)
+    # find_package(rostest REQUIRED)
+    catkin_add_gtest(test_bezier_opt test/test_bezier_opt.cpp)
+
+    # add_rostest_gtest(test_bernstein test/test_bernstein.cpp)
+    target_link_libraries(test_bezier_opt traj_opt ${catkin_LIBRARIES} ${GTEST_LIBRARIES})
 endif()

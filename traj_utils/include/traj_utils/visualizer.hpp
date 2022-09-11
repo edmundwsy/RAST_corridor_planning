@@ -27,6 +27,7 @@
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <traj_utils/bernstein.hpp>
 #include <traj_utils/corridor.hpp>
 #include <traj_utils/poly_traj.hpp>
 
@@ -128,6 +129,50 @@ inline void displayTrajectory(const Eigen::Vector3d&        start_pos,
   traj_pub.publish(traj_marker);
 }
 
+inline void displayBezierCurve(const Eigen::Vector3d&   start_pos,
+                               const Bernstein::Bezier& traj,
+                               double                   max_vel,
+                               const ros::Publisher&    traj_pub,
+                               const std::string        frame_id = "world") {
+  visualization_msgs::Marker traj_marker;
+  traj_marker.header.frame_id    = frame_id;
+  traj_marker.header.stamp       = ros::Time::now();
+  traj_marker.type               = visualization_msgs::Marker::LINE_LIST;
+  traj_marker.pose.orientation.w = 1.00;
+  traj_marker.action             = visualization_msgs::Marker::ADD;
+  traj_marker.id                 = 0;
+  traj_marker.ns                 = "trajectory";
+  traj_marker.color.r            = 0.00;
+  traj_marker.color.g            = 0.50;
+  traj_marker.color.b            = 1.00;
+  traj_marker.scale.x            = 0.10;
+
+  double          T     = 0.05;
+  Eigen::Vector3d lastX = traj.getPos(0.0) + start_pos;
+  for (double t = T; t < traj.getDuration(); t += T) {
+    std_msgs::ColorRGBA c;
+    Eigen::Vector3d     jets = jetColorMap(traj.getVel(t).norm() / max_vel);
+    c.r                      = jets[0];
+    c.g                      = jets[1];
+    c.b                      = jets[2];
+
+    geometry_msgs::Point point;
+    Eigen::Vector3d      X = traj.getPos(t) + start_pos;
+    point.x                = lastX(0);
+    point.y                = lastX(1);
+    point.z                = lastX(2);
+    traj_marker.points.push_back(point);
+    traj_marker.colors.push_back(c);
+    point.x = X(0);
+    point.y = X(1);
+    point.z = X(2);
+    traj_marker.points.push_back(point);
+    traj_marker.colors.push_back(c);
+    lastX = X;
+  }
+  traj_pub.publish(traj_marker);
+}
+
 inline void displayCorridors(const planner::Corridors& corridors,
                              const Eigen::Vector3d&    map_pose,
                              const ros::Publisher&     crd_pub,
@@ -151,6 +196,7 @@ class Visualizer {
  private:
   ros::NodeHandle _nh;
   ros::Publisher  _corridor_pub;
+  ros::Publisher  _ctrl_pts_pub;
   ros::Publisher  _colorful_traj_pub;
   ros::Publisher  _astar_path_pub;
   ros::Publisher  _start_goal_pub;
@@ -162,6 +208,7 @@ class Visualizer {
     _colorful_traj_pub = _nh.advertise<visualization_msgs::Marker>("vis_color_traj", 1);
     _astar_path_pub    = _nh.advertise<visualization_msgs::Marker>("vis_astar_path", 1);
     _start_goal_pub    = _nh.advertise<visualization_msgs::Marker>("vis_start_goal", 1);
+    _ctrl_pts_pub      = _nh.advertise<visualization_msgs::Marker>("vis_ctrl_pts", 1);
     _frame_id          = "world";
   }
 
@@ -170,14 +217,20 @@ class Visualizer {
     _colorful_traj_pub = _nh.advertise<visualization_msgs::Marker>("vis_color_traj", 1);
     _astar_path_pub    = _nh.advertise<visualization_msgs::Marker>("vis_astar_path", 1);
     _start_goal_pub    = _nh.advertise<visualization_msgs::Marker>("vis_start_goal", 1);
+    _ctrl_pts_pub      = _nh.advertise<visualization_msgs::Marker>("vis_ctrl_pts", 1);
   }
   ~Visualizer() {}
   typedef std::shared_ptr<Visualizer> Ptr;
 
+  void visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
+                            const Bernstein::Bezier& traj,
+                            double                   max_vel);
   void visualizeTrajectory(const Eigen::Vector3d&        start_pos,
                            const polynomial::Trajectory& traj,
                            double                        max_vel);
   void visualizeCorridors(const planner::Corridors& corridors, const Eigen::Vector3d& map_pose);
+  void visualizeCorridors(const std::vector<Eigen::MatrixX4d>& corridors,
+                          const Eigen::Vector3d&               map_pose);
   void visualizeAstarPath(const std::vector<Eigen::Vector3d>& points);
   void visualizeStartGoal(const Eigen::Vector3d& center, int sg = 1);
 };
