@@ -55,6 +55,7 @@ class BezierOpt {
   void addSafetyConstraints();
   void calcCtrlPtsCvtMat();
   void calcMinJerkCost();
+  void calcBezierCurve();
 
   void setup(const Eigen::Matrix3d&          start,
              const Eigen::Matrix3d&          end,
@@ -63,7 +64,6 @@ class BezierOpt {
              const double&                   max_vel = 3.0,
              const double&                   max_acc = 3.0);
   bool optimize();
-  bool optimizeSDQP();
 
   /* getters */
   inline Eigen::MatrixXd getPos2VelMat() { return p2v_; }
@@ -75,11 +75,15 @@ class BezierOpt {
   inline Eigen::MatrixXd getlb() { return lb_; }
   inline Eigen::VectorXd getOptCtrlPts() { return x_; }
   inline Eigen::MatrixXd getOptCtrlPtsMat() {
-    return Eigen::Map<Eigen::MatrixXd>(x_.data(), 3, M_ *(N_ + 1));
+    return Eigen::Map<Eigen::MatrixXd>(x_.data(), 3, M_ * (N_ + 1)).transpose();
+  }
+  inline BezierCurve::Ptr getOptBezier() {
+    calcBezierCurve();
+    return bc_;
   }
 
  private:
-  BezierCurve bc_;
+  BezierCurve::Ptr bc_;
 
   int    idx_;  // index of the current constraint
   int    M_;    // number of segments

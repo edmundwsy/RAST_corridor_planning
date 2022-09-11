@@ -272,6 +272,11 @@ bool BezierOpt::optimize() {
   }
 }
 
+void BezierOpt::calcBezierCurve() {
+  Eigen::MatrixXd p = getOptCtrlPtsMat();
+  bc_.reset(new BezierCurve(t_, p));
+}
+
 // bool BezierOpt::optimizeSDQP() {
 //   double sdqp_tol      = 1e-3;
 //   double sdqp_max_iter = 1000;

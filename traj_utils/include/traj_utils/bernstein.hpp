@@ -139,9 +139,10 @@ class Bezier {
   void setTime(const std::vector<double> &t) { t_ = t; }
   void setControlPoints(const Eigen::MatrixXd &cpts);
 
-  int    getOrder() { return N_; }
-  int    getNumPieces() { return M_; }
-  double getDuration() { return T_; }
+  int    getOrder() const { return N_; }
+  int    getNumPieces() const { return M_; }
+  double getDuration() const { return T_; }
+  void   getCtrlPoints(Eigen::MatrixXd &cpts) const { cpts = cpts_; }
   void   calcPieces();
 
   inline int locatePiece(double t) const {

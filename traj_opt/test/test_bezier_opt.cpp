@@ -136,8 +136,8 @@ TEST_F(BezierOptTest2, TestOpt) {
   std::cout << "x_:" << std::endl << _optimizer->getOptCtrlPts() << std::endl;
   Eigen::MatrixXd X = _optimizer->getOptCtrlPtsMat();
   std::cout << "X: " << std::endl << X << std::endl;
-  EXPECT_EQ(X.rows(), 3);
-  EXPECT_EQ(X.cols(), 10);
+  EXPECT_EQ(X.rows(), 10);
+  EXPECT_EQ(X.cols(), 3);
 }
 
 }  // namespace traj_opt
