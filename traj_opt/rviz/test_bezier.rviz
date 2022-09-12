@@ -99,6 +99,14 @@ Visualization Manager:
       Marker Topic: /test/vis_ctrl_pts
       Name: CtrlPts
       Namespaces:
+        control_points: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /test/vis_text
+      Name: Text
+      Namespaces:
         {}
       Queue Size: 100
       Value: true
@@ -130,7 +138,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 8.588064193725586
+      Distance: 49.459632873535156
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -138,17 +146,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -1.9354511499404907
-        Y: -5.574267387390137
-        Z: 1.0320773124694824
+        X: 1.8836238384246826
+        Y: 3.9802370071411133
+        Z: -1.339972734451294
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5597963333129883
+      Pitch: 1.174796462059021
       Target Frame: <Fixed Frame>
-      Yaw: 3.5604238510131836
+      Yaw: 4.575432300567627
     Saved: ~
 Window Geometry:
   Displays:

@@ -188,7 +188,7 @@ void Bezier::calcPieces() {
     Eigen::MatrixXd cpts;
     cpts.resize(N_ + 1, 3);
     for (int j = 0; j <= N_; j++) {
-      cpts.row(j) = cpts_.row(i * N_ + j);
+      cpts.row(j) = cpts_.row(i * (N_+1) + j);
     }
     pieces_.emplace_back(cpts, t, t + t_[i]);
     t += t_[i];

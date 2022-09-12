@@ -127,9 +127,9 @@ TEST_F(BezierOptTest2, TestOpt) {
   Eigen::VectorXd b  = _optimizer->getb();
   Eigen::VectorXd lb = _optimizer->getlb();
   Eigen::MatrixXd Ablb;
-  // Ablb.resize(A.rows(), A.cols() + 2);
-  // Ablb << A, lb, b;
-  // std::cout << "Ablb: " << std::endl << Ablb << std::endl;
+  Ablb.resize(A.rows(), A.cols() + 2);
+  Ablb << A, lb, b;
+  std::cout << "Ablb: " << std::endl << Ablb << std::endl;
   EXPECT_EQ(b.rows(), A.rows());
   EXPECT_EQ(A.cols(), 5 * 3 * 2);
   bool flag = _optimizer->optimize();
@@ -177,7 +177,7 @@ TEST_F(BezierOptTest2, TestContinuity) {
   _optimizer->optimize();
   BezierCurve traj;
   _optimizer->getOptBezier(traj);
-  for (double dt = 0; dt < traj.getDuration(); dt += 0.1) {
+  for (double dt = 0; dt <= traj.getDuration(); dt += 0.1) {
     Eigen::Vector3d pos, vel, acc;
     pos = traj.getPos(dt);
     vel = traj.getVel(dt);

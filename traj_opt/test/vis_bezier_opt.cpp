@@ -28,7 +28,7 @@ std::default_random_engine             eng(rd());
 std::uniform_real_distribution<double> _x_rand(-1.0, 1.0);
 std::uniform_real_distribution<double> _z_rand(0.0, 3.0);
 std::uniform_real_distribution<double> _v_rand(0.0, 5.0);
-std::uniform_real_distribution<double> _t_rand(0.0, 2.0);  // time interval
+std::uniform_real_distribution<double> _t_rand(1.0, 3.0);  // time interval
 
 Eigen::Vector3d _start_pos(0.0, 0.0, 0.0);
 Eigen::Vector3d _start_vel(0.0, 0.0, 0.0);
@@ -175,7 +175,7 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
 
   std::cout << "Goal" << std::endl << goal_state << std::endl;
   _ptr_bezier_opt.reset(new traj_opt::BezierOpt());
-  _ptr_bezier_opt->setup(init_state, goal_state, time_alloc, constraints);
+  _ptr_bezier_opt->setup(init_state, goal_state, time_alloc, constraints, 4.0, 4.0);
   ros::Time tic    = ros::Time::now();
   bool      status = _ptr_bezier_opt->optimize();
   ros::Time toc    = ros::Time::now();
@@ -189,9 +189,12 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
     double duration = 0.0;
     for (auto it = time_alloc.begin(); it != time_alloc.end(); it++) {
       duration += *it;
+      std::cout << _ptr_bezier->getVel(duration + 0.01).transpose() << " | "
+                << _ptr_bezier->getVel(duration - 0.01).transpose() << std::endl;
     }
     ROS_INFO("Total duration = %f", duration);
     double max_vel = _ptr_bezier->getMaxVelRate();
+    double max_acc = _ptr_bezier->getMaxAccRate();
     ROS_INFO("Max vel rate = %f", max_vel);
     ROS_INFO("Visualizing trajectory");
     _vis->visualizeBezierCurve(Eigen::Vector3d::Zero(), *_ptr_bezier, 4.0);
@@ -199,7 +202,7 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
     _ptr_bezier->getCtrlPoints(cpts);
     ROS_INFO("Visualizing control points");
     _vis->visualizeControlPoints(cpts);
-
+    _vis->displayOptimizationInfo(t_comp, max_vel, max_acc, duration);
   } else {
     ROS_ERROR("Trajectory optimization failed");
   }
@@ -208,7 +211,6 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   _vis->visualizeStartGoal(_end_pos, 1);
   ROS_INFO("Visualizing path");
   _vis->visualizePath(wpts);
-
   ROS_INFO("Visualizing corridors");
   _vis->visualizeCorridors(corridors, zero);
 }

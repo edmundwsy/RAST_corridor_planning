@@ -81,18 +81,7 @@ TEST_F(BernsteinTest, TestControlPoints) {
   EXPECT_EQ(bp.getAccCtrlPts(), a_cpts);
 }
 
-TEST_F(BernsteinTest, TestGetPos) {
-  for (double t = 2; t < 4; t += 0.1) {
-    Eigen::Vector3d p, v, a;
-    p = bp.getPos(t);
-    v = bp.getVel(t);
-    a = bp.getAcc(t);
-    std::cout << "t: " << t << ", p: " << p.transpose() << ", v: " << v.transpose()
-              << ", a: " << a.transpose() << std::endl;
-  }
-}
-
-TEST_F(BezierTest, TestBezierCurve) {
+TEST_F(BezierTest, TestTraj) {
   EXPECT_DOUBLE_EQ(bc.getDuration(), 6);
   EXPECT_EQ(3, bc.getNumPieces());
 
