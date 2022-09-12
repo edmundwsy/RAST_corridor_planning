@@ -200,39 +200,44 @@ class Visualizer {
   ros::Publisher  _colorful_traj_pub;
   ros::Publisher  _astar_path_pub;
   ros::Publisher  _start_goal_pub;
+  ros::Publisher  _text_pub;
   std::string     _frame_id;
 
  public:
   Visualizer(ros::NodeHandle& nh) : _nh(nh) {
-    _corridor_pub      = _nh.advertise<decomp_ros_msgs::PolyhedronArray>("vis_corridor", 1);
-    _colorful_traj_pub = _nh.advertise<visualization_msgs::Marker>("vis_color_traj", 1);
-    _astar_path_pub    = _nh.advertise<visualization_msgs::Marker>("vis_astar_path", 1);
-    _start_goal_pub    = _nh.advertise<visualization_msgs::Marker>("vis_start_goal", 1);
-    _ctrl_pts_pub      = _nh.advertise<visualization_msgs::Marker>("vis_ctrl_pts", 1);
-    _frame_id          = "world";
+    _frame_id = "world";
+    init();
   }
-
-  Visualizer(ros::NodeHandle& nh, std::string& frame_id) : _nh(nh), _frame_id(frame_id) {
-    _corridor_pub      = _nh.advertise<decomp_ros_msgs::PolyhedronArray>("vis_corridor", 1);
-    _colorful_traj_pub = _nh.advertise<visualization_msgs::Marker>("vis_color_traj", 1);
-    _astar_path_pub    = _nh.advertise<visualization_msgs::Marker>("vis_astar_path", 1);
-    _start_goal_pub    = _nh.advertise<visualization_msgs::Marker>("vis_start_goal", 1);
-    _ctrl_pts_pub      = _nh.advertise<visualization_msgs::Marker>("vis_ctrl_pts", 1);
-  }
+  Visualizer(ros::NodeHandle& nh, std::string& frame_id) : _nh(nh), _frame_id(frame_id) { init(); }
   ~Visualizer() {}
+
+  void init() {
+    _corridor_pub      = _nh.advertise<decomp_ros_msgs::PolyhedronArray>("vis_corridor", 1);
+    _colorful_traj_pub = _nh.advertise<visualization_msgs::Marker>("vis_color_traj", 1);
+    _astar_path_pub    = _nh.advertise<visualization_msgs::Marker>("vis_astar_path", 1);
+    _start_goal_pub    = _nh.advertise<visualization_msgs::Marker>("vis_start_goal", 1);
+    _ctrl_pts_pub      = _nh.advertise<visualization_msgs::Marker>("vis_ctrl_pts", 1);
+    _text_pub          = _nh.advertise<visualization_msgs::Marker>("vis_text", 1);
+  }
   typedef std::shared_ptr<Visualizer> Ptr;
 
   void visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
                             const Bernstein::Bezier& traj,
                             double                   max_vel);
-  void visualizeTrajectory(const Eigen::Vector3d&        start_pos,
-                           const polynomial::Trajectory& traj,
-                           double                        max_vel);
+  void visualizePolyTraj(const Eigen::Vector3d&        start_pos,
+                         const polynomial::Trajectory& traj,
+                         double                        max_vel);
   void visualizeCorridors(const planner::Corridors& corridors, const Eigen::Vector3d& map_pose);
   void visualizeCorridors(const std::vector<Eigen::MatrixX4d>& corridors,
                           const Eigen::Vector3d&               map_pose);
+  void visualizePath(const std::vector<Eigen::Vector3d>& path);
   void visualizeAstarPath(const std::vector<Eigen::Vector3d>& points);
   void visualizeStartGoal(const Eigen::Vector3d& center, int sg = 1);
+  void displayOptimizationInfo(const double& comp_time,
+                               const double& max_velocity,
+                               const double& max_acceleration,
+                               const double& duration);
+  void displayOptimizationInfo(bool success);
 };
 
 }  // namespace visualizer

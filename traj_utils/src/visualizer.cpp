@@ -20,9 +20,9 @@ namespace visualizer {
  * @param traj       trajectory to be visualized
  * @param max_vel    maximum velocity to visualize as red line
  */
-void Visualizer::visualizeTrajectory(const Eigen::Vector3d&        start_pos,
-                                     const polynomial::Trajectory& traj,
-                                     double                        max_vel) {
+void Visualizer::visualizePolyTraj(const Eigen::Vector3d&        start_pos,
+                                   const polynomial::Trajectory& traj,
+                                   double                        max_vel) {
   visualization_msgs::Marker traj_marker;
   traj_marker.header.frame_id    = _frame_id;
   traj_marker.header.stamp       = ros::Time::now();
@@ -76,7 +76,7 @@ void Visualizer::visualizeCorridors(const planner::Corridors& corridors,
   displayCorridors(corridors, map_pose, _corridor_pub, _frame_id);
 }
 
-/**
+/** NOTE: There are still some bugs in this function
  * @brief if corridor is given in H-representation
  * @param corridors H-representation of corridors
  * @param map_pose
@@ -93,8 +93,17 @@ void displayCorridors(const std::vector<Eigen::MatrixX4d>& corridors,
     Polyhedron3D poly;
     for (int i = 0; i < crd.rows(); i++) {
       Eigen::Vector3d pos;
-      pos << 0, 0, -crd(i, 3)/crd(i, 2);
+
+      double a  = crd(i, 0);
+      double b  = crd(i, 1);
+      double c  = crd(i, 2);
+      double d  = crd(i, 3);
+      double z0 = (c == 0) ? 0.0 : -(a + b + c) / c;
+      double x0 = (c == 0) ? -(b + d) / a : 1.0;
+      pos << x0, 1.0, z0;
       poly.add(Hyperplane3D(pos, crd.row(i).head<3>()));
+      // std::cout << "normal: " << gcrd.row(i).head<3>() << " pos: " << pos.transpose() <<
+      // std::endl;
     }
     polyhedra.push_back(poly);
   }
@@ -107,12 +116,52 @@ void displayCorridors(const std::vector<Eigen::MatrixX4d>& corridors,
 /**
  * @brief if corridor is given in H-representation
  * c[0]x + c[1]y + c[2]z + c[3] <= 0
- * @param corridors 
- * @param map_pose 
+ * @param corridors
+ * @param map_pose
  */
 void Visualizer::visualizeCorridors(const std::vector<Eigen::MatrixX4d>& corridors,
-                                    const Eigen::Vector3d&                map_pose) {
+                                    const Eigen::Vector3d&               map_pose) {
   displayCorridors(corridors, map_pose, _corridor_pub, _frame_id);
+}
+
+void Visualizer::visualizePath(const std::vector<Eigen::Vector3d>& route) {
+  visualization_msgs::Marker routeMarker;
+  routeMarker.id                 = 0;
+  routeMarker.type               = visualization_msgs::Marker::LINE_LIST;
+  routeMarker.header.stamp       = ros::Time::now();
+  routeMarker.header.frame_id    = _frame_id;
+  routeMarker.pose.orientation.w = 1.00;
+  routeMarker.action             = visualization_msgs::Marker::ADD;
+  routeMarker.ns                 = "path";
+  routeMarker.color.r            = 1.00;
+  routeMarker.color.g            = 0.00;
+  routeMarker.color.b            = 0.00;
+  routeMarker.color.a            = 1.00;
+  routeMarker.scale.x            = 0.05;
+  if (route.size() > 0) {
+    bool            first = true;
+    Eigen::Vector3d last;
+    for (auto it : route) {
+      if (first) {
+        first = false;
+        last  = it;
+        continue;
+      }
+      geometry_msgs::Point point;
+
+      point.x = last(0);
+      point.y = last(1);
+      point.z = last(2);
+      routeMarker.points.push_back(point);
+      point.x = it(0);
+      point.y = it(1);
+      point.z = it(2);
+      routeMarker.points.push_back(point);
+      last = it;
+    }
+    _astar_path_pub.publish(routeMarker);
+  }
+
 }
 
 void Visualizer::visualizeAstarPath(const std::vector<Eigen::Vector3d>& points) {
@@ -260,14 +309,14 @@ void Visualizer::visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
   }
   _colorful_traj_pub.publish(traj_marker);
 
-  /* visualize control pointss */
+  /* visualize control pointss */  // TODO: independent function
   visualization_msgs::Marker cpts_marker;
-  cpts_marker.header = traj_marker.header;
-  cpts_marker.type = visualization_msgs::Marker::POINTS;
-  cpts_marker.pose = traj_marker.pose;
-  cpts_marker.action = traj_marker.action;
-  cpts_marker.id = 1;
-  cpts_marker.ns = "control_points";
+  cpts_marker.header  = traj_marker.header;
+  cpts_marker.type    = visualization_msgs::Marker::POINTS;
+  cpts_marker.pose    = traj_marker.pose;
+  cpts_marker.action  = traj_marker.action;
+  cpts_marker.id      = 1;
+  cpts_marker.ns      = "control_points";
   cpts_marker.color.r = 0.00;
   cpts_marker.color.g = 1.00;
   cpts_marker.color.b = 0.00;
@@ -278,13 +327,61 @@ void Visualizer::visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
 
   for (int i = 0; i < cpts.rows(); i++) {
     geometry_msgs::Point point;
-    point.x = cpts(0, i);
-    point.y = cpts(1, i);
-    point.z = cpts(2, i);
+    point.x = cpts(i, 0);
+    point.y = cpts(i, 1);
+    point.z = cpts(i, 2);
     cpts_marker.points.push_back(point);
   }
   _ctrl_pts_pub.publish(cpts_marker);
+}
 
+void Visualizer::displayOptimizationInfo(const double& comp_time,
+                                         const double& max_velocity,
+                                         const double& max_acceleration,
+                                         const double& duration) {
+  visualization_msgs::Marker textMarker;
+  textMarker.header.frame_id = _frame_id;
+  textMarker.header.stamp    = ros::Time::now();
+  textMarker.ns              = "text";
+  textMarker.id              = 1;
+  textMarker.type            = visualization_msgs::Marker::TEXT_VIEW_FACING;
+  textMarker.action          = visualization_msgs::Marker::ADD;
+
+  textMarker.pose.position.x    = -9;
+  textMarker.pose.position.y    = 0.0;
+  textMarker.pose.position.z    = 6.0;
+  textMarker.pose.orientation.x = 0.0;
+  textMarker.pose.orientation.y = 0.0;
+  textMarker.pose.orientation.z = 0.0;
+  textMarker.pose.orientation.w = 1.0;
+  textMarker.scale.x            = 1.0;
+  textMarker.scale.y            = 1.0;
+  textMarker.scale.z            = 1.0;
+  textMarker.color.r            = 1.0;
+  textMarker.color.g            = 0.0;
+  textMarker.color.b            = 0.0;
+  textMarker.color.a            = 1.0;
+  textMarker.text               = "Comp: ";
+  textMarker.text += std::to_string(static_cast<int>(comp_time));
+  textMarker.text += ".";
+  textMarker.text += std::to_string(static_cast<int>(comp_time * 10) % 10);
+  textMarker.text += "ms\n";
+  textMarker.text += "Max speed: ";
+  textMarker.text += std::to_string(static_cast<int>(max_velocity));
+  textMarker.text += ".";
+  textMarker.text += std::to_string(static_cast<int>(max_velocity * 100) % 100);
+  textMarker.text += "m/s\n";
+  textMarker.text += "Max acceleration: ";
+  textMarker.text += std::to_string(static_cast<int>(max_acceleration));
+  textMarker.text += ".";
+  textMarker.text += std::to_string(static_cast<int>(max_acceleration * 100) % 100);
+  textMarker.text += "m/s\n";
+  textMarker.text += "Total time: ";
+  textMarker.text += std::to_string(static_cast<int>(duration));
+  textMarker.text += ".";
+  textMarker.text += std::to_string(static_cast<int>(duration * 100) % 100);
+  textMarker.text += "s\n";
+  _text_pub.publish(textMarker);
 }
 
 }  // namespace visualizer
