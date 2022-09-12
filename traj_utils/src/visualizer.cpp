@@ -308,13 +308,16 @@ void Visualizer::visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
     lastX = X;
   }
   _colorful_traj_pub.publish(traj_marker);
+                                      }
 
-  /* visualize control pointss */  // TODO: independent function
+  /* visualize control pointss */
+void Visualizer::visualizeControlPoints(const Eigen::MatrixX3d& cpts) {
   visualization_msgs::Marker cpts_marker;
-  cpts_marker.header  = traj_marker.header;
-  cpts_marker.type    = visualization_msgs::Marker::POINTS;
-  cpts_marker.pose    = traj_marker.pose;
-  cpts_marker.action  = traj_marker.action;
+  cpts_marker.header.frame_id    = _frame_id;
+  cpts_marker.header.stamp       = ros::Time::now();
+  cpts_marker.type    = visualization_msgs::Marker::SPHERE_LIST;
+  cpts_marker.pose.orientation.w = 1.00;
+  cpts_marker.action  = visualization_msgs::Marker::ADD;
   cpts_marker.id      = 1;
   cpts_marker.ns      = "control_points";
   cpts_marker.color.r = 0.00;
@@ -322,8 +325,8 @@ void Visualizer::visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
   cpts_marker.color.b = 0.00;
   cpts_marker.color.a = 1.00;
   cpts_marker.scale.x = 0.10;
-  Eigen::MatrixXd cpts;
-  traj.getCtrlPoints(cpts);
+  cpts_marker.scale.y = 0.10;
+  cpts_marker.scale.z = 0.10;
 
   for (int i = 0; i < cpts.rows(); i++) {
     geometry_msgs::Point point;

@@ -77,9 +77,13 @@ class BezierOpt {
   inline Eigen::MatrixXd getOptCtrlPtsMat() {
     return Eigen::Map<Eigen::MatrixXd>(x_.data(), 3, M_ * (N_ + 1)).transpose();
   }
-  inline BezierCurve::Ptr getOptBezier() {
+  inline BezierCurve getOptBezier() {
     calcBezierCurve();
-    return bc_;
+    return *bc_;
+  }
+  inline void getOptBezier(BezierCurve& bc) {
+    calcBezierCurve();
+    bc = *bc_;
   }
 
  private:

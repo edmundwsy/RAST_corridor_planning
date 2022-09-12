@@ -79,54 +79,60 @@ std::vector<Eigen::Vector3d> getRandomWaypoint(int                    n,
   }
   return waypoints;
 }
-std::vector<Eigen::MatrixX4d> getRandomCorridors(int n, const std::vector<Eigen::Vector3d> &wps) {
+
+std::vector<Eigen::Matrix<double, 6, -1>> getRandomCorridors(
+    int n, const std::vector<Eigen::Vector3d> &wps) {
   double          l_margin = 0.5;
   double          w_margin = 3.0;
   double          h        = 2.0;
   Eigen::Vector3d up(0.0, 0.0, 1.0);
 
-  std::vector<Eigen::MatrixX4d> crds;
+  std::vector<Eigen::Matrix<double, 6, -1>> crds;
   for (int i = 0; i < n; i++) {
-    Eigen::MatrixX4d crd;
-    crd.resize(6, Eigen::NoChange);
-    Eigen::Vector3d srt = wps[i];
-    Eigen::Vector3d end = wps[i + 1];
-    Eigen::Vector3d mdl = (srt + end) / 2;
+    Eigen::Matrix<double, 6, 6> crd;
+    Eigen::Vector3d             srt = wps[i];
+    Eigen::Vector3d             end = wps[i + 1];
+    Eigen::Vector3d             mdl = (srt + end) / 2;
 
     Eigen::Vector3d lvec = end - srt;
     lvec                 = lvec / lvec.norm();
     Eigen::Vector3d wvec = up.cross(lvec);
 
-    Eigen::Vector3d dir;
-    Eigen::Vector3d pos;
-
-    dir = -lvec;
-    pos = srt - lvec * l_margin;
-    crd.row(0) << dir.transpose(), -pos.dot(dir);
-
-    dir = lvec;
-    pos = end + lvec * l_margin;
-    crd.row(1) << dir.transpose(), -pos.dot(dir);
-
-    dir = up;
-    pos = mdl + up * h;
-    crd.row(2) << dir.transpose(), -pos.dot(dir);
-
-    dir = -up;
-    pos = mdl - up * h;
-    crd.row(3) << dir.transpose(), -pos.dot(dir);
-
-    dir = wvec;
-    pos = mdl + wvec * w_margin;
-    crd.row(4) << dir.transpose(), -pos.dot(dir);
-
-    dir = -wvec;
-    pos = mdl - wvec * w_margin;
-    crd.row(5) << dir.transpose(), -pos.dot(dir);
-    std::cout << i << std::endl << crd << std::endl;
+    crd.col(0).head<3>() = -lvec;
+    crd.col(0).tail<3>() = srt - lvec * l_margin;
+    crd.col(1).head<3>() = lvec;
+    crd.col(1).tail<3>() = end + lvec * l_margin;
+    crd.col(2).head<3>() = up;
+    crd.col(2).tail<3>() = mdl + up * h;
+    crd.col(3).head<3>() = -up;
+    crd.col(3).tail<3>() = mdl - up * h;
+    crd.col(4).head<3>() = wvec;
+    crd.col(4).tail<3>() = mdl + wvec * w_margin;
+    crd.col(5).head<3>() = -wvec;
+    crd.col(5).tail<3>() = mdl - wvec * w_margin;
     crds.push_back(crd);
   }
   return crds;
+}
+
+/**
+ * @brief convert normal-vector representation to half-space representation
+ *
+ * @param c
+ * @param h
+ */
+void convertPolytopeRepresentation(const std::vector<Eigen::Matrix<double, 6, -1>> &c,
+                                   std::vector<Eigen::MatrixX4d> &                  h) {
+  for (int i = 0; i < c.size(); i++) {
+    Eigen::MatrixX4d h_i(6, 4);
+    for (int j = 0; j < 6; j++) {
+      Eigen::Vector3d dir, pos;
+      dir = c[i].col(j).head<3>();
+      pos = c[i].col(j).tail<3>();
+      h_i.row(j) << dir.transpose(), -dir.dot(pos);
+    }
+    h.push_back(h_i);
+  }
 }
 
 void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
@@ -162,40 +168,49 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   }
   std::cout << std::endl;
 
-  std::vector<Eigen::Vector3d>  wpts      = getRandomWaypoint(n, _start_pos, _end_pos);
-  std::vector<Eigen::MatrixX4d> corridors = getRandomCorridors(n, wpts);
-  std::cout << "goal" << goal_state << std::endl;
+  std::vector<Eigen::Vector3d>              wpts      = getRandomWaypoint(n, _start_pos, _end_pos);
+  std::vector<Eigen::Matrix<double, 6, -1>> corridors = getRandomCorridors(n, wpts);
+  std::vector<Eigen::MatrixX4d>             constraints;
+  convertPolytopeRepresentation(corridors, constraints);
+
+  std::cout << "Goal" << std::endl << goal_state << std::endl;
   _ptr_bezier_opt.reset(new traj_opt::BezierOpt());
-  _ptr_bezier_opt->setup(init_state, goal_state, time_alloc, corridors);
+  _ptr_bezier_opt->setup(init_state, goal_state, time_alloc, constraints);
   ros::Time tic    = ros::Time::now();
   bool      status = _ptr_bezier_opt->optimize();
   ros::Time toc    = ros::Time::now();
   double    t_comp = (toc - tic).toSec() * 1000;
   ROS_INFO("Trajectory optimized in %f milliseconds", t_comp);
 
+  Eigen::Vector3d zero(0.0, 0.0, 0.0);
   if (status) {
-    _ptr_bezier = _ptr_bezier_opt->getOptBezier();
+    auto bezier     = _ptr_bezier_opt->getOptBezier();
+    _ptr_bezier     = std::make_shared<Bernstein::Bezier>(bezier);
+    double duration = 0.0;
+    for (auto it = time_alloc.begin(); it != time_alloc.end(); it++) {
+      duration += *it;
+    }
+    ROS_INFO("Total duration = %f", duration);
+    double max_vel = _ptr_bezier->getMaxVelRate();
+    ROS_INFO("Max vel rate = %f", max_vel);
+    ROS_INFO("Visualizing trajectory");
+    _vis->visualizeBezierCurve(Eigen::Vector3d::Zero(), *_ptr_bezier, 4.0);
+    Eigen::MatrixXd cpts;
+    _ptr_bezier->getCtrlPoints(cpts);
+    ROS_INFO("Visualizing control points");
+    _vis->visualizeControlPoints(cpts);
+
   } else {
     ROS_ERROR("Trajectory optimization failed");
-    Eigen::Vector3d zero(0.0, 0.0, 0.0);
-    ROS_INFO("Visualizing corridors");
-    _vis->visualizeCorridors(corridors, zero);
-    return;
   }
 
-  double duration = 0.0;
-  for (auto it = time_alloc.begin(); it != time_alloc.end(); it++) {
-    duration += *it;
-  }
-  ROS_INFO("Total duration = %f", duration);
-  double max_vel = _ptr_bezier->getMaxVelRate();
-  ROS_INFO("Max vel rate = %f", max_vel);
+  ROS_INFO("Visualizing goal");
+  _vis->visualizeStartGoal(_end_pos, 1);
+  ROS_INFO("Visualizing path");
+  _vis->visualizePath(wpts);
 
-  Eigen::Vector3d zero(0.0, 0.0, 0.0);
   ROS_INFO("Visualizing corridors");
   _vis->visualizeCorridors(corridors, zero);
-  ROS_INFO("Visualizing waypoints");
-  _vis->visualizeBezierCurve(zero, *_ptr_bezier, 4.0);
 }
 
 int main(int argc, char **argv) {
@@ -204,10 +219,6 @@ int main(int argc, char **argv) {
 
   _vis = std::shared_ptr<visualizer::Visualizer>(new visualizer::Visualizer(nh));
   ros::Subscriber click_sub = nh.subscribe("/move_base_simple/goal", 1, clickCallback);
-
-  _vis_pub   = nh.advertise<visualization_msgs::Marker>("trajectory", 10);
-  _text_pub  = nh.advertise<visualization_msgs::Marker>("text", 10);
-  _route_pub = nh.advertise<visualization_msgs::Marker>("route", 10);
   ros::spin();
   return 0;
 }

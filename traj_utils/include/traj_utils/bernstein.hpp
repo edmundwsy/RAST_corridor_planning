@@ -37,7 +37,7 @@ class BernsteinPiece {
 
  public:
   BernsteinPiece() = default;
-  BernsteinPiece(const Eigen::MatrixXd &cpts, const double &t0, const double &tf) {
+  BernsteinPiece(const Eigen::MatrixX3d &cpts, const double &t0, const double &tf) {
     cpts_ = cpts;
     N_    = ORDER;
     t0_   = t0;
@@ -46,7 +46,7 @@ class BernsteinPiece {
     assert(cpts_.rows() == N_ + 1);  // 4th order curve has 5 control points
     calcCoeffMat(N_, A_);
   }
-  BernsteinPiece(const Eigen::MatrixXd &cpts, const double &t) {
+  BernsteinPiece(const Eigen::MatrixX3d &cpts, const double &t) {
     cpts_ = cpts;
     N_    = ORDER;
     t0_   = 0;
@@ -57,7 +57,7 @@ class BernsteinPiece {
   }
 
   ~BernsteinPiece() {}
-  void setControlPoints(const Eigen::MatrixXd &cpts) {
+  void setControlPoints(const Eigen::MatrixX3d &cpts) {
     cpts_ = cpts;
     N_    = ORDER;
     assert(cpts_.rows() == N_ + 1);
@@ -100,7 +100,7 @@ class Bezier {
  private:
   typedef std::vector<BernsteinPiece> Pieces;
   Pieces                              pieces_;
-  Eigen::MatrixXd                     cpts_;  // control points
+  Eigen::MatrixX3d                     cpts_;  // control points
   int                                 N_;     // order
   int                                 M_;     // number of pieces
   double                              T_;     // total time
@@ -123,7 +123,7 @@ class Bezier {
     }
   }
 
-  Bezier(const std::vector<double> &time, const Eigen::MatrixXd &cpts) : t_(time), cpts_(cpts) {
+  Bezier(const std::vector<double> &time, const Eigen::MatrixX3d &cpts) : t_(time), cpts_(cpts) {
     N_ = ORDER;
     M_ = t_.size();
     T_ = 0;
@@ -137,7 +137,7 @@ class Bezier {
   /* get & set basic info */
   void setOrder(const int &order) { N_ = order; }
   void setTime(const std::vector<double> &t) { t_ = t; }
-  void setControlPoints(const Eigen::MatrixXd &cpts);
+  void setControlPoints(const Eigen::MatrixX3d &cpts);
 
   int    getOrder() const { return N_; }
   int    getNumPieces() const { return M_; }

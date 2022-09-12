@@ -233,6 +233,7 @@ class Visualizer {
   void visualizePath(const std::vector<Eigen::Vector3d>& path);
   void visualizeAstarPath(const std::vector<Eigen::Vector3d>& points);
   void visualizeStartGoal(const Eigen::Vector3d& center, int sg = 1);
+  void visualizeControlPoints(const Eigen::MatrixX3d& cpts);
   void displayOptimizationInfo(const double& comp_time,
                                const double& max_velocity,
                                const double& max_acceleration,

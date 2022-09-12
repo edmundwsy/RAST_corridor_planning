@@ -152,7 +152,7 @@ Eigen::MatrixXd BernsteinPiece::calcDerivativeCtrlPts(const Eigen::MatrixXd &cpt
 double BernsteinPiece::getMaxVelRate() const {
   Eigen::MatrixXd d_cpts       = getVelCtrlPts();
   double          max_vel_rate = 0;
-  for (int i = 0; i <= d_cpts.rows(); i++) {
+  for (int i = 0; i < d_cpts.rows(); i++) {
     double vel_rate = d_cpts.row(i).norm();
     if (vel_rate > max_vel_rate) {
       max_vel_rate = vel_rate;
@@ -164,7 +164,7 @@ double BernsteinPiece::getMaxVelRate() const {
 double BernsteinPiece::getMaxAccRate() const {
   Eigen::MatrixXd d_cpts       = getAccCtrlPts();
   double          max_acc_rate = 0;
-  for (int i = 0; i <= d_cpts.rows(); i++) {
+  for (int i = 0; i < d_cpts.rows(); i++) {
     double acc_rate = d_cpts.row(i).norm();
     if (acc_rate > max_acc_rate) {
       max_acc_rate = acc_rate;
@@ -174,7 +174,7 @@ double BernsteinPiece::getMaxAccRate() const {
 }
 
 /********** Bezier Curve **********/
-void Bezier::setControlPoints(const Eigen::MatrixXd &cpts) {
+void Bezier::setControlPoints(const Eigen::MatrixX3d &cpts) {
   cpts_ = cpts;
   assert(cpts_.rows() == M_ * (N_ + 1) && "Piece number does not match time interval number");
   assert(cpts_.cols() == DIM && "Dimension does not match");

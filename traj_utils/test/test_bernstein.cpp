@@ -105,6 +105,19 @@ TEST_F(BezierTest, TestBezierCurve) {
               << ", a: " << a.transpose() << std::endl;
   }
 }
+
+TEST_F(BezierTest, TestBezierMax) {
+  auto v_cpts = bc[1].getVelCtrlPts();
+  std::cout << "v_cpts: " << std::endl << v_cpts << std::endl;
+  auto a_cpts = bc[1].getAccCtrlPts();
+  std::cout << "a_cpts: " << std::endl << a_cpts << std::endl;
+  double max_vel = bc.getMaxVelRate();
+  std::cout << "max_vel: " << max_vel;
+  double max_acc = bc.getMaxAccRate();
+  std::cout << ", max_acc: " << max_acc << std::endl;
+  EXPECT_TRUE(max_vel < 1.5);
+}
+
 }  // namespace Bernstein
 
 int main(int argc, char **argv) {

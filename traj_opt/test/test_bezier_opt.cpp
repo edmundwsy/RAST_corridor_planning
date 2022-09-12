@@ -69,19 +69,19 @@ class BezierOptTest2 : public ::testing::Test {
     cube2 <<
         // clang-format off
     -1, 0, 0, -2,
-    1,  0, 0, -5,
+    1,  0, 0, -6,
     0, -1, 0, -2,
-    0,  1, 0, -5,
+    0,  1, 0, -6,
     0,  0, -1, -2,
-    0,  0, 1, -5;
+    0,  0, 1, -6;
     // clang-format on
 
     std::vector<Eigen::MatrixX4d> safety_corridors;
     safety_corridors.push_back(cube1);
     safety_corridors.push_back(cube2);
     Eigen::Matrix3d start, end;
-    start << 1, 1, 1, 0, 0, 0, 0, 0, 0;
-    end << 4, 4, 4, 0, 0, 0, 0, 0, 0;
+    start << 1, 0, 1, 0, 0, 0, 0, 0, 0;
+    end << 5, 4, 5, 0.5, 0, 0, 0, 0, 0;
     std::vector<double> t;
     t.push_back(2);
     t.push_back(2);
@@ -128,7 +128,7 @@ TEST_F(BezierOptTest2, TestOpt) {
   Eigen::MatrixXd   Ablb;
   Ablb.resize(A.rows(), A.cols() + 2);
   Ablb << A, lb, b;
-  // std::cout << "Ablb: " << std::endl << Ablb << std::endl;
+  std::cout << "Ablb: " << std::endl << Ablb << std::endl;
   EXPECT_EQ(b.rows(), A.rows());
   EXPECT_EQ(A.cols(), 5 * 3 * 2);
   bool flag = _optimizer->optimize(); 
