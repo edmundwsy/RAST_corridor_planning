@@ -8,7 +8,7 @@
 
 ## Introduction
 
-**M-RAST** is a multi-agent quadrotor planning framework with risk-aware spatial-temporal safety corridors. This project is based on [RAST](https://github.com/g-ch/RAST_corridor_planning), which is a risk-aware motion planning algorithm with safety guarantees in dynamic uncertain environments.
+**M-RAST** is a multi-agent quadrotor planning framework with risk-aware spatial-temporal safety corridors. This project is based on [RAST](https://github.com/g-ch/RAST_corridor_planning), which is a risk-aware motion planning algorithm with safety guarantees in dynamic uncertain environments. This framework is written in C++ and ROS.
 
 
 
@@ -69,7 +69,7 @@ To compile the source code, you need:
 
    
 
-6. Clone the simulator from [GitHub](https://github.com/edmundwsy/uav_simulator). This repository provides a lightweight simulation and visualization environment for UAV system based on a [open-source project](https://github.com/HKUST-Aerial-Robotics/Fast-Planner). In our project, we only use the mapping, localization modules and ROS message. We will use it as a "fake" simulator, which means we only consider **ideal** mapping, localization and planning without any real physics and disturbance.
+6. Clone the simulator from [GitHub](https://github.com/edmundwsy/uav_simulator). This repository provides a lightweight simulation and visualization environment for MAV system based on a [open-source project](https://github.com/HKUST-Aerial-Robotics/Fast-Planner). In our project, we only use the mapping, localization modules and ROS message. We will use it as a "fake" simulator, which means we only consider **ideal** mapping, localization and planning without any real physics and disturbance.
 
    ```shell
    git clone --recursive https://github.com/edmundwsy/uav_simulator.git
@@ -89,7 +89,7 @@ To compile the source code, you need:
 
 ### RViz simulation 
 
-The RViz simulation is a fake simulation without physical contact and disturbance. It can simply debug the code and visualize the planning algorithm, which is vital for early-stage development. Before start, you need to go to your workspace directory and source the setup script
+The RViz simulation is a fake simulation without physical contact and disturbance. It can simply debug the code and visualize the planning algorithm, which is vital for early-stage development. Before starting, you need to go to your workspace directory and source the setup script
 
 ```shell
 cd catkin_ws
@@ -185,7 +185,9 @@ If you would like to test this system in Gazebo simulation and real world, here 
 
 ## Project Structure
 
-* [RAST_corridor_planning/](./RAST_corridor_planning): RAST corridor generation and planning for single uav
+The structure of this framework is as follows:
+
+* [RAST_corridor_planning/](./RAST_corridor_planning): RAST corridor generation and planning for single MAV
 * [path_searching/](./path_searching): path finding library (E.g. hybrid A star [1] [3] and Conflict-based Search [2])
 * [plan_env/](./plan_env): mapping library (only grid map now, we can use DSP map in `rast_corridor_planning` to replace this package)
 * [swarm_bridge/](./swarm_bridge): package for multi-robot trajectory communication via [ZeroMQ](https://zeromq.org/), which increases the communication stability and makes it distributed easier.
@@ -199,6 +201,10 @@ If you would like to test this system in Gazebo simulation and real world, here 
 
 
 ### RQT Graph
+
+The communication relationship among packages can be seen in the following RQT graph. It also visualizes the data flow in these packages. The pointcloud data from depth camera and odometry data from IMU are subscribed by the `mapping` node, in which the future risk map is generated. Then the planning node reads the risk map and trajectory from other agents, outputs the collision-free parametric trajectories. It imports self-contained libraries such as `path_searching`,  `corridor_gen` and `traj_opt`. Then the parametric trajectory is sent to `swarm_bridge` package and boardcasts to all agents in this environment. The trajectory topic is also subscribed by `traj_server` topic in which it is converted to discreted position, velocity and acceleration setpoints for flight control.
+
+Notations in the RQT graph are
 
 - dotted line represents introduced as a library (by class & class pointer)
 - solid line represents communication via ros message
@@ -270,6 +276,8 @@ graph TD
 
 #### ROS messages
 
+Here are important ROS messages in the framework. 
+
 - `~pointcloud`: point cloud message from depth camera
 - `~mavros/local_position/pose`: local odometry message from onboard IMU or motion capture system
 - `~trajectory`: parametric trajectory message
@@ -280,9 +288,7 @@ graph TD
 
 
 ### [rast_corridor_planning]: Main Planning Package
-Risk-aware map building, corridor generation and planning package for single uav.
-
-Features including
+This package is the main package for risk map building, corridor generation and motion planning, including
 
 - DSP Map [4]
 - Risk-aware A star path searching
@@ -303,7 +309,7 @@ Features including
 | GOAL_REACHED      | Drone reached the goal, wait new goal from the goal queue.   | WAIT_TARGET                            |
 | EXIT              | Exit the FSM                                                 |                                        |
 
-state diagram is shown as follows
+The state diagram of FSM is shown as follows
 
 ```mermaid
 graph TD
@@ -332,6 +338,8 @@ A library for parametric trajectories message and related visualization. Followi
 - **Bezier spline**: a class to describe a 4-th order Bezier curve.
 - **polyhedron**: a 6 rows matrix with data type `Eigen::Matrix<double, 6, -1>` . The first 3 elements indicates the normal vector pointing outwards, the last 3 elements are points on the plane.
 
+> Note: there are multiple methods to represent convex polytope, e.g. H-representation (`Eigen::MatrixX4d`), V-representation, and normal vector and points described above. In some packages the polyhedron representation is converted to other representaion for convenience. 
+
 **File Tree View**
 
 ```
@@ -339,9 +347,11 @@ traj_utils
 ├─ include                        // trajectory definitions
 │  └─ traj_utils                   
 │     ├─ basis_converter.hpp       
+│     ├─ bernstein.hpp             // bezier trajectory
+│     ├─ b-spline.hpp              // B-spline trajectory
 │     ├─ corridor.hpp              
 │     ├─ planning_visualization.h  // visualization
-│     ├─ poly_traj.hpp             
+│     ├─ poly_traj.hpp             // polynomial trajectory
 │     ├─ root_finder.hpp           
 │     ├─ uniform_bspline.h         
 │     └─ visualizer.hpp            // visualization
@@ -372,8 +382,8 @@ A library for trajectory optimization, which includes polynomial, Bernstein, B-s
 ```
 traj_opt                              
 ├─ include                            
-│  ├─ bernstein                       // optimizer for Bezier  
-│  │  └─ bernstein_optimizer.hpp        
+│  ├─ bernstein                       // optimizer for Bezier Curve
+│  │  └─ bezier_optimizer.hpp        
 │  ├─ bspline                         // optimizer for B-spline
 │  │  └─ bspline_optimizer.h          
 │  ├─ polynomial                      // optimizer for polynomial
@@ -390,7 +400,8 @@ traj_opt
 ├─ rviz                               
 │  └─ test_minisnap.rviz              // test Minimun Snap optimizer
 ├─ src                                // class & function definitions
-│  ├─ bspline_optimizer.cpp           
+│  ├─ bspline_optimizer.cpp    
+│  ├─ bezier_optimizer.cpp  
 │  ├─ gradient_descent_optimizer.cpp  
 │  ├─ mini_snap.cpp                   
 │  └─ poly_traj_optimizer.cpp         
@@ -401,7 +412,7 @@ traj_opt
 └─ package.xml                        
 ```
 
-`mini_snap.h` is a minimun-snap trajectory optimizer for polynomial trajectory splines. Each piece of the trajectory is a 7-th order polynomial with 8 coefficients as $f_j(t) = \bf{c}_j^\intercal \bf{\beta}(t_j)$ . The optimization problem for a $M$-piece trajectory can be formed as follows:
+`mini_snap.h` is a minimun-snap trajectory optimizer for polynomial trajectory splines [6]. Each piece of the trajectory is a 7-th order polynomial with 8 coefficients as $f_j(t) = \bf{c}_j^\intercal \bf{\beta}(t_j)$ . The optimization problem for a $M$-piece trajectory can be formed as follows:
 $$
 \begin{gathered}
 \min _{\mathbf{c}_j} \sum_{j=1}^M \int_{t_{j-1}}^{t_j}\left\|\frac{\mathrm{d}^4 f_j(t)}{\mathrm{d} t^4}\right\|^2 d t \\
@@ -412,6 +423,17 @@ f_j^{(m)}(t) \leq f_{\max }^{(m)}, \forall t \in\left[t_0, t_M\right], \quad m=1
 \end{gathered}
 $$
 where $\hat{\mathbb{E}}_j$ is the safety corridor constraints, $f_{\max }^{(1)}$ and $f_{\max }^{(2)}$ are the upper bound of velocityies and accelerations.
+
+`bezier_optimizer.cpp` is an optimization-based bezier trajectory generation method described in [7]. The optimization is formed as a QP problem,
+$$
+\begin{aligned}
+\min ~~~ & \mathbf{c}^T \mathbf{Q}_o \mathbf{c} \\
+\text { s.t. } & \mathbf{A}_{e q} \mathbf{c}=\mathbf{b}_{e q} \\
+& \mathbf{A}_{i e} \mathbf{c} \leq \mathbf{b}_{i e} \\
+& \mathbf{c}_j \in \Omega_j, \quad j=1,2, \ldots, m,
+\end{aligned}
+$$
+where $\bf{c}$ is a vector of control points and $  \Omega_j $ is the $j$- th safety corridor. The purpose to use bezier curve trajectory is to utilize the convex hull property to guarantee safety.
 
 `gcopter.hpp` is a state-of-the-art trajectory optimizer for polynomial trajectory [5]. 
 
@@ -430,17 +452,17 @@ In trajectory optimization problem, the QP solve can not deal with safety constr
 
 **Dependency**: `traj_utils`
 
-A node for discretize parametric trajectory into separate waypoints and poses.
+A node for discretizing parametric trajectory into separate waypoints and poses.
 
 - Input: parametric trajectory message (`~trajectory`)
 - Output: discretized trajectory message (`~position_cmd`, `~pva_setpoint`, `/traj_start_trigger`)
-- Note: There are two behavior of trajectory queue, one is adding new trajectory to the end of the queue, and the other is clearing the queue and adding new trajectory. We use the stating time of the incoming trajectory and the end time of the previous trajectory to decide which behavior is used. 
-  - if t_start >= t_end, then add new trajectory to the end of the queue
-  - if t_start < t_end, then clear the queue and add new trajectory 
+- Note: There is two behavior of trajectory queue, one is adding a new trajectory to the end of the queue, and the other is clearing the queue and adding new trajectory. We use the starting time of the incoming trajectory and the end time of the previous trajectory to decide which behavior is used. 
+  - if t_start >= t_end, then add a new trajectory to the end of the queue
+  - if t_start < t_end, then clear the queue and add a new trajectory 
 
 **Trigger**
 
-Note: `/traj_start_trigger` is a `geometry_msgs::PoseStamped` message, which is used to trigger the discretization and trajectory execution. The `traj_server` node will save the discretized trajectory in a queue until it's been triggered. After trigger received, trajectory points in the queue will be popped up and published to the controller every 10ms, and new trajectory points will be pushed into the queue.
+Note: `/traj_start_trigger` is a `geometry_msgs::PoseStamped` message, which is used to trigger the discretization and trajectory execution. The `traj_server` node will save the discretized trajectory in a queue until it's been triggered. After the trigger is received, trajectory points in the queue will be popped up and be published to the controller every 10ms, and new trajectory points will be pushed into the queue.
 
 
 
@@ -448,13 +470,15 @@ Note: `/traj_start_trigger` is a `geometry_msgs::PoseStamped` message, which is 
 
 The purpose of RViz simulation is to accelerate the development and testing of planning algorithms. A visualization of intermediate results has been published and displayed in GUI. 	
 
-You will see a hovering **drone** (black) and its **field of view** (pink line) in a clustered dynamic environment. The dynamic obstacles is grey, updating in a relative slow frequency of 10Hz. The mapping node reads the point cloud from dynamic obstacles and outputs generated **occupancy map** (colorful) and **future risks** (only visulized in 2D). The planning node reads the risk map, applies kinodynamic **A* searc**h (red curve) , generates **safety corridors** (transparent blue). The final trajectory is generated by solving an optimization problem and pushed into **trajectory queue**  (yellow). 
+You will see a hovering **drone** (black) and its **field of view** (pink line) in a clustered dynamic environment. The dynamic obstacles are grey, updating in a relatively slow frequency of 10Hz. The mapping node reads the point cloud from dynamic obstacles and outputs generated **occupancy map** (colourful) and **future risks** (only visualized in 2D). The planning node reads the risk map, applies kinodynamic **A\* search** (red curve) , and generates **safety corridors** (transparent blue). The final trajectory is generated by solving an optimization problem and pushed into **the trajectory queue** (yellow). 
 
 <img src="assets/README/Rviz_intro.png" alt="Rviz_intro" style="zoom:67%;" />
 
 
 
 ### Launch Files
+
+In this framework we use ROS launch tool to easily start multiple ROS nodes, subscribe topics and load parameters. The launch files are located in `src/RAST_corridor_planning/launch` folder. 
 
 **File Tree View**
 
@@ -489,7 +513,7 @@ launch
 - [x] (Aug. w3) Add `drone_id` to the planner class, display to prompt
 - [x] (Aug. w3) Refine visualizations
 - [x] (Aug. w3) Work with Moji on the fake simulation
-- [ ] (Aug. w4) Include Bernstein & B-Spline trajectory optimization to `traj_opt` 
+- [x] (Aug. w4) Include Bernstein & B-Spline trajectory optimization to `traj_opt` 
 - [x] (Aug. w4) Include `decomp_ros` for convex corridor generation
 
 
@@ -499,9 +523,9 @@ launch
 
 ### ROS Launch
 
-In this project, the  `<group>` tag is used to make it easier to apply setting to a single agent. Each agent is assigned to a independent namespace where all topics are published with the group name prefix. This design is to avoid mutual communication in simulation environment.
+In this project, the  `<group>` tag is used to make it easier to apply a  setting to a single agent. Each agent is assigned to an independent namespace where all topics are published with the group name prefix. This design is to avoid mutual communication in the simulation environment.
 
-Use `.launch` file to start a group of nodes for each uav.
+Use `.launch` file to start a group of nodes for each MAV.
 ```xml
   <group ns="uav$(arg drone_id)">
     <node pkg="rast_corridor_planning" name="mapping" type="mapping" output="screen">
@@ -511,7 +535,7 @@ Use `.launch` file to start a group of nodes for each uav.
   </group>
 ```
 
-In C++ code, use common topic name, e.g. `~trajectory`. In launch file, remap common topic name to specific uav e.g. `/uav$(arg drone_id)/trajectory`.
+In C++ code, use common topic name, e.g. `~trajectory`. In launch file, remap common topic name to specific MAV e.g. `/uav$(arg drone_id)/trajectory`.
 
 ### Coding Styles
 Visualization and configuration should be separate class due to [Model-View-Controller architecture](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller).
@@ -593,3 +617,7 @@ MIT License
 [4] G. Chen, W. Dong, P. Peng, J. Alonso-Mora, and X. Zhu, “Continuous Occupancy Mapping in Dynamic Environments Using Particles.” arXiv, Feb. 13, 2022. doi: [10.48550/arXiv.2202.06273](https://doi.org/10.48550/arXiv.2202.06273).
 
 [5] Z. Wang, X. Zhou, C. Xu, and F. Gao, “Geometrically Constrained Trajectory Optimization for Multicopters,” *IEEE Trans. Robot.*, pp. 1–10, 2022, doi: [10.1109/TRO.2022.3160022](https://doi.org/10.1109/TRO.2022.3160022).
+
+[6] D. Mellinger and V. Kumar, “Minimum snap trajectory generation and control for quadrotors,” in *2011 IEEE International Conference on Robotics and Automation*, May 2011, pp. 2520–2525. doi: [10.1109/ICRA.2011.5980409](https://doi.org/10.1109/ICRA.2011.5980409).
+
+[7] F. Gao, W. Wu, Y. Lin, and S. Shen, “Online Safe Trajectory Generation for Quadrotors Using Fast Marching Method and Bernstein Basis Polynomial,” in *2018 IEEE International Conference on Robotics and Automation (ICRA)*, May 2018, pp. 344–351. doi: [10.1109/ICRA.2018.8462878](https://doi.org/10.1109/ICRA.2018.8462878).
