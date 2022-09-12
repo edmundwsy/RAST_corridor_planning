@@ -79,7 +79,7 @@ class BezierOptTest2 : public ::testing::Test {
     std::vector<Eigen::MatrixX4d> safety_corridors;
     safety_corridors.push_back(cube1);
     safety_corridors.push_back(cube2);
-    Eigen::Matrix3d start, end;
+
     start << 1, 0, 1, 0, 0, 0, 0, 0, 0;
     end << 5, 4, 5, 0.5, 0, 0, 0, 0, 0;
     std::vector<double> t;
@@ -90,8 +90,9 @@ class BezierOptTest2 : public ::testing::Test {
     _optimizer->calcCtrlPtsCvtMat();
   }
 
-  void           TearDown() override { std::cout << "exit from TearDown" << std::endl; }
-  BezierOpt::Ptr _optimizer;
+  void            TearDown() override { std::cout << "exit from TearDown" << std::endl; }
+  BezierOpt::Ptr  _optimizer;
+  Eigen::Matrix3d start, end;
 };
 
 TEST_F(BezierOptTest, TestCvtMat) {
@@ -121,23 +122,76 @@ TEST_F(BezierOptTest, TestMinJerkCost) {
   EXPECT_EQ(Q.cols(), 5 * 3);
 }
 
-TEST_F(BezierOptTest2, TestOpt) { 
-  Eigen::MatrixXd A = _optimizer->getA();
-  Eigen::VectorXd b = _optimizer->getb();
+TEST_F(BezierOptTest2, TestOpt) {
+  Eigen::MatrixXd A  = _optimizer->getA();
+  Eigen::VectorXd b  = _optimizer->getb();
   Eigen::VectorXd lb = _optimizer->getlb();
-  Eigen::MatrixXd   Ablb;
-  Ablb.resize(A.rows(), A.cols() + 2);
-  Ablb << A, lb, b;
-  std::cout << "Ablb: " << std::endl << Ablb << std::endl;
+  Eigen::MatrixXd Ablb;
+  // Ablb.resize(A.rows(), A.cols() + 2);
+  // Ablb << A, lb, b;
+  // std::cout << "Ablb: " << std::endl << Ablb << std::endl;
   EXPECT_EQ(b.rows(), A.rows());
   EXPECT_EQ(A.cols(), 5 * 3 * 2);
-  bool flag = _optimizer->optimize(); 
+  bool flag = _optimizer->optimize();
   EXPECT_TRUE(flag);
   std::cout << "x_:" << std::endl << _optimizer->getOptCtrlPts() << std::endl;
   Eigen::MatrixXd X = _optimizer->getOptCtrlPtsMat();
   std::cout << "X: " << std::endl << X << std::endl;
   EXPECT_EQ(X.rows(), 10);
   EXPECT_EQ(X.cols(), 3);
+}
+
+TEST_F(BezierOptTest2, TestWaypoints) {
+  _optimizer->optimize();
+  BezierCurve traj;
+  _optimizer->getOptBezier(traj);
+  double T = traj.getDuration();
+  Eigen::Vector3d p_0, v_0, a_0, p_T, v_T, a_T;
+  p_0 = traj.getPos(0);
+  v_0 = traj.getVel(0);
+  a_0 = traj.getAcc(0);
+  p_T = traj.getPos(T);
+  v_T = traj.getVel(T);
+  a_T = traj.getAcc(T);
+  EXPECT_LT(abs(p_0(0) - start(0, 0)), 1e-3);
+  EXPECT_LT(abs(p_0(1) - start(0, 1)), 1e-3);
+  EXPECT_LT(abs(p_0(2) - start(0, 2)), 1e-3);
+  EXPECT_LT(abs(v_0(0) - start(1, 0)), 1e-3);
+  EXPECT_LT(abs(v_0(1) - start(1, 1)), 1e-3);
+  EXPECT_LT(abs(v_0(2) - start(1, 2)), 1e-3);
+  EXPECT_LT(abs(a_0(0) - start(2, 0)), 1e-3);
+  EXPECT_LT(abs(a_0(1) - start(2, 1)), 1e-3);
+  EXPECT_LT(abs(a_0(2) - start(2, 2)), 1e-3);
+  EXPECT_LT(abs(p_T(0) - end(0, 0)), 1e-3);
+  EXPECT_LT(abs(p_T(1) - end(0, 1)), 1e-3);
+  EXPECT_LT(abs(p_T(2) - end(0, 2)), 1e-3);
+  EXPECT_LT(abs(v_T(0) - end(1, 0)), 1e-3);
+  EXPECT_LT(abs(v_T(1) - end(1, 1)), 1e-3);
+  EXPECT_LT(abs(v_T(2) - end(1, 2)), 1e-3);
+  EXPECT_LT(abs(a_T(0) - end(2, 0)), 1e-3);
+  EXPECT_LT(abs(a_T(1) - end(2, 1)), 1e-3);
+  EXPECT_LT(abs(a_T(2) - end(2, 2)), 1e-3);
+}
+
+TEST_F(BezierOptTest2, TestContinuity) {
+  _optimizer->optimize();
+  BezierCurve traj;
+  _optimizer->getOptBezier(traj);
+  for (double dt = 0; dt < traj.getDuration(); dt += 0.1) {
+    Eigen::Vector3d pos, vel, acc;
+    pos = traj.getPos(dt);
+    vel = traj.getVel(dt);
+    acc = traj.getAcc(dt);
+    std::cout << dt << " | " << pos.transpose() << " | " << vel.transpose() << " | "
+              << acc.transpose() << std::endl;
+  }
+  EXPECT_EQ(1, 1);
+  EXPECT_LE(abs((traj.getVel(1.0) - traj.getVel(0.9)).norm() / 0.1 -
+                (traj.getAcc(1.0) + traj.getAcc(0.9)).norm() / 2),
+            0.01);
+  EXPECT_LE(abs((traj.getVel(2.0) - traj.getVel(1.9)).norm() / 0.1 -
+                (traj.getAcc(2.0) + traj.getAcc(1.9)).norm() / 2),
+            0.01);
 }
 
 }  // namespace traj_opt

@@ -115,7 +115,7 @@ TEST_F(BezierTest, TestBezierMax) {
   std::cout << "max_vel: " << max_vel;
   double max_acc = bc.getMaxAccRate();
   std::cout << ", max_acc: " << max_acc << std::endl;
-  EXPECT_TRUE(max_vel < 1.5);
+  EXPECT_TRUE(max_vel > 1.5);
 }
 
 }  // namespace Bernstein
