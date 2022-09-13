@@ -31,9 +31,9 @@ class BezierTest : public ::testing::Test {
     cpts <<
         // clang-format off
     0, 0, 0,
+    0.5, 0.5, 0.5,
     1, 1, 1,
     2, 2, 2,
-    3, 3, 3,
     4, 4, 4,
 
     4, 4, 4,
@@ -85,13 +85,13 @@ TEST_F(BezierTest, TestTraj) {
   EXPECT_DOUBLE_EQ(bc.getDuration(), 6);
   EXPECT_EQ(3, bc.getNumPieces());
 
-  for (double t = 0; t < 6; t += 0.1) {
+  for (double t = 0; t < bc.getDuration(); t += 0.1) {
     Eigen::Vector3d p, v, a;
     p = bc.getPos(t);
     v = bc.getVel(t);
     a = bc.getAcc(t);
-    std::cout << "t: " << t << ", p: " << p.transpose() << ", v: " << v.transpose()
-              << ", a: " << a.transpose() << std::endl;
+    std::cout << "t: " << t << "\tp: " << p.transpose() << "\tv: " << v.transpose()
+              << "\ta: " << a.transpose() << std::endl;
   }
 }
 

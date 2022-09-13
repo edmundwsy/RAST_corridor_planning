@@ -88,10 +88,6 @@ void BezierOpt::calcMinJerkCost() {
 
   Eigen::MatrixXd p2j = a2j_ * v2a_ * p2v_;
   Eigen::MatrixXd P(DIM * (N_ - 2), DIM * (N_ - 2));
-  // for (int i = 0; i < N_ - 2; i++) {
-  //   P.block<DIM, DIM>(i * DIM, i * DIM) = I / 3;
-  //   P.block<DIM, DIM>(i * DIM, (N_ - 3 - i) * DIM) = I / 6;
-  // }
   P << I / 3, I / 6, I / 6, I / 3;
   Eigen::MatrixXd QM = p2j.transpose() * P * p2j;
   for (int i = 0; i < M_; i++) {
@@ -127,6 +123,7 @@ void BezierOpt::addConstraints() {
  *
  */
 void BezierOpt::addContinuityConstraints() {
+  double t0 = t_[0], tM = t_[M_ - 1];
   /* position continuity */
   Eigen::Matrix<double, DIM, DIM> I = Eigen::MatrixXd::Identity(DIM, DIM);
   /* initial position */
@@ -151,14 +148,17 @@ void BezierOpt::addContinuityConstraints() {
   /* initial velocity */
   A_.block(idx_, 0, DIM, DIM)   = -N_ * I;
   A_.block(idx_, DIM, DIM, DIM) = N_ * I;
-  b_.segment(idx_, DIM)         = init_.row(1);
-  lb_.segment(idx_, DIM)        = init_.row(1);
+  b_.segment(idx_, DIM)         = init_.row(1) * t0;
+  lb_.segment(idx_, DIM)        = init_.row(1) * t0;
   idx_ += DIM;
   for (int i = 1; i < M_; i++) {
-    A_.block(idx_, i * DIM * (N_ + 1), DIM, DIM)           = -N_ * I;
-    A_.block(idx_, i * DIM * (N_ + 1) + DIM, DIM, DIM)     = N_ * I;
-    A_.block(idx_, i * DIM * (N_ + 1) - DIM, DIM, DIM)     = -N_ * I;
-    A_.block(idx_, i * DIM * (N_ + 1) - 2 * DIM, DIM, DIM) = N_ * I;
+    double t1  = t_[i];
+    double t1_ = t_[i - 1];
+
+    A_.block(idx_, i * DIM * (N_ + 1), DIM, DIM)           = -N_ * I / t1;
+    A_.block(idx_, i * DIM * (N_ + 1) + DIM, DIM, DIM)     = N_ * I / t1;
+    A_.block(idx_, i * DIM * (N_ + 1) - DIM, DIM, DIM)     = -N_ * I / t1_;
+    A_.block(idx_, i * DIM * (N_ + 1) - 2 * DIM, DIM, DIM) = N_ * I / t1_;
     b_.segment(idx_, DIM)                                  = Eigen::Vector3d::Zero();
     lb_.segment(idx_, DIM)                                 = Eigen::Vector3d::Zero();
     idx_ += DIM;
@@ -166,8 +166,8 @@ void BezierOpt::addContinuityConstraints() {
   /* final velocity */
   A_.block(idx_, M_ * DIM * (N_ + 1) - DIM * 2, DIM, DIM) = -N_ * I;
   A_.block(idx_, M_ * DIM * (N_ + 1) - DIM, DIM, DIM)     = N_ * I;
-  b_.segment(idx_, DIM)                                   = goal_.row(1);
-  lb_.segment(idx_, DIM)                                  = goal_.row(1);
+  b_.segment(idx_, DIM)                                   = goal_.row(1) * tM;
+  lb_.segment(idx_, DIM)                                  = goal_.row(1) * tM;
   idx_ += DIM;
 
   /* acceleration continuity */
@@ -175,20 +175,23 @@ void BezierOpt::addContinuityConstraints() {
   Eigen::Matrix<double, DIM, DIM3> p2a  = (v2a_ * p2v_).block<DIM, DIM3>(0, 0);
   /* initial acceleration */
   A_.block(idx_, 0, DIM, DIM3) = p2a;
-  b_.segment(idx_, DIM)        = init_.row(2);
-  lb_.segment(idx_, DIM)       = init_.row(2);
+  b_.segment(idx_, DIM)        = init_.row(2) * t0 * t0;
+  lb_.segment(idx_, DIM)       = init_.row(2) * t0 * t0;
   idx_ += DIM;
   for (int i = 1; i < M_; i++) {
-    A_.block(idx_, i * DIM * (N_ + 1), DIM, DIM3)        = p2a;
-    A_.block(idx_, i * DIM * (N_ + 1) - DIM3, DIM, DIM3) = -p2a;
+    double t2  = pow(t_[i], 2);
+    double t2_ = pow(t_[i - 1], 2);
+
+    A_.block(idx_, i * DIM * (N_ + 1), DIM, DIM3)        = p2a / t2;
+    A_.block(idx_, i * DIM * (N_ + 1) - DIM3, DIM, DIM3) = -p2a / t2_;
     b_.segment(idx_, DIM)                                = Eigen::Vector3d::Zero();
     lb_.segment(idx_, DIM)                               = Eigen::Vector3d::Zero();
     idx_ += DIM;
   }
   /* final acceleration */
   A_.block(idx_, M_ * DIM * (N_ + 1) - DIM3, DIM, DIM3) = p2a;
-  b_.segment(idx_, DIM)                                 = goal_.row(2);
-  lb_.segment(idx_, DIM)                                = goal_.row(2);
+  b_.segment(idx_, DIM)                                 = goal_.row(2) * tM * tM;
+  lb_.segment(idx_, DIM)                                = goal_.row(2) * tM * tM;
   idx_ += DIM;
 
   std::cout << "idx: " << idx_ << std::endl;
@@ -201,15 +204,15 @@ void BezierOpt::addDynamicalConstraints() {
   Eigen::Matrix<double, DIM, DIM3> p2a  = (v2a_ * p2v_).block<DIM, DIM3>(0, 0);
   Eigen::Matrix<double, DIM, DIM>  I    = Eigen::MatrixXd::Identity(DIM, DIM);
 
-  Eigen::Vector3d v = Eigen::Vector3d::Ones();
+  Eigen::Vector3d ones = Eigen::Vector3d::Ones();
 
   /* maximum velocity */
   for (int i = 0; i < M_; i++) {
     double t = t_[i];
     for (int j = 0; j < N_; j++) {
       A_.block(idx_, i * DIM * (N_ + 1) + j * DIM, DIM, DIM2) = p2v;
-      b_.segment(idx_, DIM)                                   = max_vel_ * v * t;
-      lb_.segment(idx_, DIM)                                  = -max_vel_ * v * t;
+      b_.segment(idx_, DIM)                                   = max_vel_ * ones * t;
+      lb_.segment(idx_, DIM)                                  = -max_vel_ * ones * t;
       idx_ += DIM;
     }
   }
@@ -219,8 +222,8 @@ void BezierOpt::addDynamicalConstraints() {
     double t = t_[i];
     for (int j = 0; j < N_ - 1; j++) {
       A_.block(idx_, i * DIM * (N_ + 1) + j * DIM, DIM, DIM3) = p2a;
-      b_.segment(idx_, DIM)                                   = max_acc_ * v * t * t;
-      lb_.segment(idx_, DIM)                                  = -max_acc_ * v * t * t;
+      b_.segment(idx_, DIM)                                   = max_acc_ * ones * t * t;
+      lb_.segment(idx_, DIM)                                  = -max_acc_ * ones * t * t;
       idx_ += DIM;
     }
   }

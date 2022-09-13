@@ -143,6 +143,8 @@ class Bezier {
   int    getNumPieces() const { return M_; }
   double getDuration() const { return T_; }
   void   getCtrlPoints(Eigen::MatrixXd &cpts) const { cpts = cpts_; }
+  Eigen::MatrixXd getVelCtrlPoints(int idx) const { return pieces_[idx].getVelCtrlPts(); }
+  Eigen::MatrixXd getAccCtrlPoints(int idx) const { return pieces_[idx].getAccCtrlPts(); }
   void   calcPieces();
 
   inline int locatePiece(double t) const {

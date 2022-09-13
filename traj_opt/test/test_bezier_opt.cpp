@@ -54,7 +54,7 @@ class BezierOptTest2 : public ::testing::Test {
   virtual void SetUp() override {
     std::cout << "enter into SetUp()" << std::endl;
     /* set up constraints */
-    Eigen::MatrixX4d cube1, cube2;
+    Eigen::MatrixX4d cube1, cube2, cube3;
     cube1.resize(6, 4);
     cube1 <<
         // clang-format off
@@ -75,16 +75,28 @@ class BezierOptTest2 : public ::testing::Test {
     0,  0, -1, -2,
     0,  0, 1, -6;
     // clang-format on
+    cube3.resize(6, 4);
+    cube3 <<
+        // clang-format off
+    -1, 0, 0, -5,
+    1,  0, 0, -9,
+    0, -1, 0, -5,
+    0,  1, 0, -9,
+    0,  0, -1, -5,
+    0,  0, 1, -9;
+    // clang-format on
 
     std::vector<Eigen::MatrixX4d> safety_corridors;
     safety_corridors.push_back(cube1);
     safety_corridors.push_back(cube2);
+    safety_corridors.push_back(cube3);
 
     start << 1, 0, 1, 0, 0, 0, 0, 0, 0;
-    end << 5, 4, 5, 0.5, 0, 0, 0, 0, 0;
+    end << 8, 9, 8, 0.5, 1, 0, 0, 0, 0;
     std::vector<double> t;
     t.push_back(2);
-    t.push_back(2);
+    t.push_back(4.0);
+    t.push_back(2.0);
 
     _optimizer->setup(start, end, t, safety_corridors);
     _optimizer->calcCtrlPtsCvtMat();
@@ -128,7 +140,7 @@ TEST_F(BezierOptTest2, TestOpt) {
   Eigen::VectorXd lb = _optimizer->getlb();
   Eigen::MatrixXd Ablb;
   Ablb.resize(A.rows(), A.cols() + 2);
-  Ablb << A, lb, b;
+  // Ablb << A, lb, b;
   std::cout << "Ablb: " << std::endl << Ablb << std::endl;
   EXPECT_EQ(b.rows(), A.rows());
   EXPECT_EQ(A.cols(), 5 * 3 * 2);
@@ -171,6 +183,14 @@ TEST_F(BezierOptTest2, TestWaypoints) {
   EXPECT_LT(abs(a_T(0) - end(2, 0)), 1e-3);
   EXPECT_LT(abs(a_T(1) - end(2, 1)), 1e-3);
   EXPECT_LT(abs(a_T(2) - end(2, 2)), 1e-3);
+  // Eigen::MatrixXd V0 = traj[0].getVelCtrlPts();
+  // Eigen::MatrixXd A0 = traj[0].getAccCtrlPts();
+  // Eigen::MatrixXd V1 = traj[1].getVelCtrlPts();
+  // Eigen::MatrixXd A1 = traj[1].getAccCtrlPts();
+  // EXPECT_LT((V0.row(3) - V1.row(0)).norm(), 1e-3);
+  // EXPECT_LT((A0.row(2) - A1.row(0)).norm(), 1e-3);
+  EXPECT_LT((traj.getVel(1.99) - traj.getVel(2.01)).norm(), 1e-3);
+  EXPECT_LT((traj.getAcc(1.99) - traj.getAcc(2.01)).norm(), 1e-3);
 }
 
 TEST_F(BezierOptTest2, TestContinuity) {
@@ -182,7 +202,7 @@ TEST_F(BezierOptTest2, TestContinuity) {
     pos = traj.getPos(dt);
     vel = traj.getVel(dt);
     acc = traj.getAcc(dt);
-    std::cout << dt << " | " << pos.transpose() << " | " << vel.transpose() << " | "
+    std::cout << dt << "\t | " << pos.transpose() << " | " << vel.transpose() << " | "
               << acc.transpose() << std::endl;
   }
   EXPECT_EQ(1, 1);

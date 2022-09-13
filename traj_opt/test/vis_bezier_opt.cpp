@@ -28,7 +28,7 @@ std::default_random_engine             eng(rd());
 std::uniform_real_distribution<double> _x_rand(-1.0, 1.0);
 std::uniform_real_distribution<double> _z_rand(0.0, 3.0);
 std::uniform_real_distribution<double> _v_rand(0.0, 5.0);
-std::uniform_real_distribution<double> _t_rand(1.0, 3.0);  // time interval
+std::uniform_real_distribution<double> _t_rand(2.0, 4.0);  // time interval
 
 Eigen::Vector3d _start_pos(0.0, 0.0, 0.0);
 Eigen::Vector3d _start_vel(0.0, 0.0, 0.0);
@@ -175,7 +175,7 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
 
   std::cout << "Goal" << std::endl << goal_state << std::endl;
   _ptr_bezier_opt.reset(new traj_opt::BezierOpt());
-  _ptr_bezier_opt->setup(init_state, goal_state, time_alloc, constraints, 4.0, 4.0);
+  _ptr_bezier_opt->setup(init_state, goal_state, time_alloc, constraints, 10.0, 10.0);
   ros::Time tic    = ros::Time::now();
   bool      status = _ptr_bezier_opt->optimize();
   ros::Time toc    = ros::Time::now();
@@ -187,10 +187,17 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
     auto bezier     = _ptr_bezier_opt->getOptBezier();
     _ptr_bezier     = std::make_shared<Bernstein::Bezier>(bezier);
     double duration = 0.0;
+    int    i        = 0;
     for (auto it = time_alloc.begin(); it != time_alloc.end(); it++) {
       duration += *it;
       std::cout << _ptr_bezier->getVel(duration + 0.01).transpose() << " | "
-                << _ptr_bezier->getVel(duration - 0.01).transpose() << std::endl;
+                << _ptr_bezier->getVel(duration - 0.01).transpose() << std::endl
+                << _ptr_bezier->getAcc(duration + 0.01).transpose() << " | "
+                << _ptr_bezier->getAcc(duration - 0.01).transpose() << std::endl;
+      std::cout 
+      << _ptr_bezier->getVelCtrlPoints(i).transpose() << std::endl
+      << _ptr_bezier->getAccCtrlPoints(i).transpose() << std::endl;
+      i++;
     }
     ROS_INFO("Total duration = %f", duration);
     double max_vel = _ptr_bezier->getMaxVelRate();
