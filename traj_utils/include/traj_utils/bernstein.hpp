@@ -135,7 +135,14 @@ class Bezier {
 
   /* get & set basic info */
   void setOrder(const int &order) { N_ = order; }
-  void setTime(const std::vector<double> &t) { t_ = t; }
+  void setTime(const std::vector<double> &t) {
+    t_ = t;
+    M_ = t_.size();
+    T_ = 0;
+    for (auto it = t_.begin(); it != t_.end(); it++) {
+      T_ += *it;
+    }
+  }
   void setControlPoints(const Eigen::MatrixX3d &cpts);
 
   int             getOrder() const { return N_; }
@@ -145,9 +152,12 @@ class Bezier {
   Eigen::MatrixXd getVelCtrlPoints(int idx) const { return pieces_[idx].getVelCtrlPts(); }
   Eigen::MatrixXd getAccCtrlPoints(int idx) const { return pieces_[idx].getAccCtrlPts(); }
   void            calcPieces();
-  void clear() {
+  void            clear() {
+    t_.clear();
     pieces_.clear();
     cpts_.resize(0, 0);
+    T_ = 0;
+    M_ = 0;
   }
 
   inline int locatePiece(double t) const {

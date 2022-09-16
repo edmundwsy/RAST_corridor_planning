@@ -1,9 +1,10 @@
 /**
- * @file poly_traj_server.cpp
+ * @file bezier_traj_server.cpp
  * @author Siyuan Wu (siyuanwu99@gmail.com)
- * @brief receive parametric polynomial trajectory, publish position command
+ * @brief
  * @version 1.0
- * @date 2022-08-03
+ * @date 2022-09-16
+ *
  * @copyright Copyright (c) 2022
  *
  */
@@ -15,9 +16,9 @@
 #include <queue>
 
 #include "quadrotor_msgs/PositionCommand.h"
+#include "traj_utils/BezierTraj.h"
+#include "traj_utils/bernstein.hpp"
 #include "traj_server/visualizer.hpp"
-#include "traj_utils/PolyTraj.h"
-#include "traj_utils/poly_traj.hpp"
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 
 ros::Publisher _pos_cmd_pub, _pva_pub, _vis_pub;
@@ -26,12 +27,12 @@ ros::Publisher _error_pub;
 bool _is_traj_received = false;
 bool _is_triggered     = false;
 
-int                    _traj_id;
-polynomial::Trajectory _traj;
-ros::Time              _t_str;     // start time
-ros::Time              _t_end;     // end time
-ros::Time              _t_cur;     // current time
-double                 _duration;  // duration of the trajectory in seconds
+int               _traj_id;
+Bernstein::Bezier _traj;
+ros::Time         _t_str;     // start time
+ros::Time         _t_end;     // end time
+ros::Time         _t_cur;     // current time
+double            _duration;  // duration of the trajectory in seconds
 
 double _last_yaw    = 0;
 double _last_yawdot = 0;
@@ -44,7 +45,7 @@ TrajSrvVisualizer::Ptr _vis_ptr;
 
 /**
  * @brief Get the yaw angle and yaw dot
- * 
+ *
  * @param v velocity
  * @param yaw return yaw angle
  * @param yaw_dot return yaw dot
@@ -166,7 +167,7 @@ void publishCmd(const Eigen::Vector3d &pos,
  *
  * @param traj
  */
-void fillTrajQueue(const polynomial::Trajectory &traj) {
+void fillTrajQueue(const Bernstein::Bezier &traj) {
   double T = traj.getDuration();
 
   double dt = 0.01;  // frequency 100Hz
@@ -180,7 +181,7 @@ void fillTrajQueue(const polynomial::Trajectory &traj) {
     pos = traj.getPos(t);
     vel = traj.getVel(t);
     acc = traj.getAcc(t);
-    jrk = traj.getJrk(t);
+    jrk = Eigen::Vector3d::Zero();
     getYaw(vel, yaw, yaw_dot);
 
     TrajPoint p = {_t_str + ros::Duration(t), pos, vel, acc, jrk, yaw, yaw_dot};
@@ -215,15 +216,15 @@ void odomCallback(const geometry_msgs::PoseStampedPtr &msg) {
 }
 
 /**
- * @brief recieve parametric polynomial trajectory
+ * @brief recieve parametric Bezier trajectory
  *
  * @param msg
  */
-void polyCallback(traj_utils::PolyTrajConstPtr msg) {
+void bezierCallback(traj_utils::BezierTrajConstPtr msg) {
   _traj_id    = msg->traj_id;
-  int order   = msg->order;
-  int N       = order + 1;
+  int N       = msg->order;
   int n_piece = msg->duration.size();  // number of pieces
+  int R       = n_piece * (N + 1);     // number of control points
 
   _t_str = msg->start_time;
 
@@ -235,23 +236,21 @@ void polyCallback(traj_utils::PolyTrajConstPtr msg) {
     time_alloc.push_back(*it);
   }
 
-  /* get coefficients */
-  Eigen::VectorXd coeff;
-  coeff.resize(N * 3 * n_piece);
-  for (int i = 0; i < n_piece; i++) {
-    for (int j = 0; j < order + 1; j++) {
-      coeff[i * N * 3 + j]         = msg->coef_x[i * N + j];
-      coeff[i * N * 3 + j + N]     = msg->coef_y[i * N + j];
-      coeff[i * N * 3 + j + 2 * N] = msg->coef_z[i * N + j];
-    }
+  /* get control points */
+  Eigen::MatrixX3d cpts;
+  cpts.resize(R, 3);
+  for (int i = 0; i < R; ++i) {
+    cpts(i, 0) = msg->cpts[i].x;
+    cpts(i, 1) = msg->cpts[i].y;
+    cpts(i, 2) = msg->cpts[i].z;
   }
 
   if (time_alloc.size() <= 0) {
     _is_traj_received = false;
   } else { /** only when traj is valid */
     _is_traj_received = true;
-    _traj.setDuration(time_alloc);
-    _traj.setCoeffs(coeff);
+    _traj.setTime(time_alloc);
+    _traj.setControlPoints(cpts);
     if (_t_str >= _t_end && _is_triggered) { /* look ahead */
       // ROS_INFO("[TrajSrv] %f < %f | adding to the end", _t_str.toSec(), _t_end.toSec());
       fillTrajQueue(_traj);
@@ -324,7 +323,7 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "poly_traj_server");
   ros::NodeHandle nh("~");
   ros::Timer      cmd_timer   = nh.createTimer(ros::Duration(0.01), PubCallback);
-  ros::Subscriber traj_sub    = nh.subscribe("trajectory", 1, polyCallback);
+  ros::Subscriber traj_sub    = nh.subscribe("trajectory", 1, bezierCallback);
   ros::Subscriber trigger_sub = nh.subscribe("/traj_start_trigger", 10, triggerCallback);
   ros::Subscriber odom_sub    = nh.subscribe("odom", 10, odomCallback);
   _pva_pub     = nh.advertise<trajectory_msgs::JointTrajectoryPoint>("/pva_setpoint", 1);

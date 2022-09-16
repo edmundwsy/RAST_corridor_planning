@@ -30,6 +30,9 @@ include_directories(
 add_executable(poly_traj_server src/poly_traj_server.cpp)
 target_link_libraries(poly_traj_server ${catkin_LIBRARIES})
 
+add_executable(bezier_traj_server src/bezier_traj_server.cpp)
+target_link_libraries(bezier_traj_server ${catkin_LIBRARIES})
+
 add_executable(trigger src/trigger.cpp)
 target_link_libraries(trigger ${catkin_LIBRARIES})
 

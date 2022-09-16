@@ -27,8 +27,8 @@ std::random_device                     rd;
 std::default_random_engine             eng(rd());
 std::uniform_real_distribution<double> _x_rand(-1.0, 1.0);
 std::uniform_real_distribution<double> _z_rand(0.0, 1.0);
-std::uniform_real_distribution<double> _v_rand(0.0, 5.0);
-std::uniform_real_distribution<double> _t_rand(2.0, 4.0);  // time interval
+std::uniform_real_distribution<double> _v_rand(0.0, 2.0);
+std::uniform_real_distribution<double> _t_rand(2.0, 3.0);  // time interval
 
 Eigen::Vector3d _start_pos(0.0, 0.0, 0.0);
 Eigen::Vector3d _start_vel(0.0, 0.0, 0.0);
