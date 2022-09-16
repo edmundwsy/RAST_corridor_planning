@@ -67,11 +67,11 @@ class BernsteinPiece {
     tf_ = tf;
     t_  = tf_ - t0_;
   }
-  inline int    getDim() { return DIM; }
-  inline int    getOrder() { return N_; }
-  inline double getStartTime() { return t0_; }
-  inline double getEndTime() { return tf_; }
-  inline double getDuration() { return tf_ - t0_; }
+  inline int    getDim() const { return DIM; }
+  inline int    getOrder() const { return N_; }
+  inline double getStartTime() const { return t0_; }
+  inline double getEndTime() const { return tf_; }
+  inline double getDuration() const { return tf_ - t0_; }
 
   Eigen::Vector3d getPos(double t) const;
   Eigen::Vector3d getVel(double t) const;
@@ -99,7 +99,7 @@ class Bezier {
  private:
   typedef std::vector<BernsteinPiece> Pieces;
   Pieces                              pieces_;
-  Eigen::MatrixX3d                    cpts_;  // control points
+  Eigen::MatrixX3d                    cpts_;  // control points, (M(N+1))x3 matrix
   int                                 N_;     // order
   int                                 M_;     // number of pieces
   double                              T_;     // total time
@@ -145,6 +145,10 @@ class Bezier {
   Eigen::MatrixXd getVelCtrlPoints(int idx) const { return pieces_[idx].getVelCtrlPts(); }
   Eigen::MatrixXd getAccCtrlPoints(int idx) const { return pieces_[idx].getAccCtrlPts(); }
   void            calcPieces();
+  void clear() {
+    pieces_.clear();
+    cpts_.resize(0, 0);
+  }
 
   inline int locatePiece(double t) const {
     for (int i = 0; i < M_; i++) {

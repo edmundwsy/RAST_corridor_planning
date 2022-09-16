@@ -16,7 +16,7 @@
 #include <Eigen/Eigen>
 #include <vector>
 
-namespace planner {
+namespace traj_utils {
 
 /**
  * @brief corridor is represented by a convex polyhedron
@@ -32,18 +32,22 @@ typedef Eigen::Matrix<double, 6, -1> Polyhedron;
  */
 typedef std::vector<Polyhedron> Corridors;
 
-void convertPolytopeRepresentation(const std::vector<Eigen::Matrix<double, 6, -1>> &c,
-                                   std::vector<Eigen::MatrixX4d> &                  h) {
-  for (int i = 0; i < static_cast<int>(c.size()); i++) {
-    Eigen::MatrixX4d h_i(6, 4);
-    for (int j = 0; j < 6; j++) {
-      Eigen::Vector3d dir, pos;
-      dir = c[i].col(j).head<3>();
-      pos = c[i].col(j).tail<3>();
-      h_i.row(j) << dir.transpose(), -dir.dot(pos);
-    }
-    h.push_back(h_i);
-  }
-}  // namespace planner
+/**
+ * @brief convert polytope representation
+ *
+ * normal vector representation:
+ *     |
+ *    p| --> n    pointing outward
+ *     |
+ * every column is a hyperplane, [dir, pos]
+ *
+ * H-representation: x*h0 + y*h1 + z*h2 + h3 <= 0
+ *
+ * @param c polytope representation with normal vectors pointing outwards
+ * @param h H-representation x*h0 + y*h1 + z*h2 + h3 <= 0
+ */
+void cvtPolytopeNormal2H(const std::vector<Eigen::Matrix<double, 6, -1>> &c,
+                         std::vector<Eigen::MatrixX4d>                   &h);
+}  // namespace traj_utils
 
 #endif  // __CORRIDOR_HPP__
