@@ -76,8 +76,14 @@ target_link_libraries(planning_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${Munkr
 add_executable(multi_planning_node 
   src/multi_planning_node.cpp 
   src/multi_planning.cpp)
-
 target_link_libraries(multi_planning_node
+${catkin_LIBRARIES}
+)
+
+add_executable(planning_bezier_node 
+  src/planning_bezier_node.cpp 
+  src/planning_bezier.cpp)
+target_link_libraries(planning_bezier_node
 ${catkin_LIBRARIES}
 )
 

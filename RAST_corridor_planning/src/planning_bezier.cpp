@@ -1,18 +1,19 @@
 /**
- * @file multi_planning.cpp
+ * @file planning_bezier.cpp
  * @author Siyuan Wu (siyuanwu99@gmail.com)
- * @brief
+ * @brief 
  * @version 1.0
- * @date 2022-07-29
- *
+ * @date 2022-09-16
+ * 
  * @copyright Copyright (c) 2022
- *
+ * 
  */
-#include <multi_planning.h>
+
+#include <planning_bezier.h>
 
 namespace planner {
-void Planner::init() {
-    _drone_id = getDroneID();
+void BezierPlanner::init() {
+  _drone_id = getDroneID();
 
   /*** ASTAR SETTINGS ***/
   _astar_planner.setTimeParameters(_config.a_star_search_time_step, _config.planning_time_step);
@@ -29,28 +30,29 @@ void Planner::init() {
 
   _ref_direction_angle = 100.f;
   /*** INITIALIZE MINISNAP OPT ***/
-  _traj_optimizer.reset(new polynomial::CorridorMiniSnap());
+  _traj_optimizer.reset(new traj_opt::BezierOpt());
 
   /*** INITIALIZE VISUALIZATION ***/
   std::string frame_id = "world";
   _vis.reset(new visualizer::Visualizer(_nh, frame_id));
 
   /*** SUBSCRIBERS ***/
-  _future_risk_sub = _nh.subscribe("future_risk_full_array", 1, &Planner::FutureRiskCallback, this);
-  _pose_sub        = _nh.subscribe("/mavros/local_position/pose", 10, &Planner::PoseCallback, this);
+  _future_risk_sub =
+      _nh.subscribe("future_risk_full_array", 1, &BezierPlanner::FutureRiskCallback, this);
+  _pose_sub = _nh.subscribe("/mavros/local_position/pose", 10, &BezierPlanner::PoseCallback, this);
   _vel_sub =
-      _nh.subscribe("/mavros/local_position/velocity_local", 10, &Planner::VelCallback, this);
-  _trigger_sub = _nh.subscribe("/traj_start_trigger", 1, &Planner::TriggerCallback, this);
+      _nh.subscribe("/mavros/local_position/velocity_local", 10, &BezierPlanner::VelCallback, this);
+  _trigger_sub = _nh.subscribe("/traj_start_trigger", 1, &BezierPlanner::TriggerCallback, this);
 
   /*** PUBLISHERS ***/
-  _traj_pub     = _nh.advertise<traj_utils::PolyTraj>("trajectory", 1);
+  _traj_pub     = _nh.advertise<traj_utils::BezierTraj>("trajectory", 1);
   _corridor_pub = _nh.advertise<decomp_ros_msgs::DynPolyhedronArray>("corridor", 1);
 
   ROS_INFO("Wait for 2 seconds");
   ros::Duration(2.0).sleep();
 
   _traj_timer =
-      _nh.createTimer(ros::Duration(_config.planning_time_step), &Planner::FSMCallback, this);
+      _nh.createTimer(ros::Duration(_config.planning_time_step), &BezierPlanner::FSMCallback, this);
   _traj_idx = 0;
 
   /*** AUXILIARY VARIABLES ***/
@@ -107,7 +109,7 @@ void Planner::init() {
  * - EXIT: exit the planner
  * @param event
  */
-void Planner::FSMCallback(const ros::TimerEvent& event) {
+void BezierPlanner::FSMCallback(const ros::TimerEvent& event) {
   double risk = 0;
   switch (_status) {
     /* initialize */
@@ -136,7 +138,7 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
           is_success = localReplan(PLAN_TYPE::NEW);
         }
         // bool is_safe    = checkTrajectoryRisk(_traj);
-        bool is_safe = true;  /** TODO: time delay !!! */
+        bool is_safe = true;         /** TODO: time delay !!! */
         if (is_success && is_safe) { /* publish trajectory */
           publishTrajectory(_traj);
           ROS_WARN("%f", _traj_start_time.toSec());
@@ -226,7 +228,7 @@ void Planner::FSMCallback(const ros::TimerEvent& event) {
  * @brief change the state of the finite state machine
  * @param state
  */
-void Planner::FSMChangeState(FSM_STATUS new_state) {
+void BezierPlanner::FSMChangeState(FSM_STATUS new_state) {
   FSMPrintState(new_state);
   _status = new_state;
 }
@@ -235,9 +237,9 @@ void Planner::FSMChangeState(FSM_STATUS new_state) {
  * @brief print the current state of the finite state machine via termcolor
  * This function is used for debugging purposes
  */
-void Planner::FSMPrintState(FSM_STATUS new_state) {
-  static string state_str[8] = {"INIT",      "WAIT_TARGET", "NEW_PLAN", "REPLAN",
-                                "EXEC_TRAJ", "EMERGENCY", "GOAL_REACHED",  "EXIT"};
+void BezierPlanner::FSMPrintState(FSM_STATUS new_state) {
+  static string state_str[8] = {"INIT",      "WAIT_TARGET", "NEW_PLAN",     "REPLAN",
+                                "EXEC_TRAJ", "EMERGENCY",   "GOAL_REACHED", "EXIT"};
   std::cout << termcolor::dark << termcolor::on_bright_green << "[FSM] status "
             << termcolor::bright_cyan << termcolor::on_white << state_str[static_cast<int>(_status)]
             << " >> " << state_str[static_cast<int>(new_state)] << termcolor::reset << std::endl;
@@ -252,7 +254,7 @@ void Planner::FSMPrintState(FSM_STATUS new_state) {
  *
  * @param msg
  */
-void Planner::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
+void BezierPlanner::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
   if (_is_exec_triggered) {
     ROS_INFO("[PLANNER] Execution has already triggered");
     return;
@@ -263,9 +265,9 @@ void Planner::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
   _is_exec_triggered = true;
 
   if (!_is_goal_received) {
-    _goal.x()         = msg->pose.position.x;
-    _goal.y()         = msg->pose.position.y;
-    _goal.z()         = msg->pose.position.z;
+    _goal.x() = msg->pose.position.x;
+    _goal.y() = msg->pose.position.y;
+    _goal.z() = msg->pose.position.z;
     ROS_INFO("[PLANNER] New goal received: %f, %f, %f", _goal.x(), _goal.y(), _goal.z());
     _is_goal_received = true;
   }
@@ -275,7 +277,7 @@ void Planner::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
  * @brief callback for future risk
  * @param msg
  */
-void Planner::FutureRiskCallback(const std_msgs::Float32MultiArrayConstPtr& risk_msg) {
+void BezierPlanner::FutureRiskCallback(const std_msgs::Float32MultiArrayConstPtr& risk_msg) {
   _is_future_risk_locked = true;
   for (int i = 0; i < VOXEL_NUM; ++i) {
     for (int j = 0; j < RISK_MAP_NUMBER; ++j) {
@@ -300,7 +302,7 @@ void Planner::FutureRiskCallback(const std_msgs::Float32MultiArrayConstPtr& risk
  * @brief get current position and attitude from odometry
  * @param msg
  */
-void Planner::PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
+void BezierPlanner::PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
   if (!_is_state_locked) {
     _is_state_locked = true;
     _odom_pos.x()    = msg->pose.position.x;
@@ -340,7 +342,7 @@ void Planner::PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
  *
  * @param msg
  */
-void Planner::VelCallback(const geometry_msgs::TwistStamped& msg) {
+void BezierPlanner::VelCallback(const geometry_msgs::TwistStamped& msg) {
   _is_velocity_received = true;
 
   _odom_vel.x() = msg.twist.linear.x;
@@ -378,7 +380,7 @@ void Planner::VelCallback(const geometry_msgs::TwistStamped& msg) {
  * @brief plan global trajectory as a straight line, push waypoints to the queue
  * Only used for giving multiple waypoints to the planner
  */
-bool Planner::globalPlan() {
+bool BezierPlanner::globalPlan() {
   // Eigen::Vector3d glb_goal, mdl_wpt;
   // glb_goal << _config.goal_x, _config.goal_y, _config.goal_z;
   // mdl_wpt = _odom_pos;
@@ -400,7 +402,7 @@ bool Planner::globalPlan() {
  * @return true current trajectory is almost finished
  * @return false current trajectory is still valid
  */
-bool Planner::executeTrajectory() {
+bool BezierPlanner::executeTrajectory() {
   ROS_ASSERT_MSG(_waypoints.size() > 0, "[GlbPlan] No waypoints in the queue");
   ros::Time now = ros::Time::now();
   // double    total   = _traj_end_time.toSec() - _last_plan_time.toSec();
@@ -427,47 +429,27 @@ bool Planner::executeTrajectory() {
  * @return true
  * @return false
  */
-bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6, -1>>& c,
-                                      const std::vector<double>&                       t,
-                                      const Eigen::Matrix3d&                           init,
-                                      const Eigen::Matrix3d&                           final) {
+bool BezierPlanner::constrainedOpt(const std::vector<Eigen::Matrix<double, 6, -1>>& c,
+                                   const std::vector<double>&                       t,
+                                   const Eigen::Matrix3d&                           init,
+                                   const Eigen::Matrix3d&                           final) {
   bool is_solved = false;
 
   /* initial optimize */
-  _traj_optimizer->reset(init, final, t, c);
-  double delta = 0.0;
-  is_solved    = _traj_optimizer->optimize(delta);
+  _traj_optimizer.reset(new traj_opt::BezierOpt());
+  std::vector<Eigen::MatrixX4d> h;
+  traj_utils::cvtPolytopeNormal2H(c, h);
+  _traj_optimizer->setup(init, final, t, h, _config.max_vel_optimization,
+                        _config.max_acc_optimization);
+  is_solved    = _traj_optimizer->optimize();
 
   if (is_solved) {
-    _traj_optimizer->getTrajectory(&_traj);
+    _traj_optimizer->getOptBezier(_traj);
   } else {
     ROS_ERROR("No solution found for these corridors!");
     // return false;
   }
-
-  /* re-optimize */
-  int I = 10;  // max iterations
-  int i = 0;
-  while (!_traj_optimizer->isCorridorSatisfied(_traj, _config.max_vel_optimization,
-                                               _config.max_acc_optimization,
-                                               _config.delta_corridor) &&
-         i++ < I) {
-    try {
-      is_solved = _traj_optimizer->reOptimize();
-    } catch (int e) {
-      ROS_ERROR("Optimizer crashed!");
-      // return false;
-    }
-
-    if (is_solved) {
-      _traj_optimizer->getTrajectory(&_traj);
-    } else {
-      ROS_ERROR("No solution found for these corridors!");
-      // return false;
-    }
-  }
-  ROS_INFO("Re-optimization %d", i);
-  return true;
+  return is_solved;
 }
 
 /**
@@ -479,7 +461,7 @@ bool Planner::OptimizationInCorridors(const std::vector<Eigen::Matrix<double, 6,
  * @return true if a trajectory is planned successfully
  * @return false
  */
-bool Planner::localReplan(PLAN_TYPE type) {
+bool BezierPlanner::localReplan(PLAN_TYPE type) {
   /** @brief  the start position of the planned trajectory in map frame*/
   Eigen::Vector3d p_start, v_start, a_start;
 
@@ -522,8 +504,7 @@ bool Planner::localReplan(PLAN_TYPE type) {
   double astar_planning_start_time = ros::Time::now().toSec();
 
   /** truncate the initial velocity */
-  if (fabs(v_start.x()) >
-      _astar_planner.v_max_xy) {
+  if (fabs(v_start.x()) > _astar_planner.v_max_xy) {
     v_start.x() = _astar_planner.v_max_xy * v_start.x() / fabs(v_start.x());
   }
   if (fabs(v_start.y()) > _astar_planner.v_max_xy) {
@@ -682,24 +663,24 @@ bool Planner::localReplan(PLAN_TYPE type) {
 
   /** extract init final states from the corridors **/
   Eigen::Matrix3d init_state, final_state;
-  init_state.col(0) << astar_rst[0]->x + _map_center.x(), astar_rst[0]->y + _map_center.y(),
+  init_state.row(0) << astar_rst[0]->x + _map_center.x(), astar_rst[0]->y + _map_center.y(),
       astar_rst[0]->z + _map_center.z();
-  init_state.col(1) << astar_rst[0]->vx, astar_rst[0]->vy, astar_rst[0]->vz;
-  init_state.col(2) << a_start.x(), a_start.y(), a_start.z();
+  init_state.row(1) << astar_rst[0]->vx, astar_rst[0]->vy, astar_rst[0]->vz;
+  init_state.row(2) << a_start.x(), a_start.y(), a_start.z();
 
   int n = astar_rst.size() - 1;
-  final_state.col(0) << astar_rst[n]->x + _map_center.x(), astar_rst[n]->y + _map_center.y(),
+  final_state.row(0) << astar_rst[n]->x + _map_center.x(), astar_rst[n]->y + _map_center.y(),
       astar_rst[n]->z + _map_center.z();
-  final_state.col(1) << astar_rst[n]->vx, astar_rst[n]->vy, astar_rst[n]->vz;
-  final_state.col(2) << 0.f, 0.f, 0.f;
+  final_state.row(1) << astar_rst[n]->vx, astar_rst[n]->vy, astar_rst[n]->vz;
+  final_state.row(2) << 0.f, 0.f, 0.f;
 
-  Eigen::Vector3d init_pos  = init_state.col(0);
-  Eigen::Vector3d final_pos = final_state.col(0);
+  Eigen::Vector3d init_pos  = init_state.row(0);
+  Eigen::Vector3d final_pos = final_state.row(0);
   _vis->visualizeStartGoal(init_pos);
   _vis->visualizeStartGoal(final_pos);
 
   /** apply optimization **/
-  bool is_success = OptimizationInCorridors(polyhedra, time_alloc, init_state, final_state);
+  bool is_success = constrainedOpt(polyhedra, time_alloc, init_state, final_state);
   // _prev_opt_end_time = ros::Time::now().toSec();
   ROS_INFO("[PLANNING] trajectory optimization takes %lf s",
            ros::Time::now().toSec() - optimization_start_time);
@@ -708,8 +689,12 @@ bool Planner::localReplan(PLAN_TYPE type) {
     double v_max   = _traj.getMaxVelRate();
     _traj_duration = _traj.getDuration();
     Eigen::Vector3d zero(0, 0, 0);
-    _vis->visualizePolyTraj(zero, _traj, v_max);
+    _vis->visualizeBezierCurve(zero, _traj, 4.0);
     _traj_end_time = _traj_start_time + ros::Duration(_traj_duration);
+
+    Eigen::MatrixXd cpts;
+    _traj.getCtrlPoints(cpts);
+    _vis->visualizeControlPoints(cpts);
   }
   _last_plan_time = ros::Time::now();
   return is_success;
@@ -719,38 +704,43 @@ bool Planner::localReplan(PLAN_TYPE type) {
  * @brief Publish the trajectory
  *
  */
-void Planner::publishTrajectory(const polynomial::Trajectory& traj) {
+void BezierPlanner::publishTrajectory(const Trajectory& traj) {
   _traj_idx++;
-  traj_utils::PolyTraj poly_msg;
-  int                  piece_num = traj.getPieceNum();
-  poly_msg.drone_id              = _drone_id;
-  poly_msg.traj_id               = _traj_idx;
-  poly_msg.start_time            = _traj_start_time;
-  poly_msg.order                 = 7;
-  poly_msg.duration.resize(piece_num);
-  poly_msg.coef_x.resize(8 * piece_num);
-  poly_msg.coef_y.resize(8 * piece_num);
-  poly_msg.coef_z.resize(8 * piece_num);
+  int N = traj.getOrder();
+  traj_utils::BezierTraj msg;
+  
+  msg.drone_id              = _drone_id;
+  msg.traj_id               = _traj_idx;
+  msg.start_time            = _traj_start_time;
+  msg.order                 = N;
 
+  Eigen::MatrixXd cpts;
+  traj.getCtrlPoints(cpts);
+  int R = cpts.rows();
+  int piece_num = R / (N + 1);
+
+  msg.duration.resize(piece_num);
+  msg.cpts.resize(R);
   for (int i = 0; i < piece_num; i++) {
-    poly_msg.duration[i] = traj[i].getDuration();
-
-    Eigen::Matrix<double, 3, 8> coef = traj[i].getCoeffs();
-    int                         idx  = i * 8;
-    for (int j = 0; j < 8; j++) {
-      poly_msg.coef_x[idx + j] = coef.row(0)[j];
-      poly_msg.coef_y[idx + j] = coef.row(1)[j];
-      poly_msg.coef_z[idx + j] = coef.row(2)[j];
-    }
+    msg.duration[i] = traj[i].getDuration();
   }
 
-  _traj_pub.publish(poly_msg);
+  for (int i = 0; i < R; i++) {
+    Eigen::VectorXd cpt = cpts.row(i);
+    geometry_msgs::Point p;
+    p.x = cpt.x();
+    p.y = cpt.y();
+    p.z = cpt.z();
+    msg.cpts.push_back(p);
+  }
+
+  _traj_pub.publish(msg);
 }
 
 /**********************************************************
  * Utility Functions
  * ********************************************************/
-bool Planner::checkTimeLapse(double time) {
+bool BezierPlanner::checkTimeLapse(double time) {
   ros::Time now     = ros::Time::now();
   double    elapsed = now.toSec() - _last_plan_time.toSec();
   if (elapsed > time) {
@@ -766,7 +756,7 @@ bool Planner::checkTimeLapse(double time) {
  * @param c map center
  * @return int index of voxel in the map
  */
-int Planner::getPointSpatialIndexInMap(const Eigen::Vector3d& p, const Eigen::Vector3d& c) {
+int BezierPlanner::getPointSpatialIndexInMap(const Eigen::Vector3d& p, const Eigen::Vector3d& c) {
   int x = static_cast<int>((p(0) - c(0) + _map_half_length) / VOXEL_RESOLUTION);
   int y = static_cast<int>((p(1) - c(1) + _map_half_width) / VOXEL_RESOLUTION);
   int z = static_cast<int>((p(2) - c(2) + _map_half_height) / VOXEL_RESOLUTION);
@@ -786,7 +776,7 @@ int Planner::getPointSpatialIndexInMap(const Eigen::Vector3d& p, const Eigen::Ve
  * @param traj
  * @return double maximum risk
  */
-double Planner::getMaxRisk(const polynomial::Trajectory& traj) {
+double BezierPlanner::getMaxRisk(const Trajectory& traj) {
   double r = 0.0;
   double T = traj.getDuration();
   T        = (T > 1.0) ? T : 1.0;
@@ -801,15 +791,15 @@ double Planner::getMaxRisk(const polynomial::Trajectory& traj) {
   return r;
 }
 
-double Planner::getTotalRisk(const polynomial::Trajectory& traj) {
-  double r = 0.0;
-  double T = traj.getDuration();
-  int map_idx = 0;
-  T        = (T > 1.0) ? T : 1.0;
+double BezierPlanner::getTotalRisk(const Trajectory& traj) {
+  double r       = 0.0;
+  double T       = traj.getDuration();
+  int    map_idx = 0;
+  T              = (T > 1.0) ? T : 1.0;
   for (double t = 0.0; t < T; t += 0.02) {
-    map_idx               = static_cast<int>(floor(t / 0.2));
-    Eigen::Vector3d p     = traj.getPos(t);
-    int             idx   = getPointSpatialIndexInMap(p - _map_center, _map_center);
+    map_idx             = static_cast<int>(floor(t / 0.2));
+    Eigen::Vector3d p   = traj.getPos(t);
+    int             idx = getPointSpatialIndexInMap(p - _map_center, _map_center);
     r += _future_risk[idx][map_idx];
   }
   return r;
@@ -822,7 +812,7 @@ double Planner::getTotalRisk(const polynomial::Trajectory& traj) {
  * @return true this trajectory is safe
  * @return false this trajectory is not safe
  */
-bool Planner::checkTrajectoryRisk(const polynomial::Trajectory& traj) {
+bool BezierPlanner::checkTrajectoryRisk(const Trajectory& traj) {
   // double risk = getMaxRisk(traj);
   double risk = getTotalRisk(traj);
   std::cout << termcolor::yellow << "Risk: " << risk << termcolor::reset << std::endl;
@@ -841,24 +831,24 @@ bool Planner::checkTrajectoryRisk(const polynomial::Trajectory& traj) {
  * @return true input position is close to the goal
  * @return false
  */
-inline bool Planner ::isGoalReached(const Eigen::Vector3d& p, const Eigen::Vector3d& g) {
+inline bool BezierPlanner ::isGoalReached(const Eigen::Vector3d& p, const Eigen::Vector3d& g) {
   return ((p - g).norm() < _config.goal_reach_threshold) ? true : false;
 }
 
 /**
  * @brief if future risk map or odometry is not updating, return true
  * @return true   no update
- * @return false 
+ * @return false
  */
-inline bool Planner::isInputLost() { return !_is_future_risk_updated || !_is_odom_received; }
+inline bool BezierPlanner::isInputLost() { return !_is_future_risk_updated || !_is_odom_received; }
 
 /**
  * @brief read drone ID from the ros node handle
  * @return int drone ID
  */
-inline int Planner::getDroneID() {
+inline int BezierPlanner::getDroneID() {
   std::string name = ros::this_node::getNamespace();
-  int id = name.substr(name.size() - 1, 1).c_str()[0] - '0';
+  int         id   = name.substr(name.size() - 1, 1).c_str()[0] - '0';
   // std::cout << "|" << name << "| " << id << std::endl;
   return id;
 }
