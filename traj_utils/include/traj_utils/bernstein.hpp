@@ -18,10 +18,9 @@
 #include <memory>
 #include <vector>
 
+namespace Bernstein {
 const int ORDER = 4;  // order of Bezier curve, default 4
 const int DIM   = 3;  // dimension of the trajectory
-
-namespace Bernstein {
 
 class BernsteinPiece {
  private:
@@ -100,7 +99,7 @@ class Bezier {
  private:
   typedef std::vector<BernsteinPiece> Pieces;
   Pieces                              pieces_;
-  Eigen::MatrixX3d                     cpts_;  // control points
+  Eigen::MatrixX3d                    cpts_;  // control points
   int                                 N_;     // order
   int                                 M_;     // number of pieces
   double                              T_;     // total time
@@ -139,13 +138,13 @@ class Bezier {
   void setTime(const std::vector<double> &t) { t_ = t; }
   void setControlPoints(const Eigen::MatrixX3d &cpts);
 
-  int    getOrder() const { return N_; }
-  int    getNumPieces() const { return M_; }
-  double getDuration() const { return T_; }
-  void   getCtrlPoints(Eigen::MatrixXd &cpts) const { cpts = cpts_; }
+  int             getOrder() const { return N_; }
+  int             getNumPieces() const { return M_; }
+  double          getDuration() const { return T_; }
+  void            getCtrlPoints(Eigen::MatrixXd &cpts) const { cpts = cpts_; }
   Eigen::MatrixXd getVelCtrlPoints(int idx) const { return pieces_[idx].getVelCtrlPts(); }
   Eigen::MatrixXd getAccCtrlPoints(int idx) const { return pieces_[idx].getAccCtrlPts(); }
-  void   calcPieces();
+  void            calcPieces();
 
   inline int locatePiece(double t) const {
     for (int i = 0; i < M_; i++) {

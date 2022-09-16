@@ -282,7 +282,7 @@ void Visualizer::visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
   traj_marker.color.g            = 0.50;
   traj_marker.color.b            = 1.00;
   traj_marker.color.a            = 1.00;
-  traj_marker.scale.x            = 0.10;
+  traj_marker.scale.x            = 0.05;
 
   double          T     = 0.05;
   Eigen::Vector3d lastX = traj.getPos(0.0) + start_pos;
