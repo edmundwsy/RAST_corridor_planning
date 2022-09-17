@@ -155,7 +155,7 @@ class Bezier {
   void            clear() {
     t_.clear();
     pieces_.clear();
-    cpts_.resize(0, 0);
+    cpts_.resize(0, 3);
     T_ = 0;
     M_ = 0;
   }

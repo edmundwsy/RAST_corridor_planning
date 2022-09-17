@@ -714,24 +714,21 @@ void BezierPlanner::publishTrajectory(const Trajectory& traj) {
   msg.start_time            = _traj_start_time;
   msg.order                 = N;
 
-  Eigen::MatrixXd cpts;
-  traj.getCtrlPoints(cpts);
-  int R = cpts.rows();
-  int piece_num = R / (N + 1);
+  int piece_num = traj.getNumPieces();
 
   msg.duration.resize(piece_num);
-  msg.cpts.resize(R);
   for (int i = 0; i < piece_num; i++) {
     msg.duration[i] = traj[i].getDuration();
   }
 
+  Eigen::MatrixXd cpts;
+  traj.getCtrlPoints(cpts);
+  int R = cpts.rows();
+  msg.cpts.resize(R);
   for (int i = 0; i < R; i++) {
-    Eigen::VectorXd cpt = cpts.row(i);
-    geometry_msgs::Point p;
-    p.x = cpt.x();
-    p.y = cpt.y();
-    p.z = cpt.z();
-    msg.cpts.push_back(p);
+    msg.cpts[i].x = cpts(i, 0);
+    msg.cpts[i].y = cpts(i, 1);
+    msg.cpts[i].z = cpts(i, 2);
   }
 
   _traj_pub.publish(msg);

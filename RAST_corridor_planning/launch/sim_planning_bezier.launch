@@ -23,15 +23,13 @@
       <remap from="/camera_front/depth/points" to="pcl_render_node/cloud" />
     </node>
 
-    <node pkg="traj_server" name="traj_server" type="poly_traj_server" output="screen">
+    <node pkg="traj_server" name="traj_server" type="bezier_traj_server" output="screen">
       <remap from="~trajectory" to="planning/trajectory" />
       <remap from="/position_cmd" to="planning/pos_cmd" />
       <remap from="~odom" to="$(arg pose_topic)" />
     </node>
 
-    <!-- <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node" output="screen"> -->
-      <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node" output="screen">
-    <!-- <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node"> -->
+      <node pkg="rast_corridor_planning" name="planning" type="planning_bezier_node" output="screen">
       <remap from="~future_risk_full_array" to="mapping/future_risk_full_array" />
       <param name="p_goal_x" value="$(arg goal_x)" />
       <param name="p_goal_y" value="$(arg goal_y)" />
