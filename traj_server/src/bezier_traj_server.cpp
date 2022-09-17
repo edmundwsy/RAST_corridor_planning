@@ -225,6 +225,7 @@ void bezierCallback(traj_utils::BezierTrajConstPtr msg) {
   int N       = msg->order;
   int n_piece = msg->duration.size();  // number of pieces
   int R       = n_piece * (N + 1);     // number of control points
+  ROS_INFO("[TrajSrv] receive Bezier trajectory, number of cpts: %d, number of pieces: %d", R, n_piece);
 
   _t_str = msg->start_time;
 
@@ -244,11 +245,12 @@ void bezierCallback(traj_utils::BezierTrajConstPtr msg) {
     cpts(i, 1) = msg->cpts[i].y;
     cpts(i, 2) = msg->cpts[i].z;
   }
-
   if (time_alloc.size() <= 0) {
     _is_traj_received = false;
   } else { /** only when traj is valid */
     _is_traj_received = true;
+    _traj.clear();
+    _traj.setOrder(N);
     _traj.setTime(time_alloc);
     _traj.setControlPoints(cpts);
     if (_t_str >= _t_end && _is_triggered) { /* look ahead */
