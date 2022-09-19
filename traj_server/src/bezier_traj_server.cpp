@@ -225,7 +225,6 @@ void bezierCallback(traj_utils::BezierTrajConstPtr msg) {
   int N       = msg->order;
   int n_piece = msg->duration.size();  // number of pieces
   int R       = n_piece * (N + 1);     // number of control points
-  ROS_INFO("[TrajSrv] receive Bezier trajectory, number of cpts: %d, number of pieces: %d", R, n_piece);
 
   _t_str = msg->start_time;
 
