@@ -27,6 +27,7 @@
       <remap from="~trajectory" to="planning/trajectory" />
       <remap from="/position_cmd" to="planning/pos_cmd" />
       <remap from="~odom" to="$(arg pose_topic)" />
+      <param name="tf" value="true" />
     </node>
 
     <!-- <node pkg="rast_corridor_planning" name="planning" type="multi_planning_node" output="screen"> -->

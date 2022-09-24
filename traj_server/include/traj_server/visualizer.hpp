@@ -15,6 +15,7 @@
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <ros/ros.h>
+#include <tf/transform_broadcaster.h>
 #include <visualization_msgs/Marker.h>
 
 // #include <Eigen/Eigen.h>
@@ -36,10 +37,17 @@ class TrajSrvVisualizer {
   ros::Publisher  _vis_queue_pub, _vis_drone_pub;
   Eigen::Vector3d _prev_pos;
 
+  /* boardcast tf */
+  bool                      _if_pub_tf;
+  tf::TransformBroadcaster* _tf_broadcaster;
+
  public:
   TrajSrvVisualizer(ros::NodeHandle& nh) : _nh(nh) {
     _vis_queue_pub = _nh.advertise<visualization_msgs::Marker>("vis_traj", 1);
     _vis_drone_pub = _nh.advertise<visualization_msgs::Marker>("vis_drone", 1);
+    _if_pub_tf     = false;
+    _nh.getParam("tf", _if_pub_tf);
+    _tf_broadcaster = new tf::TransformBroadcaster();
   }
   ~TrajSrvVisualizer() {}
   typedef std::shared_ptr<TrajSrvVisualizer> Ptr;
@@ -95,7 +103,8 @@ class TrajSrvVisualizer {
     _vis_queue_pub.publish(vis_mk);
   }
 
-  void visualizeOdom(const geometry_msgs::PoseStampedPtr& pose, const std::string     frame_id = "world") {
+  void visualizeOdom(const geometry_msgs::PoseStampedPtr& pose,
+                     const std::string                    frame_id = "world") {
     // Eigen::Vector3d p;
     // p[0] = pose->pose.position.x;
     // p[1] = pose->pose.position.y;
@@ -107,28 +116,38 @@ class TrajSrvVisualizer {
     // q.z() = pose->pose.orientation.z;
 
     visualization_msgs::Marker mesh_mk;
-    mesh_mk.header.frame_id = frame_id;
-    mesh_mk.header.stamp    = ros::Time::now();
-    mesh_mk.ns              = "drone";
-    mesh_mk.id              = 0;
-    mesh_mk.type            = visualization_msgs::Marker::MESH_RESOURCE;
-    mesh_mk.action          = visualization_msgs::Marker::ADD;
-    mesh_mk.mesh_resource   = "package://traj_server/meshes/drone.mesh";
-    mesh_mk.pose.position.x = pose->pose.position.x;
-    mesh_mk.pose.position.y = pose->pose.position.y;
-    mesh_mk.pose.position.z = pose->pose.position.z;
+    mesh_mk.header.frame_id    = frame_id;
+    mesh_mk.header.stamp       = ros::Time::now();
+    mesh_mk.ns                 = "drone";
+    mesh_mk.id                 = 0;
+    mesh_mk.type               = visualization_msgs::Marker::MESH_RESOURCE;
+    mesh_mk.action             = visualization_msgs::Marker::ADD;
+    mesh_mk.mesh_resource      = "package://traj_server/meshes/drone.mesh";
+    mesh_mk.pose.position.x    = pose->pose.position.x;
+    mesh_mk.pose.position.y    = pose->pose.position.y;
+    mesh_mk.pose.position.z    = pose->pose.position.z;
     mesh_mk.pose.orientation.w = pose->pose.orientation.w;
     mesh_mk.pose.orientation.x = pose->pose.orientation.x;
     mesh_mk.pose.orientation.y = pose->pose.orientation.y;
     mesh_mk.pose.orientation.z = pose->pose.orientation.z;
-    mesh_mk.scale.x = 2.0;
-    mesh_mk.scale.y = 2.0;
-    mesh_mk.scale.z = 2.0;
-    mesh_mk.color.r = 0.0;
-    mesh_mk.color.g = 0.0;
-    mesh_mk.color.b = 0.0;
-    mesh_mk.color.a = 1.0;
+    mesh_mk.scale.x            = 2.0;
+    mesh_mk.scale.y            = 2.0;
+    mesh_mk.scale.z            = 2.0;
+    mesh_mk.color.r            = 0.0;
+    mesh_mk.color.g            = 0.0;
+    mesh_mk.color.b            = 0.0;
+    mesh_mk.color.a            = 1.0;
     _vis_drone_pub.publish(mesh_mk);
+
+    if (_if_pub_tf) {
+      tf::Transform transform;
+      transform.setOrigin(
+          tf::Vector3(pose->pose.position.x, pose->pose.position.y, pose->pose.position.z));
+      transform.setRotation(tf::Quaternion(pose->pose.orientation.x, pose->pose.orientation.y,
+                                           pose->pose.orientation.z, pose->pose.orientation.w));
+      _tf_broadcaster->sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world",
+                                                          "drone"));
+    }
   }
 };
 // }  // namespace visualizer

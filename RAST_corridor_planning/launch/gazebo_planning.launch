@@ -30,6 +30,7 @@
       <remap from="~trajectory" to="/uav$(arg drone_id)/planning/trajectory" />
       <remap from="/position_cmd" to="/uav$(arg drone_id)/planning/pos_cmd" />
       <remap from="~odom" to="$(arg pose_topic)" />
+      <param name="tf" value="true" />
     </node>
 
   </group>
