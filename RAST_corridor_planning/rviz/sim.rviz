@@ -166,7 +166,7 @@ Visualization Manager:
               Marker Topic: /uav0/planning/vis_ctrl_pts
               Name: Cpts
               Namespaces:
-                control_points: true
+                {}
               Queue Size: 100
               Value: true
             - Alpha: 0.20000000298023224
@@ -190,8 +190,8 @@ Visualization Manager:
             - Alpha: 1
               Autocompute Intensity Bounds: true
               Autocompute Value Bounds:
-                Max Value: 2.9000003337860107
-                Min Value: 2.6000001430511475
+                Max Value: 2.750000238418579
+                Min Value: -0.09999990463256836
                 Value: true
               Axis: Z
               Channel Name: intensity
@@ -636,14 +636,14 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 2.7761926651000977
+      Pitch: 1.8861923217773438
       Position:
-        X: -6.480622291564941
-        Y: -1.345179796218872
-        Z: 2.2326278686523438
+        X: -2.493467092514038
+        Y: 0.29967913031578064
+        Z: 18.779903411865234
       Roll: 3.141592502593994
       Target Frame: drone
-      Yaw: -3.0027737617492676
+      Yaw: 3.11040997505188
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 30.61124038696289
