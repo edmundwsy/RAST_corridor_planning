@@ -172,8 +172,8 @@ class BezierPlanner {
   /********** ROS UTILS **********/
   ros::NodeHandle _nh;
   ros::Timer      _traj_timer;
-  ros::Subscriber _future_risk_sub, _pose_sub, _vel_sub, _trigger_sub;
-  ros::Publisher  _traj_pub, _corridor_pub;
+  ros::Subscriber _future_risk_sub, _pose_sub, _vel_sub, _trigger_sub, _broadcast_traj_sub;
+  ros::Publisher  _traj_pub, _corridor_pub, _broadcast_traj_pub;
 
   /********** CONFIG **********/
   PlannerConfig _config;
@@ -218,6 +218,7 @@ class BezierPlanner {
   double getMaxRisk(const Trajectory &traj);
   double getTotalRisk(const Trajectory &traj);
 
+  void broadcastTrajectory(const Trajectory &traj);
   void publishTrajectory(const Trajectory &traj);
   void publishCorridor(const vector<Corridor *> &c);
 
@@ -226,6 +227,7 @@ class BezierPlanner {
   void TriggerCallback(const geometry_msgs::PoseStampedPtr &msg);
   void OdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
   void VelCallback(const geometry_msgs::TwistStamped &msg);
+  void BroadcastTrajCallback(const traj_utils::BezierTraj::ConstPtr &msg);
 
   /********** STATE MACHINE **********/
   void FSMPrintState(FSM_STATUS new_state);

@@ -1,12 +1,12 @@
 /**
  * @file planning_bezier.cpp
  * @author Siyuan Wu (siyuanwu99@gmail.com)
- * @brief 
+ * @brief
  * @version 1.0
  * @date 2022-09-16
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 
 #include <planning_bezier.h>
@@ -43,10 +43,13 @@ void BezierPlanner::init() {
   _vel_sub =
       _nh.subscribe("/mavros/local_position/velocity_local", 10, &BezierPlanner::VelCallback, this);
   _trigger_sub = _nh.subscribe("/traj_start_trigger", 1, &BezierPlanner::TriggerCallback, this);
+  _broadcast_traj_sub =
+      _nh.subscribe("/broadcast_traj", 1, &BezierPlanner::BroadcastTrajCallback, this);
 
   /*** PUBLISHERS ***/
-  _traj_pub     = _nh.advertise<traj_utils::BezierTraj>("trajectory", 1);
-  _corridor_pub = _nh.advertise<decomp_ros_msgs::DynPolyhedronArray>("corridor", 1);
+  _traj_pub           = _nh.advertise<traj_utils::BezierTraj>("trajectory", 1);
+  _broadcast_traj_pub = _nh.advertise<traj_utils::BezierTraj>("/broadcast_traj", 1);
+  _corridor_pub       = _nh.advertise<decomp_ros_msgs::DynPolyhedronArray>("corridor", 1);
 
   ROS_INFO("Wait for 2 seconds");
   ros::Duration(2.0).sleep();
@@ -373,28 +376,35 @@ void BezierPlanner::VelCallback(const geometry_msgs::TwistStamped& msg) {
   _prev_vz = _odom_vel(2);
 }
 
+void BezierPlanner::BroadcastTrajCallback(const traj_utils::BezierTraj::ConstPtr& msg) {
+  int drone_id = msg->drone_id;
+  if (drone_id == _drone_id) {
+    return;
+  }
+  int traj_id = msg->traj_id;
+  int M       = msg->order;
+  int N       = msg->duration.size();
+  int R       = N * M;
+
+  ros::Time time_start = msg->start_time;
+  ROS_INFO("Received traj from drone %d, traj_id=%d, start_time=%f", drone_id, traj_id,
+           time_start.toSec());
+
+  /* get control points */
+  Eigen::MatrixX3d cpts;
+  cpts.resize(R, 3);
+  for (int i = 0; i < R; i++) {
+    cpts(i, 0) = msg->cpts[i].x;
+    cpts(i, 1) = msg->cpts[i].y;
+    cpts(i, 2) = msg->cpts[i].z;
+  }
+  // TODO(0926): how to preserve this information?
+  // TODO(0926): how to check if the received trajectory hull is valid?
+}
+
 /******************************************************************************************
  * Planning behaviors
  ******************************************************************************************/
-/**
- * @brief plan global trajectory as a straight line, push waypoints to the queue
- * Only used for giving multiple waypoints to the planner
- */
-bool BezierPlanner::globalPlan() {
-  // Eigen::Vector3d glb_goal, mdl_wpt;
-  // glb_goal << _config.goal_x, _config.goal_y, _config.goal_z;
-  // mdl_wpt = _odom_pos;
-  // while ((glb_goal - mdl_wpt).norm() > _config.waypoint_distance) {
-  //   mdl_wpt += _config.waypoint_distance * (glb_goal - _odom_pos).normalized();
-  //   std::cout << termcolor::red << "mdl_wpt: " << mdl_wpt.transpose() << std::endl;
-  //   _waypoints.push(mdl_wpt);
-  // }
-  // _waypoints.push(glb_goal);
-  _waypoints.push(_goal);
-  ROS_INFO("[GlbPlan] Add %ld waypoints for global plan", _waypoints.size());
-  return true;
-}
-
 /**
  * @brief return true when current trajectory is almost finished, drone should replan a new
  * trajectory
@@ -421,35 +431,22 @@ bool BezierPlanner::executeTrajectory() {
 }
 
 /**
- * @brief trajectory optimization function
- *
- * @param c
- * @param t
- * @param init
- * @return true
- * @return false
+ * @brief plan global trajectory as a straight line, push waypoints to the queue
+ * Only used for giving multiple waypoints to the planner
  */
-bool BezierPlanner::constrainedOpt(const std::vector<Eigen::Matrix<double, 6, -1>>& c,
-                                   const std::vector<double>&                       t,
-                                   const Eigen::Matrix3d&                           init,
-                                   const Eigen::Matrix3d&                           final) {
-  bool is_solved = false;
-
-  /* initial optimize */
-  _traj_optimizer.reset(new traj_opt::BezierOpt());
-  std::vector<Eigen::MatrixX4d> h;
-  traj_utils::cvtPolytopeNormal2H(c, h);
-  _traj_optimizer->setup(init, final, t, h, _config.max_vel_optimization,
-                        _config.max_acc_optimization);
-  is_solved    = _traj_optimizer->optimize();
-
-  if (is_solved) {
-    _traj_optimizer->getOptBezier(_traj);
-  } else {
-    ROS_ERROR("No solution found for these corridors!");
-    // return false;
-  }
-  return is_solved;
+bool BezierPlanner::globalPlan() {
+  // Eigen::Vector3d glb_goal, mdl_wpt;
+  // glb_goal << _config.goal_x, _config.goal_y, _config.goal_z;
+  // mdl_wpt = _odom_pos;
+  // while ((glb_goal - mdl_wpt).norm() > _config.waypoint_distance) {
+  //   mdl_wpt += _config.waypoint_distance * (glb_goal - _odom_pos).normalized();
+  //   std::cout << termcolor::red << "mdl_wpt: " << mdl_wpt.transpose() << std::endl;
+  //   _waypoints.push(mdl_wpt);
+  // }
+  // _waypoints.push(glb_goal);
+  _waypoints.push(_goal);
+  ROS_INFO("[GlbPlan] Add %ld waypoints for global plan", _waypoints.size());
+  return true;
 }
 
 /**
@@ -469,28 +466,33 @@ bool BezierPlanner::localReplan(PLAN_TYPE type) {
   Eigen::Vector3d c_start = _map_center;
   Eigen::Vector3d g       = _waypoints.front();
 
+  /** almost reached the goal, no need to replan */
+  if ((g - _odom_pos).norm() < 0.3) {
+    return false;
+  }
+
   /**********************************************************/
   /***** STEP1: Clarify Initial States *****/
   /**********************************************************/
   if (type == PLAN_TYPE::NEW) {
-    p_start          = _odom_pos - c_start;
-    v_start          = Eigen::Vector3d::Zero();
-    a_start          = Eigen::Vector3d::Zero();
-    _traj_start_time = ros::Time::now();
+    p_start = _odom_pos - c_start;
+    v_start = Eigen::Vector3d::Zero();
+    a_start = Eigen::Vector3d::Zero();
+    // _traj_start_time = ros::Time::now();
   } else if (type == PLAN_TYPE::CONTINUE) {
     // continue from the end of the previous trajectory
-    double T         = _traj_duration;
-    p_start          = _traj.getPos(T) - c_start;
-    v_start          = _traj.getVel(T);
-    a_start          = _traj.getAcc(T);
-    _traj_start_time = _traj_end_time;
+    double T = _traj_duration;
+    p_start  = _traj.getPos(T) - c_start;
+    v_start  = _traj.getVel(T);
+    a_start  = _traj.getAcc(T);
+    // _traj_start_time = _traj_end_time;
     // /* visualize previous trajectory */
     // _vis->visualizeTrajectory(Eigen::Vector3d(0, 0, 0), _traj, _traj.getMaxVelRate());
   } else if (type == PLAN_TYPE::EMERGENCY) {
-    p_start          = _odom_pos - c_start;
-    v_start          = _odom_vel;
-    a_start          = _odom_acc;
-    _traj_start_time = ros::Time::now();
+    p_start = _odom_pos - c_start;
+    v_start = _odom_vel;
+    a_start = _odom_acc;
+    // _traj_start_time = ros::Time::now();
   } else {
     ROS_ERROR("Invalid plan type!");
     return false;
@@ -685,19 +687,62 @@ bool BezierPlanner::localReplan(PLAN_TYPE type) {
   ROS_INFO("[PLANNING] trajectory optimization takes %lf s",
            ros::Time::now().toSec() - optimization_start_time);
 
-  if (is_success) { /* visualize trajectory */
-    double v_max   = _traj.getMaxVelRate();
-    _traj_duration = _traj.getDuration();
-    Eigen::Vector3d zero(0, 0, 0);
-    _vis->visualizeBezierCurve(zero, _traj, 4.0);
-    _traj_end_time = _traj_start_time + ros::Duration(_traj_duration);
-
-    Eigen::MatrixXd cpts;
-    _traj.getCtrlPoints(cpts);
-    _vis->visualizeControlPoints(cpts);
+  /** replan failed x_x **/
+  if (!is_success) {
+    _last_plan_time = ros::Time::now();
+    ROS_ERROR("[PLANNING] trajectory optimization failed!");
+    return is_success;
   }
+
+  /** success YoY **/
+  if (type == PLAN_TYPE::CONTINUE) {
+    _traj_start_time = _traj_end_time;
+  } else {
+    _traj_start_time = ros::Time::now();
+  }
+  _traj_duration = _traj.getDuration();
+  _traj_end_time = _traj_start_time + ros::Duration(_traj_duration);
+
+  /* visualize trajectory */
+  Eigen::Vector3d zero(0, 0, 0);
+  _vis->visualizeBezierCurve(zero, _traj, 4.0);
+  Eigen::MatrixXd cpts;
+  _traj.getCtrlPoints(cpts);
+  _vis->visualizeControlPoints(cpts);
   _last_plan_time = ros::Time::now();
   return is_success;
+}
+
+/**
+ * @brief trajectory optimization function
+ *
+ * @param c
+ * @param t
+ * @param init
+ * @return true
+ * @return false
+ */
+bool BezierPlanner::constrainedOpt(const std::vector<Eigen::Matrix<double, 6, -1>>& c,
+                                   const std::vector<double>&                       t,
+                                   const Eigen::Matrix3d&                           init,
+                                   const Eigen::Matrix3d&                           final) {
+  bool is_solved = false;
+
+  /* initial optimize */
+  _traj_optimizer.reset(new traj_opt::BezierOpt());
+  std::vector<Eigen::MatrixX4d> h;
+  traj_utils::cvtPolytopeNormal2H(c, h);
+  _traj_optimizer->setup(init, final, t, h, _config.max_vel_optimization,
+                         _config.max_acc_optimization);
+  is_solved = _traj_optimizer->optimize();
+
+  if (is_solved) {
+    _traj_optimizer->getOptBezier(_traj);
+  } else {
+    ROS_ERROR("No solution found for these corridors!");
+    // return false;
+  }
+  return is_solved;
 }
 
 /**
@@ -706,13 +751,13 @@ bool BezierPlanner::localReplan(PLAN_TYPE type) {
  */
 void BezierPlanner::publishTrajectory(const Trajectory& traj) {
   _traj_idx++;
-  int N = traj.getOrder();
+  int                    N = traj.getOrder();
   traj_utils::BezierTraj msg;
-  
-  msg.drone_id              = _drone_id;
-  msg.traj_id               = _traj_idx;
-  msg.start_time            = _traj_start_time;
-  msg.order                 = N;
+
+  msg.drone_id   = _drone_id;
+  msg.traj_id    = _traj_idx;
+  msg.start_time = _traj_start_time;
+  msg.order      = N;
 
   int piece_num = traj.getNumPieces();
 
@@ -732,6 +777,7 @@ void BezierPlanner::publishTrajectory(const Trajectory& traj) {
   }
 
   _traj_pub.publish(msg);
+  _broadcast_traj_pub.publish(msg);
 }
 
 /**********************************************************
