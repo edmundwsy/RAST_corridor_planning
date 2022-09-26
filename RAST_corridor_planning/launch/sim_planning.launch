@@ -23,7 +23,7 @@
 		<rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" /> 
 	</node> -->
 
-  <include file="$(find rast_corridor_planning)/launch/simulator.launch">
+  <include file="$(find rast_corridor_planning)/launch/simulator/simulator.launch">
     <arg name="drone_id" value="$(arg drone_id)" />
     <arg name="map_size_x" value="$(arg map_size_x)" />
     <arg name="map_size_y" value="$(arg map_size_y)" />

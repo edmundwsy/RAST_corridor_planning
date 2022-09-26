@@ -41,7 +41,7 @@
   </group>
 
   <!-- SIMULATOR -->
-  <include file="$(find rast_corridor_planning)/launch/simulator_dyn.launch">
+  <include file="$(find rast_corridor_planning)/launch/simulator/simulator_dyn.launch">
     <arg name="drone_id" value="$(arg drone_id)" />
     <arg name="map_size_x" value="$(arg map_size_x)" />
     <arg name="map_size_y" value="$(arg map_size_y)" />
