@@ -9,7 +9,7 @@
   <arg name="odom_topic" value="/mavros/local_position/odom" />
   <arg name="pose_topic" value="/mavros/local_position/pose" />
 
-  <arg name="init_x" value="-10" />
+  <arg name="init_x" value="-12" />
   <arg name="init_y" value="0.0" />
   <arg name="init_z" value="0.5" />
   <arg name="goal_x" value="15" />
@@ -28,6 +28,7 @@
       <remap from="/position_cmd" to="planning/pos_cmd" />
       <remap from="~odom" to="$(arg pose_topic)" />
       <param name="tf" value="true" />
+      <param name="replan_time_threshold" value="1.2" />
     </node>
 
       <node pkg="rast_corridor_planning" name="planning" type="planning_bezier_node" output="screen">
@@ -35,7 +36,7 @@
       <param name="p_goal_x" value="$(arg goal_x)" />
       <param name="p_goal_y" value="$(arg goal_y)" />
       <param name="p_goal_z" value="$(arg goal_z)" />
-      <rosparam file="$(find rast_corridor_planning)/config/cfg.yaml" command="load" />
+      <rosparam file="$(find rast_corridor_planning)/config/cfg_sim.yaml" command="load" />
     </node>
 
   </group>

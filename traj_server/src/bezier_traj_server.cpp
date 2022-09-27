@@ -16,16 +16,18 @@
 #include <queue>
 
 #include "quadrotor_msgs/PositionCommand.h"
+#include "traj_server/visualizer.hpp"
 #include "traj_utils/BezierTraj.h"
 #include "traj_utils/bernstein.hpp"
-#include "traj_server/visualizer.hpp"
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 
+/* ----- GLOBAL VARIABLES ----- */
 ros::Publisher _pos_cmd_pub, _pva_pub, _vis_pub;
 ros::Publisher _error_pub;
 
-bool _is_traj_received = false;
-bool _is_triggered     = false;
+bool   _is_traj_received = false;
+bool   _is_triggered     = false;
+double _replan_thres     = 1.0;  // seconds of trajectory loaded into the queue
 
 int               _traj_id;
 Bernstein::Bezier _traj;
@@ -34,15 +36,16 @@ ros::Time         _t_end;     // end time
 ros::Time         _t_cur;     // current time
 double            _duration;  // duration of the trajectory in seconds
 
-double _last_yaw    = 0;
-double _last_yawdot = 0;
+double _last_yaw    = 0;  // previous yaw value
+double _last_yawdot = 0;  // previous yawdot value
 
-Eigen::Vector3d _odom_pos;
+Eigen::Vector3d _odom_pos;  // current position
 
 std::queue<TrajPoint> _traj_queue;
 
 TrajSrvVisualizer::Ptr _vis_ptr;
 
+/* ----- CALLBACKS ----- */
 /**
  * @brief Get the yaw angle and yaw dot
  *
@@ -168,7 +171,7 @@ void publishCmd(const Eigen::Vector3d &pos,
  * @param traj
  */
 void fillTrajQueue(const Bernstein::Bezier &traj) {
-  double T = traj.getDuration();
+  double T = traj.getDuration() > _replan_thres ? _replan_thres : traj.getDuration();
 
   double dt = 0.01;  // frequency 100Hz
   for (double t = 0; t < T; t += dt) {
@@ -228,7 +231,7 @@ void bezierCallback(traj_utils::BezierTrajConstPtr msg) {
 
   _t_str = msg->start_time;
 
-  /* get duration and time allocation */
+  /* ----- get duration and time allocation ----- */
   _duration = 0.0;
   std::vector<double> time_alloc;
   for (auto it = msg->duration.begin(); it != msg->duration.end(); ++it) {
@@ -236,7 +239,7 @@ void bezierCallback(traj_utils::BezierTrajConstPtr msg) {
     time_alloc.push_back(*it);
   }
 
-  /* get control points */
+  /* ----- get control points ----- */
   Eigen::MatrixX3d cpts;
   cpts.resize(R, 3);
   for (int i = 0; i < R; ++i) {
@@ -332,6 +335,7 @@ int main(int argc, char **argv) {
 
   _error_pub = nh.advertise<geometry_msgs::PointStamped>("error", 1);
 
+  nh.getParam("replan_time_threshold", _replan_thres);
   _vis_ptr.reset(new TrajSrvVisualizer(nh));
 
   ros::Duration(3.0).sleep();

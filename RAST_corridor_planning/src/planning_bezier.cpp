@@ -467,7 +467,9 @@ bool BezierPlanner::localReplan(PLAN_TYPE type) {
   Eigen::Vector3d g       = _waypoints.front();
 
   /** almost reached the goal, no need to replan */
-  if ((g - _odom_pos).norm() < 0.3) {
+  double dist = (g - _odom_pos).norm();
+  ROS_INFO("[LclPlan] dist to goal: %f", dist);
+  if (dist < 0.2) {
     return false;
   }
 
@@ -478,21 +480,31 @@ bool BezierPlanner::localReplan(PLAN_TYPE type) {
     p_start = _odom_pos - c_start;
     v_start = Eigen::Vector3d::Zero();
     a_start = Eigen::Vector3d::Zero();
-    // _traj_start_time = ros::Time::now();
   } else if (type == PLAN_TYPE::CONTINUE) {
     // continue from the end of the previous trajectory
-    double T = _traj_duration;
-    p_start  = _traj.getPos(T) - c_start;
-    v_start  = _traj.getVel(T);
-    a_start  = _traj.getAcc(T);
-    // _traj_start_time = _traj_end_time;
-    // /* visualize previous trajectory */
-    // _vis->visualizeTrajectory(Eigen::Vector3d(0, 0, 0), _traj, _traj.getMaxVelRate());
+    double T = _traj_duration <= _config.replan_time_threshold ? _traj_duration
+                                                               : _config.replan_time_threshold;
+    p_start = _traj.getPos(T) - c_start;
+    v_start = _traj.getVel(T);
+    a_start = _traj.getAcc(T);
   } else if (type == PLAN_TYPE::EMERGENCY) {
-    p_start = _odom_pos - c_start;
-    v_start = _odom_vel;
-    a_start = _odom_acc;
-    // _traj_start_time = ros::Time::now();
+    p_start = _odom_pos;
+    /** generate stopping trajectory on current position */
+    Eigen::MatrixX3d    cpts;
+    std::vector<double> wait;
+
+    int N = _traj.getOrder();
+    for (int i = 0; i < N; i++) {
+      cpts.row(i) = p_start;
+    }
+    wait.push_back(1.0);
+    _traj.setTime(wait);
+    _traj.setControlPoints(cpts);
+    _traj_duration   = _traj.getDuration();
+    _last_plan_time  = ros::Time::now();
+    _traj_start_time = ros::Time::now();
+    _traj_end_time   = _traj_start_time + ros::Duration(_traj_duration);
+    return true;
   } else {
     ROS_ERROR("Invalid plan type!");
     return false;
