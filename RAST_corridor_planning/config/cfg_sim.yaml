@@ -1,5 +1,5 @@
 # Goal
-p_goal_x: 15
+p_goal_x: 45
 p_goal_y: 0
 p_goal_z: 0
 
@@ -38,6 +38,7 @@ max_vel_optimization: 2.5 # Constraint in optimization. A little larger than max
 max_acc_optimization: 3.5 # Constraint in optimization. A little larger than max_acc
 
 risk_threshold_replan: 0.1
+replan_time_threshold: 1.2 # make sure > 1.0 because planner replans every seconds
 
 # Mapping
 observation_stddev: 0.1

@@ -76,40 +76,40 @@ struct PlannerConfig {
   double goal_z               = 1.5;
   double waypoint_distance    = 4.0;
   double goal_reach_threshold = 1.0;
+  double replan_time_threshold = 0.5;
+
 
   PlannerConfig(const ros::NodeHandle &nh) {
-    nh.getParam("max_vel", max_vel);
-    nh.getParam("max_acc", max_acc);
+    nh.getParam("planner/p_goal_x", goal_x);
+    nh.getParam("planner/p_goal_y", goal_y);
+    nh.getParam("planner/p_goal_z", goal_z);
+    nh.getParam("planner/max_vel", max_vel);
+    nh.getParam("planner/max_acc", max_acc);
+    nh.getParam("planner/goal_reach_threshold", goal_reach_threshold);
+    nh.getParam("planner/risk_threshold_replan", risk_threshold_replan);
+    nh.getParam("planner/replan_time_threshold", replan_time_threshold);
+    nh.getParam("planner/max_differentiated_current_a", max_differentiated_current_a);
+    nh.getParam("planner/planning_time_step", planning_time_step);
+    nh.getParam("planner/trajectory_piece_max_size", trajectory_piece_max_size);
 
-    nh.getParam("max_vel_optimization", max_vel_optimization);
-    nh.getParam("max_acc_optimization", max_acc_optimization);
-    nh.getParam("max_differentiated_current_a", max_differentiated_current_a);
+    nh.getParam("optimizer/max_vel_optimization", max_vel_optimization);
+    nh.getParam("optimizer/max_acc_optimization", max_acc_optimization);
+    nh.getParam("optimizer/delta_corridor", delta_corridor);
 
-    nh.getParam("use_height_limit", use_height_limit);
-    nh.getParam("height_limit_max", height_limit_max);
-    nh.getParam("height_limit_min", height_limit_min);
-    nh.getParam("sample_z_acc", sample_z_acc);
-    nh.getParam("expand_safety_distance", expand_safety_distance);
-    nh.getParam("trajectory_piece_max_size", trajectory_piece_max_size);
-    nh.getParam("nmpc_receive_points_num", nmpc_receive_points_num);
+    nh.getParam("astar/use_height_limit", use_height_limit);
+    nh.getParam("astar/height_limit_max", height_limit_max);
+    nh.getParam("astar/height_limit_min", height_limit_min);
+    nh.getParam("astar/sample_z_acc", sample_z_acc);
+    nh.getParam("astar/a_star_acc_sample_step", a_star_acc_sample_step);
+    nh.getParam("astar/a_star_search_time_step", a_star_search_time_step);
+    nh.getParam("astar/risk_threshold_motion_primitive", risk_threshold_motion_primitive);
+    nh.getParam("astar/expand_safety_distance", expand_safety_distance);
+    nh.getParam("astar/nmpc_receive_points_num", nmpc_receive_points_num);
 
-    nh.getParam("delta_corridor", delta_corridor);
+    nh.getParam("corridor/risk_threshold_single_voxel", risk_threshold_single_voxel);
+    nh.getParam("corridor/risk_threshold_corridor", risk_threshold_corridor);
 
-    nh.getParam("planning_time_step", planning_time_step);
-    nh.getParam("a_star_acc_sample_step", a_star_acc_sample_step);
-    nh.getParam("a_star_search_time_step", a_star_search_time_step);
-
-    nh.getParam("risk_threshold_motion_primitive", risk_threshold_motion_primitive);
-    nh.getParam("risk_threshold_single_voxel", risk_threshold_single_voxel);
-    nh.getParam("risk_threshold_corridor", risk_threshold_corridor);
-    nh.getParam("risk_threshold_replan", risk_threshold_replan);
-
-    nh.getParam("p_goal_x", goal_x);
-    nh.getParam("p_goal_y", goal_y);
-    nh.getParam("p_goal_z", goal_z);
     nh.getParam("waypoint_distance", waypoint_distance);
-    nh.getParam("goal_reach_threshold", goal_reach_threshold);
-
     nh.getParam("rviz_map_center_locked", is_rviz_map_center_locked);
   }
 };
