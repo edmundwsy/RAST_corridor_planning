@@ -40,3 +40,9 @@ add_library( path_searching
 target_link_libraries( path_searching
     ${catkin_LIBRARIES} 
     )  
+
+add_executable(dyn_a_star_node src/vis_a_star_node.cpp)
+target_link_libraries(dyn_a_star_node
+    ${catkin_LIBRARIES}
+    path_searching
+    )
