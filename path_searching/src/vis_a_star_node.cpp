@@ -37,7 +37,7 @@ void visualizePath(const std::vector<Eigen::Vector3d> &path) {
   marker.type               = visualization_msgs::Marker::LINE_STRIP;
   marker.action             = visualization_msgs::Marker::ADD;
   marker.pose.orientation.w = 1.0;
-  marker.scale.x            = 0.1;
+  marker.scale.x            = 0.02;
   marker.color.r            = 1.0;
   marker.color.g            = 0.0;
   marker.color.b            = 0.0;
@@ -46,21 +46,21 @@ void visualizePath(const std::vector<Eigen::Vector3d> &path) {
   Eigen::Vector3d last;
   bool            first = true;
   for (const auto &p : path) {
-    geometry_msgs::Point point;
-    point.x = p.x();
-    point.y = p.y();
-    point.z = p.z();
-    marker.points.push_back(point);
+    geometry_msgs::Point pt;
+
     if (first) {
       first = false;
       last  = p;
     } else {
-      geometry_msgs::Point pt;
       pt.x = last.x();
       pt.y = last.y();
       pt.z = last.z();
       marker.points.push_back(pt);
       last = p;
+      pt.x = last.x();
+      pt.y = last.y();
+      pt.z = last.z();
+      marker.points.push_back(pt);
     }
   }
   path_pub_.publish(marker);

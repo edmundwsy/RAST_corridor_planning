@@ -19,30 +19,31 @@ enum NODE_STATE { IN_CLOSE_SET = 1, IN_OPEN_SET = 2, NOT_EXPAND = 3 };
 
 class GridNode {
  private:
-  int             rounds{0};  // Distinguish every call
-  enum NODE_STATE node_state_ { NOT_EXPAND };
-  Eigen::Vector3i index;
+  int             rounds_{0};  // Distinguish every call
   double          g_score_{inf}, f_score_{inf};
   GridNodePtr     parent_{nullptr};
+  enum NODE_STATE node_state_ { NOT_EXPAND };
+  Eigen::Vector3i index_;
 
  public:
-  void setNodeState(enum NODE_STATE state) { node_state_ = state; }
-  void setIndex(const Eigen::Vector3i &idx) { index = idx; }
-  void setRounds(int r) { rounds = r; }
-  void setGScore(double g) { g_score_ = g; }
-  void setFScore(double f) { f_score_ = f; }
-  void setState(enum NODE_STATE s) { node_state_ = s; }
+  void setNodeState(const enum NODE_STATE &state) { node_state_ = state; }
+  void setIndex(const Eigen::Vector3i &idx) { index_ = idx; }
+  void setRounds(const int &r) { rounds_ = r; }
+  void setGScore(const double &g) { g_score_ = g; }
+  void setFScore(const double &f) { f_score_ = f; }
+  void setState(const enum NODE_STATE &s) { node_state_ = s; }
   void setParent(GridNode *p) { parent_ = p; }
 
-  double getFScore() const { return f_score_; }
-  double getGScore() const { return g_score_; }
-  int    getIndex(int i) const { return index(i); }
-  int    getRounds() const { return rounds; }
-  enum NODE_STATE getNodeState() const { return node_state_; }
+  inline const double &getFScore() { return this->f_score_; }
+  inline const double &getGScore() { return this->g_score_; }
+  inline const int &   getRounds() { return this->rounds_; }
 
-  GridNodePtr getParent() const { return parent_; }
+  inline const enum NODE_STATE &getNodeState() { return this->node_state_; }
 
-  Eigen::Vector3i &getIndex() { return index; }
+  inline const GridNodePtr getParent() const { return this->parent_; }
+
+  inline int   getIndex(int i) const { return index_(i); }
+  inline Eigen::Vector3i getIndex() const { return index_; }
 };
 
 class NodeComparator {
@@ -105,6 +106,7 @@ class AStar {
   ASTAR_RET search(const double step_size, Eigen::Vector3d start_pt, Eigen::Vector3d end_pt);
 
   std::vector<Eigen::Vector3d> getPath();
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /* ----- inline functions ----- */
