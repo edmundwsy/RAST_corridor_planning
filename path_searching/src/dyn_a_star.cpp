@@ -9,15 +9,24 @@ AStar::~AStar() {
       for (int k = 0; k < POOL_SIZE_(2); k++) delete GridNodeMap_[i][j][k];
 }
 
+void AStar::setParam(ros::NodeHandle &nh) {
+  tie_breaker_ = 1.0 + 1.0 / 10000;
+  resolution_  = 0.1;
+}
+
+void AStar::setEnvironment(const GridMap::Ptr &grid_map) { this->grid_map_ = grid_map; }
+
 /**
  * @brief Initialize the Grid Map and allocate memory
- * 
- * @param occ_map 
- * @param pool_size 
+ *
+ * @param occ_map
+ * @param pool_size
  */
-void AStar::initGridMap(GridMap::Ptr occ_map, const Eigen::Vector3i pool_size) {
+void AStar::initEnvironment(GridMap::Ptr occ_map, const Eigen::Vector3i pool_size) {
   POOL_SIZE_  = pool_size;
   CENTER_IDX_ = pool_size / 2;
+  std::cout << "POOL_SIZE_: " << POOL_SIZE_.transpose() << std::endl;
+  // std::cout << "CENTER_IDX_: " << CENTER_IDX_.transpose() << std::endl;
 
   GridNodeMap_ = new GridNodePtr **[POOL_SIZE_(0)];
   for (int i = 0; i < POOL_SIZE_(0); i++) {
@@ -31,6 +40,23 @@ void AStar::initGridMap(GridMap::Ptr occ_map, const Eigen::Vector3i pool_size) {
   }
 
   grid_map_ = occ_map;
+}
+
+void AStar::init() {
+  inv_resolution_ = 1.0 / resolution_;
+  rounds_ = 0;
+}
+
+void AStar::init(const Eigen::Vector3d &map_center, const Eigen::Vector3i &map_size) {
+  inv_resolution_ = 1.0 / resolution_;
+  initEnvironment(grid_map_, map_size);
+  rounds_ = 0;
+}
+
+void AStar::reset() {
+  node_path_.clear();
+  std::priority_queue<GridNodePtr, std::vector<GridNodePtr>, NodeComparator> empty;
+  open_set_.swap(empty);
 }
 
 double AStar::getDiagHeu(GridNodePtr node1, GridNodePtr node2) {
@@ -68,35 +94,41 @@ double AStar::getEuclHeu(GridNodePtr node1, GridNodePtr node2) {
   return (node2->getIndex() - node1->getIndex()).norm();
 }
 
-vector<GridNodePtr> AStar::retrievePath(GridNodePtr current) {
-  vector<GridNodePtr> path;
-  path.push_back(current);
+void AStar::retrievePath(GridNodePtr current) {
+  // vector<GridNodePtr> path;
+  // path.push_back(current);
 
+  // while (current->getParent() != NULL) {
+  //   current = current->getParent();
+  //   path.push_back(current);
+  // }
+
+  // return path;
+  node_path_.push_back(current);
   while (current->getParent() != NULL) {
     current = current->getParent();
-    path.push_back(current);
+    node_path_.push_back(current);
   }
-
-  return path;
+  reverse(node_path_.begin(), node_path_.end());
 }
 
 bool AStar::ConvertToIndexAndAdjustStartEndPoints(Vector3d  start_pt,
                                                   Vector3d  end_pt,
                                                   Vector3i &start_idx,
                                                   Vector3i &end_idx) {
-  if (!Coord2Index(start_pt, start_idx) || !Coord2Index(end_pt, end_idx)) return false;
+  if (!pos2Index(start_pt, start_idx) || !pos2Index(end_pt, end_idx)) return false;
 
   int occ;
-  if (checkOccupancy(Index2Coord(start_idx))) {
+  if (checkOccupancy(index2Pos(start_idx))) {
     // ROS_WARN("Start point is insdide an obstacle.");
     do {
-      start_pt = (start_pt - end_pt).normalized() * step_size_ + start_pt;
+      start_pt = (start_pt - end_pt).normalized() * resolution_ + start_pt;
       // cout << "start_pt=" << start_pt.transpose() << endl;
-      if (!Coord2Index(start_pt, start_idx)) {
+      if (!pos2Index(start_pt, start_idx)) {
         return false;
       }
 
-      occ = checkOccupancy(Index2Coord(start_idx));
+      occ = checkOccupancy(index2Pos(start_idx));
       if (occ == -1) {
         ROS_WARN("[Astar] Start point outside the map region.");
         return false;
@@ -104,33 +136,29 @@ bool AStar::ConvertToIndexAndAdjustStartEndPoints(Vector3d  start_pt,
     } while (occ);
   }
 
-  if (checkOccupancy(Index2Coord(end_idx))) {
+  if (checkOccupancy(index2Pos(end_idx))) {
     // ROS_WARN("End point is insdide an obstacle.");
     do {
-      end_pt = (end_pt - start_pt).normalized() * step_size_ + end_pt;
+      end_pt = (end_pt - start_pt).normalized() * resolution_ + end_pt;
       // cout << "end_pt=" << end_pt.transpose() << endl;
-      if (!Coord2Index(end_pt, end_idx)) {
+      if (!pos2Index(end_pt, end_idx)) {
         return false;
       }
 
-      occ = checkOccupancy(Index2Coord(start_idx));
+      occ = checkOccupancy(index2Pos(start_idx));
       if (occ == -1) {
         ROS_WARN("[Astar] End point outside the map region.");
         return false;
       }
-    } while (checkOccupancy(Index2Coord(end_idx)));
+    } while (checkOccupancy(index2Pos(end_idx)));
   }
 
   return true;
 }
 
-ASTAR_RET AStar::search(const double step_size, Vector3d start_pt, Vector3d end_pt) {
+ASTAR_RET AStar::search(Vector3d start_pt, Vector3d end_pt) {
   ros::Time time_1 = ros::Time::now();
   ++rounds_;
-
-  step_size_     = step_size;
-  inv_step_size_ = 1 / step_size;
-  center_        = (start_pt + end_pt) / 2;
 
   Vector3i start_idx, end_idx;
   if (!ConvertToIndexAndAdjustStartEndPoints(start_pt, end_pt, start_idx, end_idx)) {
@@ -145,7 +173,7 @@ ASTAR_RET AStar::search(const double step_size, Vector3d start_pt, Vector3d end_
   GridNodePtr endPtr   = GridNodeMap_[end_idx(0)][end_idx(1)][end_idx(2)];
 
   std::priority_queue<GridNodePtr, std::vector<GridNodePtr>, NodeComparator> empty;
-  openSet_.swap(empty);
+  open_set_.swap(empty);
 
   GridNodePtr neighborPtr = NULL;
   GridNodePtr current     = NULL;
@@ -155,29 +183,30 @@ ASTAR_RET AStar::search(const double step_size, Vector3d start_pt, Vector3d end_
   startPtr->setIndex(start_idx);
   startPtr->setRounds(rounds_);
   startPtr->setGScore(0);
-  startPtr->setFScore(getHeu(startPtr, endPtr));
+  startPtr->setFScore(estimateHeuristic(startPtr, endPtr));
   startPtr->setState(NODE_STATE::IN_OPEN_SET);  // put start node in open set
   startPtr->setParent(NULL);
-  openSet_.push(startPtr);  // put start in open set
+  open_set_.push(startPtr);  // put start in open set
 
   double tentative_gScore;
 
   int num_iter = 0;
-  while (!openSet_.empty()) {
+  while (!open_set_.empty()) {
     num_iter++;
-    current = openSet_.top();
-    openSet_.pop();
+    current = open_set_.top();
+    open_set_.pop();
 
     // if ( num_iter < 10000 )
     //     cout << "current=" << current->getIndex.transpose() << endl;
 
-    if (current->getIndex(0) == endPtr->getIndex(0) && current->getIndex(1) == endPtr->getIndex(1) &&
+    if (current->getIndex(0) == endPtr->getIndex(0) &&
+        current->getIndex(1) == endPtr->getIndex(1) &&
         current->getIndex(2) == endPtr->getIndex(2)) {
       // ros::Time time_2 = ros::Time::now();
       // printf("\033[34mA star iter:%d, time:%.3f\033[0m\n",num_iter, (time_2 -
       // time_1).toSec()*1000); if((time_2 - time_1).toSec() > 0.1)
       //     ROS_WARN("Time consume in A star path finding is %f", (time_2 - time_1).toSec() );
-      gridPath_ = retrievePath(current);
+      retrievePath(current);
       return ASTAR_RET::SUCCESS;
     }
     current->setState(NODE_STATE::IN_CLOSE_SET);  // move current node from open set to closed set.
@@ -198,7 +227,7 @@ ASTAR_RET AStar::search(const double step_size, Vector3d start_pt, Vector3d end_
             continue;
           }
 
-          neighborPtr        = GridNodeMap_[neighborIdx(0)][neighborIdx(1)][neighborIdx(2)];
+          neighborPtr = GridNodeMap_[neighborIdx(0)][neighborIdx(1)][neighborIdx(2)];
           neighborPtr->setIndex(neighborIdx);
 
           bool flag_explored = neighborPtr->getRounds() == rounds_;
@@ -209,7 +238,7 @@ ASTAR_RET AStar::search(const double step_size, Vector3d start_pt, Vector3d end_
 
           neighborPtr->setRounds(rounds_);
 
-          if (checkOccupancy(Index2Coord(neighborPtr->getIndex()))) {
+          if (checkOccupancy(index2Pos(neighborPtr->getIndex()))) {
             continue;
           }
 
@@ -221,12 +250,12 @@ ASTAR_RET AStar::search(const double step_size, Vector3d start_pt, Vector3d end_
             neighborPtr->setNodeState(NODE_STATE::IN_OPEN_SET);
             neighborPtr->setParent(current);
             neighborPtr->setGScore(tentative_gScore);
-            neighborPtr->setFScore(tentative_gScore + getHeu(neighborPtr, endPtr));
-            openSet_.push(neighborPtr);  // put neighbor in open set and record it.
+            neighborPtr->setFScore(tentative_gScore + estimateHeuristic(neighborPtr, endPtr));
+            open_set_.push(neighborPtr);  // put neighbor in open set and record it.
           } else if (tentative_gScore < neighborPtr->getGScore()) {  // in open set and need update
             neighborPtr->setParent(current);
             neighborPtr->setGScore(tentative_gScore);
-            neighborPtr->setFScore(tentative_gScore + getHeu(neighborPtr, endPtr));
+            neighborPtr->setFScore(tentative_gScore + estimateHeuristic(neighborPtr, endPtr));
           }
         }
     ros::Time time_2 = ros::Time::now();
@@ -248,8 +277,7 @@ ASTAR_RET AStar::search(const double step_size, Vector3d start_pt, Vector3d end_
 vector<Vector3d> AStar::getPath() {
   vector<Vector3d> path;
 
-  for (auto ptr : gridPath_) path.push_back(Index2Coord(ptr->getIndex()));
+  for (auto ptr : node_path_) path.push_back(index2Pos(ptr->getIndex()));
 
-  reverse(path.begin(), path.end());
   return path;
 }

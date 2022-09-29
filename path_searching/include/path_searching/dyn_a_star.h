@@ -42,7 +42,7 @@ class GridNode {
 
   inline const GridNodePtr getParent() const { return this->parent_; }
 
-  inline int   getIndex(int i) const { return index_(i); }
+  inline int             getIndex(int i) const { return index_(i); }
   inline Eigen::Vector3i getIndex() const { return index_; }
 };
 
@@ -54,21 +54,21 @@ class NodeComparator {
 };
 
 class AStar {
- private:
+ protected:
   /* ----- parameters ----- */
-  int          rounds_{0};
-  double       step_size_, inv_step_size_;
-  const double tie_breaker_ = 1.0 + 1.0 / 10000;
+  int    rounds_{0};
+  double resolution_, inv_resolution_;
+  double tie_breaker_;
 
   /* ----- data ----- */
   Eigen::Vector3i CENTER_IDX_, POOL_SIZE_;
-  Eigen::Vector3d center_;
+  Eigen::Vector3d map_center_;  // map center
 
   GridMap::Ptr             grid_map_;
   GridNodePtr ***          GridNodeMap_;
-  std::vector<GridNodePtr> gridPath_;
+  std::vector<GridNodePtr> node_path_;
 
-  std::priority_queue<GridNodePtr, std::vector<GridNodePtr>, NodeComparator> openSet_;
+  std::priority_queue<GridNodePtr, std::vector<GridNodePtr>, NodeComparator> open_set_;
 
   /* ----- function ----- */
 
@@ -77,33 +77,41 @@ class AStar {
                                              Eigen::Vector3i &     start_idx,
                                              Eigen::Vector3i &     end_idx);
 
-  virtual double getHeu(GridNodePtr node1, GridNodePtr node2) {
+  virtual double estimateHeuristic(GridNodePtr node1, GridNodePtr node2) {
     return tie_breaker_ * getDiagHeu(node1, node2);
   }
   inline void coord2gridIndexFast(
       const double x, const double y, const double z, int &id_x, int &id_y, int &id_z);
-  inline Eigen::Vector3d Index2Coord(const Eigen::Vector3i &index) const;
-  inline bool            Coord2Index(const Eigen::Vector3d &pt, Eigen::Vector3i &idx) const;
-
-  inline int checkOccupancy(const Eigen::Vector3d &pos) {
+  inline Eigen::Vector3d index2Pos(const Eigen::Vector3i &index) const;
+  inline bool            pos2Index(const Eigen::Vector3d &pt, Eigen::Vector3i &idx) const;
+  inline Eigen::Vector3i pos2Index(const Eigen::Vector3d &pt);
+  inline int             checkOccupancy(const Eigen::Vector3d &pos) {
     return grid_map_->getInflateOccupancy(pos);
   }
 
-  std::vector<GridNodePtr> retrievePath(GridNodePtr current);
+  void retrievePath(GridNodePtr current);
 
  public:
   typedef std::shared_ptr<AStar> Ptr;
 
   AStar() {}
-  ~AStar();
+  virtual ~AStar();
 
-  void   initGridMap(GridMap::Ptr occ_map, const Eigen::Vector3i pool_size);
+  virtual void reset();
+  virtual void init();
+  virtual void init(const Eigen::Vector3d &map_center, const Eigen::Vector3i &map_size);
+
+  /* environment */
+  virtual void setParam(ros::NodeHandle &nh);
+  virtual void setEnvironment(const GridMap::Ptr &grid_map);
+  virtual void initEnvironment(GridMap::Ptr occ_map, const Eigen::Vector3i map_size);
+  /* heuristic */
   double getDiagHeu(GridNodePtr node1, GridNodePtr node2);
   double getManhHeu(GridNodePtr node1, GridNodePtr node2);
   double getEuclHeu(GridNodePtr node1, GridNodePtr node2);
   double getTieBreaker() { return tie_breaker_; }
 
-  ASTAR_RET search(const double step_size, Eigen::Vector3d start_pt, Eigen::Vector3d end_pt);
+  virtual ASTAR_RET search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt);
 
   std::vector<Eigen::Vector3d> getPath();
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -111,14 +119,13 @@ class AStar {
 
 /* ----- inline functions ----- */
 
-inline Eigen::Vector3d AStar::Index2Coord(const Eigen::Vector3i &index) const {
-  return ((index - CENTER_IDX_).cast<double>() * step_size_) + center_;
+inline Eigen::Vector3d AStar::index2Pos(const Eigen::Vector3i &index) const {
+  return ((index - CENTER_IDX_).cast<double>() * resolution_) + map_center_;
 }
 
-inline bool AStar::Coord2Index(const Eigen::Vector3d &pt, Eigen::Vector3i &idx) const {
-  idx =
-      ((pt - center_) * inv_step_size_ + Eigen::Vector3d(0.5, 0.5, 0.5)).cast<int>() + CENTER_IDX_;
-
+inline bool AStar::pos2Index(const Eigen::Vector3d &pt, Eigen::Vector3i &idx) const {
+  idx = ((pt - map_center_) * inv_resolution_).array().floor().cast<int>() +
+        CENTER_IDX_;
   if (idx(0) < 0 || idx(0) >= POOL_SIZE_(0) || idx(1) < 0 || idx(1) >= POOL_SIZE_(1) ||
       idx(2) < 0 || idx(2) >= POOL_SIZE_(2)) {
     ROS_ERROR("Ran out of pool, index=%d %d %d", idx(0), idx(1), idx(2));
@@ -128,8 +135,16 @@ inline bool AStar::Coord2Index(const Eigen::Vector3d &pt, Eigen::Vector3i &idx) 
   return true;
 }
 
+/** TODO */
+inline Eigen::Vector3i AStar::pos2Index(const Eigen::Vector3d &pt) {
+  Eigen::Vector3i idx;
+  idx = ((pt - map_center_) * inv_resolution_ + Eigen::Vector3d(0.5, 0.5, 0.5)).cast<int>() +
+        CENTER_IDX_;
+  return idx;
+}
+
 class AStarManhHeu : public AStar {
-  virtual double getHeu(GridNodePtr node1, GridNodePtr node2) {
+  virtual double estimateHeuristic(GridNodePtr node1, GridNodePtr node2) {
     return getTieBreaker() * getManhHeu(node1, node2);
   }
 };

@@ -71,8 +71,9 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   end_pos_(1) = msg->pose.position.y;
   end_pos_(2) = 1;
   ROS_INFO("End position: (%f, %f, %f)", end_pos_(0), end_pos_(1), end_pos_(2));
+  a_star_->reset();
   auto t1 = ros::Time::now();
-  a_star_->search(0.1, start_pos_, end_pos_);
+  a_star_->search(start_pos_, end_pos_);
   auto t2 = ros::Time::now();
   ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
   path_ = a_star_->getPath();
@@ -91,7 +92,10 @@ int main(int argc, char **argv) {
   grid_map_->initMap(nh);
 
   a_star_.reset(new AStar);
-  a_star_->initGridMap(grid_map_, Eigen::Vector3i(pool_size_x, pool_size_y, pool_size_z));
+  a_star_->setParam(nh);
+  a_star_->setEnvironment(grid_map_);
+  a_star_->init(Eigen::Vector3d(0, 0, 1),
+                Eigen::Vector3i(pool_size_x, pool_size_y, pool_size_z));
 
   start_pos_ = Eigen::Vector3d(0, 0, 0);
   nh.getParam("init_x", start_pos_(0));
