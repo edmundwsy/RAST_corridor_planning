@@ -69,10 +69,10 @@ void visualizePath(const std::vector<Eigen::Vector3d> &path) {
 void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   end_pos_(0) = msg->pose.position.x;
   end_pos_(1) = msg->pose.position.y;
-  end_pos_(2) = msg->pose.position.z;
+  end_pos_(2) = 1;
   ROS_INFO("End position: (%f, %f, %f)", end_pos_(0), end_pos_(1), end_pos_(2));
   auto t1 = ros::Time::now();
-  a_star_->AstarSearch(0.1, start_pos_, end_pos_);
+  a_star_->search(0.1, start_pos_, end_pos_);
   auto t2 = ros::Time::now();
   ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
   path_ = a_star_->getPath();

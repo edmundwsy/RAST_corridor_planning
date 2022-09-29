@@ -112,7 +112,6 @@ struct PlannerConfig {
 
     nh.getParam("waypoint_distance", waypoint_distance);
     nh.getParam("rviz_map_center_locked", is_rviz_map_center_locked);
-
   }
 };
 

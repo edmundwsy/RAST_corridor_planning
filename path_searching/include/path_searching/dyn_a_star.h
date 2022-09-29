@@ -7,51 +7,82 @@
 
 #include <Eigen/Eigen>
 #include <iostream>
+#include <memory>
 #include <queue>
+#include <vector>
 
 constexpr double inf = 1 >> 20;
-struct GridNode;
+class GridNode;
 typedef GridNode *GridNodePtr;
-
 enum ASTAR_RET { SUCCESS, INIT_ERR, SEARCH_ERR };
+enum NODE_STATE { IN_CLOSE_SET = 1, IN_OPEN_SET = 2, NOT_EXPAND = 3 };
 
-struct GridNode {
-  enum enum_state { OPENSET = 1, CLOSEDSET = 2, UNDEFINED = 3 };
-
+class GridNode {
+ private:
   int             rounds{0};  // Distinguish every call
-  enum enum_state state { UNDEFINED };
+  enum NODE_STATE node_state_ { NOT_EXPAND };
   Eigen::Vector3i index;
+  double          g_score_{inf}, f_score_{inf};
+  GridNodePtr     parent_{nullptr};
 
-  double      gScore{inf}, fScore{inf};
-  GridNodePtr cameFrom{NULL};
+ public:
+  void setNodeState(enum NODE_STATE state) { node_state_ = state; }
+  void setIndex(const Eigen::Vector3i &idx) { index = idx; }
+  void setRounds(int r) { rounds = r; }
+  void setGScore(double g) { g_score_ = g; }
+  void setFScore(double f) { f_score_ = f; }
+  void setState(enum NODE_STATE s) { node_state_ = s; }
+  void setParent(GridNode *p) { parent_ = p; }
+
+  double getFScore() const { return f_score_; }
+  double getGScore() const { return g_score_; }
+  int    getIndex(int i) const { return index(i); }
+  int    getRounds() const { return rounds; }
+  enum NODE_STATE getNodeState() const { return node_state_; }
+
+  GridNodePtr getParent() const { return parent_; }
+
+  Eigen::Vector3i &getIndex() { return index; }
 };
 
 class NodeComparator {
  public:
-  bool operator()(GridNodePtr node1, GridNodePtr node2) { return node1->fScore > node2->fScore; }
+  bool operator()(GridNodePtr node1, GridNodePtr node2) {
+    return node1->getFScore() > node2->getFScore();
+  }
 };
 
 class AStar {
  private:
-  GridMap::Ptr grid_map_;
+  /* ----- parameters ----- */
+  int          rounds_{0};
+  double       step_size_, inv_step_size_;
+  const double tie_breaker_ = 1.0 + 1.0 / 10000;
 
-  inline void coord2gridIndexFast(
-      const double x, const double y, const double z, int &id_x, int &id_y, int &id_z);
+  /* ----- data ----- */
+  Eigen::Vector3i CENTER_IDX_, POOL_SIZE_;
+  Eigen::Vector3d center_;
 
-  double        getDiagHeu(GridNodePtr node1, GridNodePtr node2);
-  double        getManhHeu(GridNodePtr node1, GridNodePtr node2);
-  double        getEuclHeu(GridNodePtr node1, GridNodePtr node2);
-  inline double getHeu(GridNodePtr node1, GridNodePtr node2);
+  GridMap::Ptr             grid_map_;
+  GridNodePtr ***          GridNodeMap_;
+  std::vector<GridNodePtr> gridPath_;
+
+  std::priority_queue<GridNodePtr, std::vector<GridNodePtr>, NodeComparator> openSet_;
+
+  /* ----- function ----- */
 
   bool ConvertToIndexAndAdjustStartEndPoints(const Eigen::Vector3d start_pt,
                                              const Eigen::Vector3d end_pt,
                                              Eigen::Vector3i &     start_idx,
                                              Eigen::Vector3i &     end_idx);
 
+  virtual double getHeu(GridNodePtr node1, GridNodePtr node2) {
+    return tie_breaker_ * getDiagHeu(node1, node2);
+  }
+  inline void coord2gridIndexFast(
+      const double x, const double y, const double z, int &id_x, int &id_y, int &id_z);
   inline Eigen::Vector3d Index2Coord(const Eigen::Vector3i &index) const;
   inline bool            Coord2Index(const Eigen::Vector3d &pt, Eigen::Vector3i &idx) const;
-
-  // bool (*checkOccupancyPtr)( const Eigen::Vector3d &pos );
 
   inline int checkOccupancy(const Eigen::Vector3d &pos) {
     return grid_map_->getInflateOccupancy(pos);
@@ -59,38 +90,28 @@ class AStar {
 
   std::vector<GridNodePtr> retrievePath(GridNodePtr current);
 
-  double          step_size_, inv_step_size_;
-  Eigen::Vector3d center_;
-  Eigen::Vector3i CENTER_IDX_, POOL_SIZE_;
-  const double    tie_breaker_ = 1.0 + 1.0 / 10000;
-
-  std::vector<GridNodePtr> gridPath_;
-
-  GridNodePtr ***                                                            GridNodeMap_;
-  std::priority_queue<GridNodePtr, std::vector<GridNodePtr>, NodeComparator> openSet_;
-
-  int rounds_{0};
-
  public:
   typedef std::shared_ptr<AStar> Ptr;
 
-  AStar(){};
+  AStar() {}
   ~AStar();
 
-  void initGridMap(GridMap::Ptr occ_map, const Eigen::Vector3i pool_size);
+  void   initGridMap(GridMap::Ptr occ_map, const Eigen::Vector3i pool_size);
+  double getDiagHeu(GridNodePtr node1, GridNodePtr node2);
+  double getManhHeu(GridNodePtr node1, GridNodePtr node2);
+  double getEuclHeu(GridNodePtr node1, GridNodePtr node2);
+  double getTieBreaker() { return tie_breaker_; }
 
-  ASTAR_RET AstarSearch(const double step_size, Eigen::Vector3d start_pt, Eigen::Vector3d end_pt);
+  ASTAR_RET search(const double step_size, Eigen::Vector3d start_pt, Eigen::Vector3d end_pt);
 
   std::vector<Eigen::Vector3d> getPath();
 };
 
-inline double AStar::getHeu(GridNodePtr node1, GridNodePtr node2) {
-  return tie_breaker_ * getDiagHeu(node1, node2);
-}
+/* ----- inline functions ----- */
 
 inline Eigen::Vector3d AStar::Index2Coord(const Eigen::Vector3i &index) const {
   return ((index - CENTER_IDX_).cast<double>() * step_size_) + center_;
-};
+}
 
 inline bool AStar::Coord2Index(const Eigen::Vector3d &pt, Eigen::Vector3i &idx) const {
   idx =
@@ -103,6 +124,12 @@ inline bool AStar::Coord2Index(const Eigen::Vector3d &pt, Eigen::Vector3i &idx) 
   }
 
   return true;
+}
+
+class AStarManhHeu : public AStar {
+  virtual double getHeu(GridNodePtr node1, GridNodePtr node2) {
+    return getTieBreaker() * getManhHeu(node1, node2);
+  }
 };
 
-#endif
+#endif  // _DYN_A_STAR_H_
