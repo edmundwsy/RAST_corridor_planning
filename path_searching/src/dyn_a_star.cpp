@@ -25,9 +25,6 @@ void AStar::setEnvironment(const GridMap::Ptr &grid_map) { this->grid_map_ = gri
 void AStar::initEnvironment(GridMap::Ptr occ_map, const Eigen::Vector3i pool_size) {
   POOL_SIZE_  = pool_size;
   CENTER_IDX_ = pool_size / 2;
-  std::cout << "POOL_SIZE_: " << POOL_SIZE_.transpose() << std::endl;
-  // std::cout << "CENTER_IDX_: " << CENTER_IDX_.transpose() << std::endl;
-
   GridNodeMap_ = new GridNodePtr **[POOL_SIZE_(0)];
   for (int i = 0; i < POOL_SIZE_(0); i++) {
     GridNodeMap_[i] = new GridNodePtr *[POOL_SIZE_(1)];
@@ -48,6 +45,7 @@ void AStar::init() {
 }
 
 void AStar::init(const Eigen::Vector3d &map_center, const Eigen::Vector3i &map_size) {
+  map_center_ = map_center;
   inv_resolution_ = 1.0 / resolution_;
   initEnvironment(grid_map_, map_size);
   rounds_ = 0;
