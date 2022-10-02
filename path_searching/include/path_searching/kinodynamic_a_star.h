@@ -27,19 +27,21 @@
 class PathNode : public GridNode {
  public:
   /* -------------------- */
+  PathNode*                   parent_{nullptr};
   Eigen::Vector3d             input;
   Eigen::Matrix<double, 6, 1> state;
   double                      duration;
   double                      time;  // dyn
   int                         time_idx;
-  // PathNode*                   parent;
 
   /* -------------------- */
   PathNode() {
-    parent = NULL;
+    setParent(NULL);
     setNodeState(NOT_EXPAND);
   }
   ~PathNode() {}
+  void             setParent(PathNode* parent) { parent_ = parent; }
+  inline PathNode* getParent() const { return parent_; }
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 typedef PathNode* PathNodePtr;
@@ -85,9 +87,22 @@ class NodeHashTable {
   }
 };
 
-class KinodynamicAstar {
+class KinodynamicAstar : public AStar {
  private:
   /* ---------- parameter ---------- */
+  /* Derived from Base Class */
+  // int    rounds_{0};
+  // double resolution_, inv_resolution_;
+  // double tie_breaker_;
+  // Eigen::Vector3i CENTER_IDX_, POOL_SIZE_;
+  // Eigen::Vector3d map_center_;  // map center
+
+  // GridMap::Ptr             grid_map_;
+  // GridNodePtr ***          GridNodeMap_;
+  std::vector<PathNodePtr> node_path_;
+
+  std::priority_queue<PathNodePtr, std::vector<PathNodePtr>, NodeComparator> open_set_;
+
   /* search */
   bool   optimistic_;
   int    allocate_num_;  // number of nodes to be allocated in path_node_pool_
@@ -96,12 +111,8 @@ class KinodynamicAstar {
   double max_vel_, max_acc_;
   double w_time_, horizon_, lambda_heu_;
   double time_resolution_, inv_time_resolution_;
-  // double resolution_, inv_resolution_;  // in Base class
-  // double tie_breaker_;  // in Base class
 
   double time_origin_;
-  // Eigen::Vector3d origin_;  // in Base class
-  // Eigen::Vector3d map_size_3d_;  // in Base class POOL_SIZE_
 
   /* ---------- main data structure ---------- */
   int                      use_node_num_, iter_num_;
@@ -117,9 +128,9 @@ class KinodynamicAstar {
   Eigen::MatrixXd             coef_shot_;
 
   /* helper */
-  Eigen::Vector3i posToIndex(Eigen::Vector3d pt);  // in Base class
   int             timeToIndex(double time);
-  void            retrievePath(PathNodePtr end_node);
+  Eigen::Vector3i posToIndex(Eigen::Vector3d pt);
+  // void            retrievePath(PathNodePtr end_node);  // in Base class
 
   /* shot trajectory */
   std::vector<double> cubic(double a, double b, double c, double d);
@@ -137,21 +148,21 @@ class KinodynamicAstar {
   KinodynamicAstar() {}
   ~KinodynamicAstar();
   enum { REACH_HORIZON = 1, REACH_END = 2, NO_PATH = 3, NEAR_END = 4 };
-
+  typedef std::shared_ptr<KinodynamicAstar> Ptr;
+  
   /* main API */
   void setParam(ros::NodeHandle& nh);
-  void init();
+  void init(const Eigen::Vector3d& map_center, const Eigen::Vector3i& map_size);
   void reset();
-  int  search(Eigen::Vector3d start_pt,
-              Eigen::Vector3d start_vel,
-              Eigen::Vector3d start_acc,
-              Eigen::Vector3d end_pt,
-              Eigen::Vector3d end_vel,
-              bool            init,
-              bool            dynamic    = false,
-              double          time_start = -1.0);
 
-  void setEnvironment(const GridMap::Ptr& env);
+  ASTAR_RET search(Eigen::Vector3d start_pt,
+                   Eigen::Vector3d start_vel,
+                   Eigen::Vector3d start_acc,
+                   Eigen::Vector3d end_pt,
+                   Eigen::Vector3d end_vel,
+                   bool            init,
+                   bool            dynamic    = false,
+                   double          time_start = -1.0);
 
   std::vector<Eigen::Vector3d> getKinoTraj(double delta_t);
 
@@ -160,6 +171,6 @@ class KinodynamicAstar {
                   std::vector<Eigen::Vector3d>& start_end_derivatives);
 
   std::vector<PathNodePtr> getVisitedNodes();
-}
+};
 
 #endif  // _KINODYNAMIC_ASTAR_H

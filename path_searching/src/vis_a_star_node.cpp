@@ -11,7 +11,8 @@
 
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <path_searching/dyn_a_star.h>
+// #include <path_searching/dyn_a_star.h>
+#include <path_searching/kinodynamic_a_star.h>
 #include <plan_env/grid_map.h>
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
@@ -23,9 +24,14 @@ ros::Subscriber click_sub_;
 ros::Publisher  path_pub_;
 
 GridMap::Ptr grid_map_;
-AStar::Ptr   a_star_;
+// AStar::Ptr   a_star_;
+KinodynamicAstar::Ptr a_star_;
 
-Eigen::Vector3d              end_pos_, start_pos_;
+Eigen::Vector3d end_pos_, start_pos_;
+Eigen::Vector3d start_vel_  = Eigen::Vector3d::Zero();
+Eigen::Vector3d end_vel_    = Eigen::Vector3d::Zero();
+Eigen::Vector3d start_acc_  = Eigen::Vector3d::Zero();
+Eigen::Vector3d end_acc_    = Eigen::Vector3d::Zero();
 std::vector<Eigen::Vector3d> path_;
 
 void visualizePath(const std::vector<Eigen::Vector3d> &path) {
@@ -73,7 +79,7 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   ROS_INFO("End position: (%f, %f, %f)", end_pos_(0), end_pos_(1), end_pos_(2));
   a_star_->reset();
   auto t1 = ros::Time::now();
-  a_star_->search(start_pos_, end_pos_);
+  a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, true);
   auto t2 = ros::Time::now();
   ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
   path_ = a_star_->getPath();
@@ -91,7 +97,7 @@ int main(int argc, char **argv) {
   grid_map_.reset(new GridMap);
   grid_map_->initMap(nh);
 
-  a_star_.reset(new AStar);
+  a_star_.reset(new KinodynamicAstar());
   a_star_->setParam(nh);
   a_star_->setEnvironment(grid_map_);
   a_star_->init(Eigen::Vector3d(0, 0, 1),

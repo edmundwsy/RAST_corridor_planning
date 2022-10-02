@@ -23,8 +23,8 @@ void AStar::setEnvironment(const GridMap::Ptr &grid_map) { this->grid_map_ = gri
  * @param pool_size
  */
 void AStar::initEnvironment(GridMap::Ptr occ_map, const Eigen::Vector3i pool_size) {
-  POOL_SIZE_  = pool_size;
-  CENTER_IDX_ = pool_size / 2;
+  POOL_SIZE_   = pool_size;
+  CENTER_IDX_  = pool_size / 2;
   GridNodeMap_ = new GridNodePtr **[POOL_SIZE_(0)];
   for (int i = 0; i < POOL_SIZE_(0); i++) {
     GridNodeMap_[i] = new GridNodePtr *[POOL_SIZE_(1)];
@@ -41,11 +41,11 @@ void AStar::initEnvironment(GridMap::Ptr occ_map, const Eigen::Vector3i pool_siz
 
 void AStar::init() {
   inv_resolution_ = 1.0 / resolution_;
-  rounds_ = 0;
+  rounds_         = 0;
 }
 
 void AStar::init(const Eigen::Vector3d &map_center, const Eigen::Vector3i &map_size) {
-  map_center_ = map_center;
+  map_center_     = map_center;
   inv_resolution_ = 1.0 / resolution_;
   initEnvironment(grid_map_, map_size);
   rounds_ = 0;
@@ -205,7 +205,7 @@ ASTAR_RET AStar::search(Vector3d start_pt, Vector3d end_pt) {
       // time_1).toSec()*1000); if((time_2 - time_1).toSec() > 0.1)
       //     ROS_WARN("Time consume in A star path finding is %f", (time_2 - time_1).toSec() );
       retrievePath(current);
-      return ASTAR_RET::SUCCESS;
+      return ASTAR_RET::REACH_END;
     }
     current->setState(NODE_STATE::IN_CLOSE_SET);  // move current node from open set to closed set.
 

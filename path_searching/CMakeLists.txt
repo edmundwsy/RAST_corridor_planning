@@ -36,6 +36,7 @@ include_directories(
 
 add_library( path_searching 
     src/dyn_a_star.cpp
+    src/kinodynamic_a_star.cpp
     )
 target_link_libraries( path_searching
     ${catkin_LIBRARIES} 

@@ -14,11 +14,11 @@
 constexpr double inf = 1 >> 20;
 class GridNode;
 typedef GridNode *GridNodePtr;
-enum ASTAR_RET { SUCCESS, INIT_ERR, SEARCH_ERR };
+enum ASTAR_RET { NO_PATH, INIT_ERR, SEARCH_ERR, REACH_HORIZON, REACH_END, NEAR_END };
 enum NODE_STATE { IN_CLOSE_SET = 1, IN_OPEN_SET = 2, NOT_EXPAND = 3 };
 
 class GridNode {
- private:
+ protected:
   int             rounds_{0};  // Distinguish every call
   double          g_score_{inf}, f_score_{inf};
   GridNodePtr     parent_{nullptr};
@@ -128,8 +128,8 @@ inline bool AStar::pos2Index(const Eigen::Vector3d &pt, Eigen::Vector3i &idx) co
         CENTER_IDX_;
   if (idx(0) < 0 || idx(0) >= POOL_SIZE_(0) || idx(1) < 0 || idx(1) >= POOL_SIZE_(1) ||
       idx(2) < 0 || idx(2) >= POOL_SIZE_(2)) {
-    ROS_ERROR("Ran out of pool, index=%d %d %d, pos=%f %f %f", idx(0), idx(1), idx(2), pt(0),
-              pt(1), pt(2));
+    ROS_ERROR("Ran out of pool, index=%d %d %d, pos=%f %f %f", idx(0), idx(1), idx(2), pt(0), pt(1),
+              pt(2));
     return false;
   }
 
