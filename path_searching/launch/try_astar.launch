@@ -65,6 +65,19 @@
     <param name="grid_map/show_occ_time" value="false" />
     <param name="grid_map/pose_type" value="1" />
     <param name="grid_map/frame_id" value="world" />
+
+    <param name="search/max_tau" value="0.6" type="double"/>
+    <param name="search/init_max_tau" value="0.8" type="double"/>
+    <param name="search/max_vel" value="3" type="double"/>
+    <param name="search/max_acc" value="3" type="double"/>
+    <param name="search/w_time" value="10.0" type="double"/>
+    <param name="search/horizon" value="7.0" type="double"/>
+    <param name="search/lambda_heu" value="5.0" type="double"/>
+    <param name="search/resolution_astar" value="0.1" type="double"/>
+    <param name="search/time_resolution" value="0.8" type="double"/>
+    <param name="search/margin" value="0.2" type="double"/>
+    <param name="search/allocate_num" value="100000" type="int"/>
+    <param name="search/check_num" value="5" type="int"/>
   </node>
 
   <node pkg="map_generator" name="map_generator" type="random_forest" output="screen">
