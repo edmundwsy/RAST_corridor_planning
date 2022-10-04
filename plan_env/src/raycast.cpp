@@ -1,15 +1,22 @@
+/**
+ * @file raycast.cpp
+ * @author Xin Zhou (iszhouxin@zju.edu.cn) @ ZJU FAST Lab
+ * @brief
+ * @version 1.0
+ * @date 2020-08-10
+ *
+ * @copyright Copyright (c) 2020
+ *
+ */
+
+#include <plan_env/raycast.h>
 #include <Eigen/Eigen>
 #include <cmath>
 #include <iostream>
-#include <plan_env/raycast.h>
 
-int signum(int x) {
-  return x == 0 ? 0 : x < 0 ? -1 : 1;
-}
+int signum(int x) { return x == 0 ? 0 : x < 0 ? -1 : 1; }
 
-double mod(double value, double modulus) {
-  return fmod(fmod(value, modulus) + modulus, modulus);
-}
+double mod(double value, double modulus) { return fmod(fmod(value, modulus) + modulus, modulus); }
 
 double intbound(double s, double ds) {
   // Find the smallest positive t such that s+t*ds is an integer.
@@ -22,8 +29,12 @@ double intbound(double s, double ds) {
   }
 }
 
-void Raycast(const Eigen::Vector3d& start, const Eigen::Vector3d& end, const Eigen::Vector3d& min,
-             const Eigen::Vector3d& max, int& output_points_cnt, Eigen::Vector3d* output) {
+void Raycast(const Eigen::Vector3d& start,
+             const Eigen::Vector3d& end,
+             const Eigen::Vector3d& min,
+             const Eigen::Vector3d& max,
+             int&                   output_points_cnt,
+             Eigen::Vector3d*       output) {
   //    std::cout << start << ' ' << end << std::endl;
   // From "A Fast Voxel Traversal Algorithm for Ray Tracing"
   // by John Amanatides and Andrew Woo, 1987
@@ -44,14 +55,14 @@ void Raycast(const Eigen::Vector3d& start, const Eigen::Vector3d& end, const Eig
   // tMaxX, tMaxY, and tMaxZ.
 
   // Cube containing origin point.
-  int x = (int)std::floor(start.x());
-  int y = (int)std::floor(start.y());
-  int z = (int)std::floor(start.z());
-  int endX = (int)std::floor(end.x());
-  int endY = (int)std::floor(end.y());
-  int endZ = (int)std::floor(end.z());
+  int             x         = (int)std::floor(start.x());
+  int             y         = (int)std::floor(start.y());
+  int             z         = (int)std::floor(start.z());
+  int             endX      = (int)std::floor(end.x());
+  int             endY      = (int)std::floor(end.y());
+  int             endZ      = (int)std::floor(end.z());
   Eigen::Vector3d direction = (end - start);
-  double maxDist = direction.squaredNorm();
+  double          maxDist   = direction.squaredNorm();
 
   // Break out direction vector.
   double dx = endX - x;
@@ -125,8 +136,11 @@ void Raycast(const Eigen::Vector3d& start, const Eigen::Vector3d& end, const Eig
   }
 }
 
-void Raycast(const Eigen::Vector3d& start, const Eigen::Vector3d& end, const Eigen::Vector3d& min,
-             const Eigen::Vector3d& max, std::vector<Eigen::Vector3d>* output) {
+void Raycast(const Eigen::Vector3d&        start,
+             const Eigen::Vector3d&        end,
+             const Eigen::Vector3d&        min,
+             const Eigen::Vector3d&        max,
+             std::vector<Eigen::Vector3d>* output) {
   //    std::cout << start << ' ' << end << std::endl;
   // From "A Fast Voxel Traversal Algorithm for Ray Tracing"
   // by John Amanatides and Andrew Woo, 1987
@@ -147,14 +161,14 @@ void Raycast(const Eigen::Vector3d& start, const Eigen::Vector3d& end, const Eig
   // tMaxX, tMaxY, and tMaxZ.
 
   // Cube containing origin point.
-  int x = (int)std::floor(start.x());
-  int y = (int)std::floor(start.y());
-  int z = (int)std::floor(start.z());
-  int endX = (int)std::floor(end.x());
-  int endY = (int)std::floor(end.y());
-  int endZ = (int)std::floor(end.z());
+  int             x         = (int)std::floor(start.x());
+  int             y         = (int)std::floor(start.y());
+  int             z         = (int)std::floor(start.z());
+  int             endX      = (int)std::floor(end.x());
+  int             endY      = (int)std::floor(end.y());
+  int             endZ      = (int)std::floor(end.z());
   Eigen::Vector3d direction = (end - start);
-  double maxDist = direction.squaredNorm();
+  double          maxDist   = direction.squaredNorm();
 
   // Break out direction vector.
   double dx = endX - x;
@@ -229,18 +243,18 @@ bool RayCaster::setInput(const Eigen::Vector3d& start,
                          const Eigen::Vector3d& end /* , const Eigen::Vector3d& min,
                          const Eigen::Vector3d& max */) {
   start_ = start;
-  end_ = end;
+  end_   = end;
   // max_ = max;
   // min_ = min;
 
-  x_ = (int)std::floor(start_.x());
-  y_ = (int)std::floor(start_.y());
-  z_ = (int)std::floor(start_.z());
-  endX_ = (int)std::floor(end_.x());
-  endY_ = (int)std::floor(end_.y());
-  endZ_ = (int)std::floor(end_.z());
+  x_         = (int)std::floor(start_.x());
+  y_         = (int)std::floor(start_.y());
+  z_         = (int)std::floor(start_.z());
+  endX_      = (int)std::floor(end_.x());
+  endY_      = (int)std::floor(end_.y());
+  endZ_      = (int)std::floor(end_.z());
   direction_ = (end_ - start_);
-  maxDist_ = direction_.squaredNorm();
+  maxDist_   = direction_.squaredNorm();
 
   // Break out direction vector.
   dx_ = endX_ - x_;

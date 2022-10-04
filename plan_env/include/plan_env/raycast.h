@@ -1,3 +1,13 @@
+/**
+ * @file raycast.h
+ * @author Xin Zhou (iszhouxin@zju.edu.cn) @ ZJU FAST Lab
+ * @brief
+ * @version 1.0
+ * @date 2020-08-10
+ *
+ * @copyright Copyright (c) 2020
+ * 
+ */
 #ifndef RAYCAST_H_
 #define RAYCAST_H_
 
