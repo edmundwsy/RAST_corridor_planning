@@ -36,10 +36,11 @@ typedef std::vector<Polyhedron> Corridors;
  * @brief convert polytope representation
  *
  * normal vector representation:
+ * n: normal vector, p: point on the plane
  *     |
  *    p| --> n    pointing outward
  *     |
- * every column is a hyperplane, [dir, pos]
+ * every column is a hyperplane, [n, p]
  *
  * H-representation: x*h0 + y*h1 + z*h2 + h3 <= 0
  *

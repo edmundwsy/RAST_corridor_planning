@@ -15,20 +15,22 @@
   <arg name="fy" value="387.229248046875"/>
 
 
-  <node pkg="path_searching" name="astar" type="a_star_node" output="screen">
-  <!-- <node pkg="path_searching" name="astar" type="kinodyn_a_star_node" output="screen"> -->
+  <node pkg="plan_env" name="static_map" type="grid_map_node" output="screen">
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />
+    <param name="vel" value="1" />
+    <param name="time_step" value="0.01" />
 
     <param name="pool_size_x" value="$(arg pool_size_x)" />
     <param name="pool_size_y" value="$(arg pool_size_y)" />
     <param name="pool_size_z" value="$(arg pool_size_z)" />
 
     <remap from="~grid_map/odom" to="/odom" />
-    <remap from="~grid_map/cloud" to="/map_generator/global_cloud" />
+    <remap from="~grid_map/cloud" to="/local_cloud" />
     <remap from="~grid_map/pose" to="/drone_camera_pose_topic" />
     <remap from="~grid_map/depth" to="/drone_depth_topic" />
+    
     <param name="grid_map/resolution" value="0.1" />
     <param name="grid_map/map_size_x" value="$(arg map_size_x)" />
     <param name="grid_map/map_size_y" value="$(arg map_size_y)" />
@@ -66,19 +68,6 @@
     <param name="grid_map/show_occ_time" value="false" />
     <param name="grid_map/pose_type" value="1" />
     <param name="grid_map/frame_id" value="world" />
-
-    <param name="search/max_tau" value="0.6" type="double"/>
-    <param name="search/init_max_tau" value="0.8" type="double"/>
-    <param name="search/max_vel" value="3" type="double"/>
-    <param name="search/max_acc" value="3" type="double"/>
-    <param name="search/w_time" value="10.0" type="double"/>
-    <param name="search/horizon" value="7.0" type="double"/>
-    <param name="search/lambda_heu" value="5.0" type="double"/>
-    <param name="search/resolution_astar" value="1" type="double"/>
-    <param name="search/time_resolution" value="0.8" type="double"/>
-    <param name="search/margin" value="0.2" type="double"/>
-    <param name="search/allocate_num" value="100000" type="int"/>
-    <param name="search/check_num" value="5" type="int"/>
   </node>
 
   <node pkg="map_generator" name="map_generator" type="random_forest" output="screen">
@@ -113,10 +102,27 @@
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />
-    <remap from="~command" to="planning/pos_cmd" />
+    <remap from="~command" to="/pos_command" />
     <remap from="~odometry" to="/odom" />
   </node>
 
-  <node pkg="rviz" name="rviz" type="rviz" args="-d $(find path_searching)/rviz/astar.rviz" />
+  <node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node" output="screen">
+    <rosparam command="load" file="$(find local_sensing_node)/params/camera.yaml" />
+    <param name="sensing_horizon" value="5.0" />
+    <param name="sensing_rate" value="30.0" />
+    <param name="estimation_rate" value="30.0" />
+    <param name="is_camera_frame" value="false" />
+    <param name="is_dynamic_map" value="false" />
+
+    <param name="map/x_size" value="$(arg map_size_x)" />
+    <param name="map/y_size" value="$(arg map_size_y)" />
+    <param name="map/z_size" value="$(arg map_size_z)" />
+
+    <remap from="~global_map" to="/map_generator/global_cloud" />
+    <remap from="~odometry" to="/odom" />
+    <remap from="~pcl_render_node/cloud" to="/local_cloud" />
+  </node>
+
+  <node pkg="rviz" name="rviz" type="rviz" args="-d $(find plan_env)/rviz/static_map.rviz" />
 
 </launch>
