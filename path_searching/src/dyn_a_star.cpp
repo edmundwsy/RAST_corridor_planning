@@ -93,19 +93,11 @@ double AStar::getEuclHeu(GridNodePtr node1, GridNodePtr node2) {
 }
 
 void AStar::retrievePath(GridNodePtr current) {
-  // vector<GridNodePtr> path;
-  // path.push_back(current);
-
-  // while (current->getParent() != NULL) {
-  //   current = current->getParent();
-  //   path.push_back(current);
-  // }
-
-  // return path;
-  node_path_.push_back(current);
-  while (current->getParent() != NULL) {
-    current = current->getParent();
-    node_path_.push_back(current);
+  GridNodePtr n = current;
+  node_path_.push_back(n);
+  while (n->getParent() != NULL) {
+    n = n->getParent();
+    node_path_.push_back(n);
   }
   reverse(node_path_.begin(), node_path_.end());
 }

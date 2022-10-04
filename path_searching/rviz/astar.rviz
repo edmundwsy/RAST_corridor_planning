@@ -8,6 +8,7 @@ Panels:
         - /Status1
         - /Grid1
         - /PointCloud21
+        - /PointCloud22
       Splitter Ratio: 0.4202898442745209
     Tree Height: 365
   - Class: rviz/Selection
@@ -86,8 +87,36 @@ Visualization Manager:
       Marker Topic: /path
       Name: AstarPath
       Namespaces:
-        path: true
+        {}
       Queue Size: 100
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Min Color: 0; 0; 0
+      Name: PointCloud2
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.009999999776482582
+      Style: Flat Squares
+      Topic: /astar/grid_map/occupancy_inflate
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: true
       Value: true
   Enabled: true
   Global Options:
@@ -116,20 +145,26 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: 0
-      Class: rviz/TopDownOrtho
+      Class: rviz/ThirdPersonFollower
+      Distance: 18.897750854492188
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
+      Field of View: 0.7853981852531433
+      Focal Point:
+        X: 1.2083053588867188
+        Y: 1.350721836090088
+        Z: -4.76837158203125e-07
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 51.65033721923828
+      Pitch: 0.7853982448577881
       Target Frame: <Fixed Frame>
-      X: 0.7864811420440674
-      Y: 0.6374040842056274
+      Yaw: 0.7853982448577881
     Saved:
       - Angle: 0
         Class: rviz/TopDownOrtho
@@ -181,5 +216,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1060
-  X: 4
-  Y: 0
+  X: 128
+  Y: 1175

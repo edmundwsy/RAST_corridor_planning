@@ -42,7 +42,6 @@ class PathNode : public GridNode {
   ~PathNode() {}
   void             setParent(PathNode* parent) { parent_ = parent; }
   inline PathNode* getParent() const { return parent_; }
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 typedef PathNode* PathNodePtr;
 
@@ -89,7 +88,18 @@ class NodeHashTable {
 
 class KinodynamicAstar : public AStar {
  private:
-  /* ---------- parameter ---------- */
+  /* ---------- search parameter ---------- */
+  bool   optimistic_;
+  int    allocate_num_;  // number of nodes to be allocated in path_node_pool_
+  int    check_num_;
+  int    tolerance_;
+  double max_tau_, init_max_tau_;
+  double max_vel_, max_acc_;
+  double w_time_, horizon_, lambda_heu_;
+  double time_resolution_, inv_time_resolution_;
+  double time_origin_;
+
+  /* ---------- main data structure ---------- */
   /* Derived from Base Class */
   // int    rounds_{0};
   // double resolution_, inv_resolution_;
@@ -100,24 +110,11 @@ class KinodynamicAstar : public AStar {
   // GridMap::Ptr             grid_map_;
   // GridNodePtr ***          GridNodeMap_;
   std::vector<PathNodePtr> node_path_;
-
+  NodeHashTable            expanded_nodes_;
+  std::vector<PathNodePtr> path_node_pool_;
   std::priority_queue<PathNodePtr, std::vector<PathNodePtr>, NodeComparator> open_set_;
 
-  /* search */
-  bool   optimistic_;
-  int    allocate_num_;  // number of nodes to be allocated in path_node_pool_
-  int    check_num_;
-  double max_tau_, init_max_tau_;
-  double max_vel_, max_acc_;
-  double w_time_, horizon_, lambda_heu_;
-  double time_resolution_, inv_time_resolution_;
-
-  double time_origin_;
-
-  /* ---------- main data structure ---------- */
   int                      use_node_num_, iter_num_;
-  std::vector<PathNodePtr> path_node_pool_;
-  NodeHashTable            expanded_nodes_;
 
   /* ---------- record data ---------- */
   bool                        is_shot_succ_ = false;
@@ -130,7 +127,7 @@ class KinodynamicAstar : public AStar {
   /* helper */
   int             timeToIndex(double time);
   Eigen::Vector3i posToIndex(Eigen::Vector3d pt);
-  // void            retrievePath(PathNodePtr end_node);  // in Base class
+  void            retrievePath(PathNodePtr end_node);
 
   /* shot trajectory */
   std::vector<double> cubic(double a, double b, double c, double d);
@@ -164,7 +161,7 @@ class KinodynamicAstar : public AStar {
                    bool            dynamic    = false,
                    double          time_start = -1.0);
 
-  std::vector<Eigen::Vector3d> getKinoTraj(double delta_t);
+  std::vector<Eigen::Vector3d> getPath(double delta_t);
 
   void getSamples(double&                       ts,
                   std::vector<Eigen::Vector3d>& point_set,

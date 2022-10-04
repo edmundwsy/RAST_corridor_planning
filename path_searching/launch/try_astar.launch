@@ -2,7 +2,7 @@
 
   <arg name="init_x" value="-5.0" />
   <arg name="init_y" value="0.0" />
-  <arg name="init_z" value="0.0" />
+  <arg name="init_z" value="1.0" />
   <arg name="map_size_x" value="10" />
   <arg name="map_size_y" value="10" />
   <arg name="map_size_z" value="5" />
@@ -15,7 +15,8 @@
   <arg name="fy" value="387.229248046875"/>
 
 
-  <node pkg="path_searching" name="astar" type="dyn_a_star_node" output="screen">
+  <node pkg="path_searching" name="astar" type="a_star_node" output="screen">
+  <!-- <node pkg="path_searching" name="astar" type="kinodyn_a_star_node" output="screen"> -->
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />
@@ -73,7 +74,7 @@
     <param name="search/w_time" value="10.0" type="double"/>
     <param name="search/horizon" value="7.0" type="double"/>
     <param name="search/lambda_heu" value="5.0" type="double"/>
-    <param name="search/resolution_astar" value="0.1" type="double"/>
+    <param name="search/resolution_astar" value="1" type="double"/>
     <param name="search/time_resolution" value="0.8" type="double"/>
     <param name="search/margin" value="0.2" type="double"/>
     <param name="search/allocate_num" value="100000" type="int"/>
