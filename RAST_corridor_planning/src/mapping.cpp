@@ -20,7 +20,7 @@
 
 using namespace std;
 
-DSPMap my_map;
+DSPMapStatic my_map;
 
 queue<double> pose_att_time_queue;
 queue<Eigen::Vector3d> uav_position_global_queue;
@@ -577,7 +577,7 @@ int main(int argc, char **argv)
 
     my_map.setNewBornParticleNumberofEachPoint(20); //30
     my_map.setNewBornParticleWeight(0.0001); //0.01
-    DSPMap::setOriginalVoxelFilterResolution(res);
+    DSPMapStatic::setOriginalVoxelFilterResolution(res);
 
     ros::Subscriber object_states_sub = n.subscribe("/gazebo/model_states", 1, simObjectStateCallback);
 
