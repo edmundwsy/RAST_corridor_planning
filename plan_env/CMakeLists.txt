@@ -50,7 +50,7 @@ add_library(plan_env
     src/grid_map.cpp
     src/raycast.cpp
     src/obj_predictor.cpp
-    src/dsp_map.cpp
+    src/dsp_map_new.cpp
 )
 target_link_libraries(plan_env
     ${catkin_LIBRARIES}

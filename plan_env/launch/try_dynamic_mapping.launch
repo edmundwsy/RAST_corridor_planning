@@ -3,8 +3,8 @@
   <arg name="init_x" value="-5.0" />
   <arg name="init_y" value="0.0" />
   <arg name="init_z" value="1.0" />
-  <arg name="map_size_x" value="10" />
-  <arg name="map_size_y" value="10" />
+  <arg name="map_size_x" value="15" />
+  <arg name="map_size_y" value="15" />
   <arg name="map_size_z" value="5" />
   <arg name="pool_size_x" value="120" />
   <arg name="pool_size_y" value="120" />
@@ -31,7 +31,7 @@
     <remap from="~grid_map/pose" to="/drone_camera_pose_topic" />
     <remap from="~grid_map/depth" to="/drone_depth_topic" />
 
-    <param name="grid_map/resolution" value="0.1" />
+    <param name="grid_map/resolution" value="0.2" />
     <param name="grid_map/map_size_x" value="$(arg map_size_x)" />
     <param name="grid_map/map_size_y" value="$(arg map_size_y)" />
     <param name="grid_map/map_size_z" value="$(arg map_size_z)" />
@@ -111,7 +111,7 @@
     <param name="sensing_horizon" value="5.0" />
     <param name="sensing_rate" value="30.0" />
     <param name="estimation_rate" value="30.0" />
-    <param name="is_camera_frame" value="false" />
+    <param name="is_camera_frame" value="true" />
     <param name="is_dynamic_map" value="true" />
 
     <param name="map/x_size" value="$(arg map_size_x)" />

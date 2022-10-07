@@ -11,7 +11,7 @@
 
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <plan_env/dsp_map.h>
+#include <plan_env/dsp_map_new.h>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <visualization_msgs/Marker.h>
@@ -35,7 +35,7 @@ ros::Subscriber click_sub_;
 ros::Publisher  cmd_pub_;
 ros::Publisher  cloud_pub_;
 
-DSPMapStatic::Ptr dsp_map_;
+DSPMapStaticV2::Ptr dsp_map_;
 float             risk_maps_[VOXEL_NUM][RISK_MAP_NUMBER];
 float             valid_clouds_[5000 * 3];
 
@@ -47,7 +47,7 @@ double          dt_  = 0.1;  // s
 /** sync topics */
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2,
                                                         nav_msgs::Odometry>
-                                                                            SyncPolicyCloudOdom;
+    SyncPolicyCloudOdom;
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2,
                                                         geometry_msgs::PoseStamped>
                                                                             SyncPolicyCloudPose;
@@ -118,6 +118,7 @@ void publishMap() {
   cloud_msg.header.stamp    = ros::Time::now();
   cloud_msg.header.frame_id = "world";
   cloud_pub_.publish(cloud_msg);
+  std::cout << "num_occupied: " << num_occupied << std::endl;
 }
 
 void pubCallback(const ros::TimerEvent &event) { publishMap(); }
@@ -143,13 +144,15 @@ void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
   /* filter points which are too far from the drone */
   int n_valid = 0;  // number of valid points
   for (int i = 0; i < cloud_filtered->points.size(); i++) {
-    Eigen::Vector3f p(cloud_filtered->points[i].x, cloud_filtered->points[i].y,
-                      cloud_filtered->points[i].z);
+    float          x = cloud_filtered->points[i].z;
+    float          y = - cloud_filtered->points[i].x;
+    float          z = - cloud_filtered->points[i].y;
+    Eigen::Vector3f p(x, y, z);
     Eigen::Vector3f p_w = R * p;
     if (inRange(p_w)) {
-      valid_clouds_[n_valid * 3 + 0] = p_w.x();
-      valid_clouds_[n_valid * 3 + 1] = p_w.y();
-      valid_clouds_[n_valid * 3 + 2] = p_w.z();
+      valid_clouds_[n_valid * 3 + 0] = x;
+      valid_clouds_[n_valid * 3 + 1] = y;
+      valid_clouds_[n_valid * 3 + 2] = z;
       n_valid++;
       if (n_valid >= 5000) {
         break;
@@ -157,13 +160,12 @@ void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
     }
   }
   clock_t t_update_0 = clock();
-
+  std::cout << "number of valid points: " << n_valid << std::endl;
   dsp_map_->update(n_valid, 3, valid_clouds_, pos.x(), pos.y(), pos.z(), t, q.w(), q.x(), q.y(),
                    q.z());
   clock_t t_update_1 = clock();
-  double  duration   = static_cast<double>((t_update_1 - t_update_0) * 1000 / CLOCK_PER_SEC);
+  double  duration   = static_cast<double>((t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC);
   std::cout << "update time: " << duration << "ms" << std::endl;
-  publishMap();
 }
 
 int main(int argc, char **argv) {
@@ -183,13 +185,14 @@ int main(int argc, char **argv) {
 
   /* initialize map */
   ROS_INFO("init map");
-  dsp_map_.reset(new DSPMapStatic);
+  dsp_map_.reset(new DSPMapStaticV2);
+  dsp_map_->initMap(nh);
   dsp_map_->setPredictionVariance(0.05, 0.05);
   dsp_map_->setObservationStdDev(0.05f);
   dsp_map_->setLocalizationStdDev(0.0f);
   dsp_map_->setNewBornParticleNumberofEachPoint(20);
   dsp_map_->setNewBornParticleWeight(0.0001);
-  DSPMapStatic::setOriginalVoxelFilterResolution(0.15);
+  DSPMapStaticV2::setOriginalVoxelFilterResolution(0.15);
 
   // dsp_map_->initMap(nh);
 
