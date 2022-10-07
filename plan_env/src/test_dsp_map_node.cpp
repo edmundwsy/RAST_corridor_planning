@@ -36,8 +36,8 @@ ros::Publisher  cmd_pub_;
 ros::Publisher  cloud_pub_;
 
 DSPMapStaticV2::Ptr dsp_map_;
-float             risk_maps_[VOXEL_NUM][RISK_MAP_NUMBER];
-float             valid_clouds_[5000 * 3];
+float               risk_maps_[VOXEL_NUM][3];
+float               valid_clouds_[5000 * 3];
 
 Eigen::Vector3d end_pos_, start_pos_, cur_pos_, dir_;
 double          dist_;
@@ -112,7 +112,11 @@ void publishMap() {
 
   pcl::PointCloud<pcl::PointXYZ> cloud;
   dsp_map_->getOccupancyMapWithRiskMaps(num_occupied, cloud, &risk_maps_[0][0], 0.2);
-
+  for (auto &p : cloud.points) {
+    p.x += cur_pos_.x();
+    p.y += cur_pos_.y();
+    p.z += cur_pos_.z();
+  }
   sensor_msgs::PointCloud2 cloud_msg;
   pcl::toROSMsg(cloud, cloud_msg);
   cloud_msg.header.stamp    = ros::Time::now();
@@ -144,12 +148,12 @@ void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
   /* filter points which are too far from the drone */
   int n_valid = 0;  // number of valid points
   for (int i = 0; i < cloud_filtered->points.size(); i++) {
-    float          x = cloud_filtered->points[i].z;
-    float          y = - cloud_filtered->points[i].x;
-    float          z = - cloud_filtered->points[i].y;
+    float           x = cloud_filtered->points[i].z;
+    float           y = -cloud_filtered->points[i].x;
+    float           z = -cloud_filtered->points[i].y;
     Eigen::Vector3f p(x, y, z);
     Eigen::Vector3f p_w = R * p;
-    if (inRange(p_w)) {
+    if (inRange(p)) {
       valid_clouds_[n_valid * 3 + 0] = x;
       valid_clouds_[n_valid * 3 + 1] = y;
       valid_clouds_[n_valid * 3 + 2] = z;
@@ -161,8 +165,10 @@ void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
   }
   clock_t t_update_0 = clock();
   std::cout << "number of valid points: " << n_valid << std::endl;
-  dsp_map_->update(n_valid, 3, valid_clouds_, pos.x(), pos.y(), pos.z(), t, q.w(), q.x(), q.y(),
-                   q.z());
+  if (!dsp_map_->update(n_valid, 3, valid_clouds_, pos.x(), pos.y(), pos.z(), t, q.w(), q.x(),
+                        q.y(), q.z())) {
+    return;
+  }
   clock_t t_update_1 = clock();
   double  duration   = static_cast<double>((t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC);
   std::cout << "update time: " << duration << "ms" << std::endl;
