@@ -34,12 +34,11 @@
 #include <message_filters/time_synchronizer.h>
 
 /** Parameters for the map **/
-#define MAP_LENGTH_VOXEL_NUM       65  // 33//29  //odd
-#define MAP_WIDTH_VOXEL_NUM        65  // 33//29   //odd
-#define MAP_HEIGHT_VOXEL_NUM       35  // 9 //21, 9 //odd
-#define ANGLE_RESOLUTION           3
-#define MAX_PARTICLE_NUM_VOXEL     18  // 18 //80
-#define LIMIT_MOVEMENT_IN_XY_PLANE 1
+#define MAP_LENGTH_VOXEL_NUM   65  // 33//29  //odd
+#define MAP_WIDTH_VOXEL_NUM    65  // 33//29   //odd
+#define MAP_HEIGHT_VOXEL_NUM   35  // 9 //21, 9 //odd
+#define ANGLE_RESOLUTION       3
+#define MAX_PARTICLE_NUM_VOXEL 18  // 18 //80
 
 /// Note: RISK_MAP_NUMBER * RISK_MAP_PREDICTION_TIME = PREDICTION_TIMES. RISK_MAP_PREDICTION_TIMES
 /// items in prediction_future_time should be within time a_star_search_time_step
@@ -59,8 +58,6 @@ const int half_fov_v = 36;  // can be divided by ANGLE_RESOLUTION. If not, modif
 // const int half_fov_h = 30;  // Real world can be divided by ANGLE_RESOLUTION. If not, modify
 // ANGLE_RESOLUTION or make half_fov_h a smaller value than the real FOV angle const int half_fov_v
 // = 21;
-
-#define CONSIDER_LOCALIZATION_UNCERTAINTY true
 
 /** END **/
 
@@ -119,23 +116,24 @@ struct MappingParameters {
   /* map properties */
   int   n_risk_map_;                /* number of risk maps */
   int   n_prediction_per_risk_map_; /* number of predictions per risk map */
-  int   voxel_size_x_;
-  int   voxel_size_y_;
-  int   voxel_size_z_;
+  int   voxel_size_x_, voxel_size_y_, voxel_size_z_;
   float map_size_x_, map_size_y_, map_size_z_;
   float half_map_size_x_, half_map_size_y_, half_map_size_z_;
   float resolution_, resolution_inv_;
 
+  int n_voxel_;   /* number of voxels */
+  int n_pyramid_; /* number of pyramids */
+  int n_pyramid_obsrv_h_, n_pyramid_obsrv_v_, n_pyramid_obsrv_;
+
   Eigen::Vector3f map_origin_;
   Eigen::Vector3f map_min_boundary_, map_max_boundary_;  // map range in pos
-  Eigen::Vector3i map_voxel_num_;                        // map range in index
   Eigen::Vector3f local_update_range_;
   float           obstacles_inflation_;
   string          frame_id_;
 
   /* field of view */
-  int angle_resolution_;
-  int half_fov_h_, half_fov_v_; /* degree, should be devide by angle_resolution_ */
+  int   angle_resolution_;
+  int   half_fov_h_, half_fov_v_; /* degree, should be devide by angle_resolution_ */
   float angle_resolution_rad_;
 
   /* time out */
@@ -153,9 +151,11 @@ struct MappingParameters {
   float unknown_flag_;
 
   /* particles */
-  int max_particle_num_;
+  int n_particles_max_;
+  int n_particles_max_per_voxel_;
 
-  /* Gaussian Process Parameters */
+  /* others */
+  bool is_csv_output_; /* output particles as csv file or not */
 };
 
 struct MappingData {
@@ -182,13 +182,27 @@ struct MappingData {
   Eigen::Vector3i local_bound_min_, local_bound_max_;
 
   /* computation time */
-  double fuse_time_, max_fuse_time_;
-  int    update_num_;
+  double total_time_;
+  int    idx_update_;  // number of updates
 
   /* index */
   int vel_gaussian_idx_;
   int pos_gaussian_idx_;
   int loc_gaussian_idx_;  // localization
+
+  /* new born particles */
+  float newborn_particles_weight_;
+  float newborn_particles_per_point_;
+  float newborn_objects_weight_;
+  float newborn_objects_expected_;
+
+  /* other mapping variables */
+  float kappa_;
+  float sigma_update_;
+  float sigma_obsrv_, sigma_loc_; /* observation & localization */
+  float stddev_pos_predict_, stddev_vel_predict_;
+  float P_detection_;
+
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
@@ -230,41 +244,15 @@ class DSPMapStaticV2 {
  private:
   /** ROS **/
   ros::NodeHandle nh_;
-  /** Map Parameters */
-  MappingParameters mp_;
-  /** Map Data */
-  MappingData md_;
+
+  MappingParameters mp_; /** Map Parameters */
+  MappingData       md_; /** Map Data */
 
   /** Parameters **/
-  int voxels_total_num;
-
-  int max_particle_num_voxel;
-
-  float position_prediction_stddev;
-  float velocity_prediction_stddev;
-
-  float sigma_observation;
-  float sigma_localization;
-  float sigma_update;
-
-  float P_detection;
-
-  int   if_record_particle_csv;
   float record_time;
 
   /** Variables **/
-  int localization_gaussian_random_seq;
-
-  float kappa;
-
   float update_time;
-  int   update_counter;
-
-  float expected_new_born_objects;
-
-  float new_born_particle_weight;
-  int   new_born_particle_number_each_point;
-  float new_born_each_object_weight;
 
   // 1.px, 2.py, 3.pz 4.acc 5.length for later usage
   float point_cloud[observation_pyramid_num][observation_max_points_num_one_pyramid][5];
@@ -290,9 +278,8 @@ class DSPMapStaticV2 {
 
  public:
   typedef std::shared_ptr<DSPMapStaticV2> Ptr;
-  DSPMapStaticV2(int init_particle_num = 0, float init_weight = 0.01f) :
-      max_particle_num_voxel(MAX_PARTICLE_NUM_VOXEL)
-{
+  DSPMapStaticV2(int init_particle_num = 0, float init_weight = 0.01f)
+   {
     addRandomParticles(init_particle_num, init_weight);
 
     cout << "Map is ready to update!" << endl;
@@ -319,9 +306,9 @@ class DSPMapStaticV2 {
 
   void setLocalizationStdDev(float lo_stddev);
 
-  void setNewBornParticleWeight(float weight) { new_born_particle_weight = weight; }
+  void setNewBornParticleWeight(float weight) { md_.newborn_particles_weight_ = weight; }
 
-  void setNewBornParticleNumberofEachPoint(int num) { new_born_particle_number_each_point = num; }
+  void setNewBornParticleNumberofEachPoint(int num) { md_.newborn_particles_per_point_ = num; }
 
   /// record_particle_flag O: don't record; -1 or other negative value: record all; positive value:
   /// record a time
@@ -373,8 +360,8 @@ class DSPMapStaticV2 {
   void getVoxelPositionFromIndex(const int &index, float &px, float &py, float &pz) const;
 
   inline bool isInMap(const Particle &p) const;
-
   inline bool isInMap(const float &px, const float &py, const float &pz) const;
+  inline bool ifInPyramidsArea(float &x, float &y, float &z);
 
   static void findPyramidNeighborIndexInFOV(const int &index_ori,
                                             int &      neighbor_spaces_num,
@@ -467,8 +454,6 @@ class DSPMapStaticV2 {
   //        cout<<"("<< *a <<","<< *(a+1)<<","<< *(a+2)<<") ";
   //    }
 
-  int ifInPyramidsArea(float &x, float &y, float &z);
-
   int findPointPyramidHorizontalIndex(float &x, float &y, float &z);
   int findPointPyramidVerticalIndex(float &x, float &y, float &z);
 
@@ -503,6 +488,20 @@ inline bool DSPMapStaticV2::isInMap(const Particle &p) const {
 inline bool DSPMapStaticV2::isInMap(const float &px, const float &py, const float &pz) const {
   return (px >= mp_.half_map_size_x_ || px <= -mp_.half_map_size_x_ || py >= mp_.half_map_size_y_ ||
           py <= -mp_.half_map_size_y_ || pz >= mp_.half_map_size_z_ || pz <= -mp_.half_map_size_z_);
+}
+
+inline bool DSPMapStaticV2::ifInPyramidsArea(float &x, float &y, float &z) {
+  //        vectorCOut(&pyramid_BPnorm_params_v[mp_.n_pyramid_obsrv_v_][0]);
+  return vectorMultiply(x, y, z, pyramid_BPnorm_params_h[0][0], pyramid_BPnorm_params_h[0][1],
+                        pyramid_BPnorm_params_h[0][2]) >= 0.F &&
+         vectorMultiply(x, y, z, pyramid_BPnorm_params_h[mp_.n_pyramid_obsrv_h_][0],
+                        pyramid_BPnorm_params_h[mp_.n_pyramid_obsrv_h_][1],
+                        pyramid_BPnorm_params_h[mp_.n_pyramid_obsrv_h_][2]) <= 0.F &&
+         vectorMultiply(x, y, z, pyramid_BPnorm_params_v[0][0], pyramid_BPnorm_params_v[0][1],
+                        pyramid_BPnorm_params_v[0][2]) <= 0.F &&
+         vectorMultiply(x, y, z, pyramid_BPnorm_params_v[mp_.n_pyramid_obsrv_v_][0],
+                        pyramid_BPnorm_params_v[mp_.n_pyramid_obsrv_v_][1],
+                        pyramid_BPnorm_params_v[mp_.n_pyramid_obsrv_v_][2]) >= 0.F;
 }
 
 #endif  // _DSP_MAP_H_

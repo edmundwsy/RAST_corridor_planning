@@ -32,13 +32,21 @@
     <remap from="~grid_map/depth" to="/drone_depth_topic" />
 
     <param name="grid_map/resolution" value="0.2" />
+    <param name="grid_map/angle_resolution" value="3" />
+    <param name="grid_map/time_resolution" value="0.2" />
+
     <param name="grid_map/map_size_x" value="$(arg map_size_x)" />
     <param name="grid_map/map_size_y" value="$(arg map_size_y)" />
     <param name="grid_map/map_size_z" value="$(arg map_size_z)" />
+    <param name="grid_map/n_risk_map" value="3" />
+    <param name="grid_map/n_prediction_per_risk" value="3" />
+    <param name="grid_map/half_fov_horizontal" value="48" />   
+    <param name="grid_map/half_fov_vertical" value="36" />
+
     <param name="grid_map/local_update_range_x" value="5.5" />
     <param name="grid_map/local_update_range_y" value="5.5" />
     <param name="grid_map/local_update_range_z" value="4.5" />
-    <param name="grid_map/obstacles_inflation" value="0.099" />
+    <param name="grid_map/obstacles_inflation" value="0.3" />
     <param name="grid_map/local_map_margin" value="10" />
     <param name="grid_map/ground_height" value="-0.01" />
     <!-- camera parameter -->

@@ -17,6 +17,8 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   /* read parameters */
   nh_.param("grid_map/n_risk_map", mp_.n_risk_map_, 3);
   nh_.param("grid_map/n_prediction_per_risk", mp_.n_prediction_per_risk_map_, 3);
+  nh_.param("grid_map/n_particles_max", mp_.n_particles_max_, 1000);
+  nh_.param("grid_map/n_particles_max_per_voxel", mp_.n_particles_max_per_voxel_, 18);
 
   nh_.param("grid_map/resolution", mp_.resolution_, -1.0F);
   nh_.param("grid_map/map_size_x", mp_.map_size_x_, -1.0F);
@@ -46,6 +48,7 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   nh_.param("grid_map/ground_height", mp_.ground_height_, 1.0F);
 
   nh_.param("grid_map/odom_depth_timeout", mp_.odom_depth_timeout_, 1.0F);
+  nh_.param("grid_map/is_output_csv", mp_.is_csv_output_, false);
 
   if (mp_.virtual_ceil_height_ - mp_.ground_height_ > mp_.map_size_z_) {
     mp_.virtual_ceil_height_ = mp_.ground_height_ + mp_.map_size_z_;
@@ -62,35 +65,35 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   /* set initial parameters */
   mp_.angle_resolution_rad_ = static_cast<float>(mp_.angle_resolution_) / 180.F * M_PIf32;
 
-  sigma_update = sigma_observation;
-
   ROS_INFO("voxel size: %i %i %i", mp_.voxel_size_x_, mp_.voxel_size_y_, mp_.voxel_size_z_);
+  mp_.n_voxel_           = mp_.voxel_size_x_ * mp_.voxel_size_y_ * mp_.voxel_size_z_;
+  mp_.n_pyramid_         = 360 * 180 / mp_.angle_resolution_ / mp_.angle_resolution_;
+  mp_.n_pyramid_obsrv_h_ = static_cast<int>(mp_.half_fov_h_ * 2 / mp_.angle_resolution_);
+  mp_.n_pyramid_obsrv_v_ = static_cast<int>(mp_.half_fov_v_ * 2 / mp_.angle_resolution_);
+  mp_.n_pyramid_obsrv_   = mp_.n_pyramid_obsrv_h_ * mp_.n_pyramid_obsrv_v_;
 
-  voxels_total_num = VOXEL_NUM;
+  mp_.n_voxel_ = VOXEL_NUM;
 
   /* initialize index */
   md_.vel_gaussian_idx_ = 0;
   md_.pos_gaussian_idx_ = 0;
   md_.loc_gaussian_idx_ = 0;
 
-  kappa                               = 0.01F;
-  sigma_observation                   = 0.2F;
-  sigma_localization                  = 0.2F;
-  position_prediction_stddev          = 0.2F;
-  velocity_prediction_stddev          = 0.1F;
-  sigma_observation                   = 0.2F;
-  sigma_localization                  = 0.F;
-  P_detection                         = 0.95F;
-  update_time                         = 0.F;
-  update_counter                      = 0;
-  expected_new_born_objects           = 0.F;
-  new_born_particle_weight            = 0.04F;
-  new_born_particle_number_each_point = 20;
-  if_record_particle_csv              = 0;
-  record_time                         = 1.F;
-  new_born_each_object_weight         = 0.F;
-  total_time                          = 0.0;
-  update_times                        = 0;
+  md_.sigma_obsrv_                 = 0.2F;
+  md_.sigma_update_                = md_.sigma_obsrv_;
+  md_.kappa_                       = 0.01F;
+  md_.stddev_pos_predict_          = 0.2F;
+  md_.stddev_vel_predict_          = 0.1F;
+  md_.sigma_loc_                   = 0.F;
+  md_.P_detection_                 = 0.95F;
+  update_time                      = 0.F;
+  md_.idx_update_                  = 0;
+  md_.newborn_objects_expected_    = 0.F;
+  md_.newborn_particles_weight_    = 0.04F;
+  md_.newborn_particles_per_point_ = 20;
+  md_.newborn_objects_weight_      = 0.F;
+  record_time                      = 1.F;
+  total_time                       = 0.0;
 
   /* initialize map data */
 
@@ -130,7 +133,7 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   }
 
   // Find neighborhood pyramids' indexes for observation pyramids
-  for (int i = 0; i < observation_pyramid_num; i++) {  // Initialize point num in the storage
+  for (int i = 0; i < mp_.n_pyramid_obsrv_; i++) {  // Initialize point num in the storage
     findPyramidNeighborIndexInFOV(i, observation_pyramid_neighbors[i][0],
                                   &observation_pyramid_neighbors[i][1]);
   }
@@ -197,18 +200,18 @@ int DSPMapStaticV2::update(int    point_cloud_num,
   sensor_rotation_quaternion[2] = sensor_quaternion_y;
   sensor_rotation_quaternion[3] = sensor_quaternion_z;
 
-  for (int i = 0; i < observation_pyramid_num_h + 1; i++) {
+  for (int i = 0; i < mp_.n_pyramid_obsrv_h_ + 1; i++) {
     rotateVectorByQuaternion(&pyramid_BPnorm_params_ori_h[i][0], sensor_rotation_quaternion,
                              &pyramid_BPnorm_params_h[i][0]);
   }
 
-  for (int j = 0; j < observation_pyramid_num_v + 1; j++) {
+  for (int j = 0; j < mp_.n_pyramid_obsrv_v_ + 1; j++) {
     rotateVectorByQuaternion(&pyramid_BPnorm_params_ori_v[j][0], sensor_rotation_quaternion,
                              &pyramid_BPnorm_params_v[j][0]);
   }
 
   /** Insert point cloud to observation storage **/
-  for (int i = 0; i < observation_pyramid_num; i++) {  // Initialize point num in the storage
+  for (int i = 0; i < mp_.n_pyramid_obsrv_; i++) {  // Initialize point num in the storage
     observation_num_each_pyramid[i] =
         0;  // Set number of observations in each pyramid as zero in the beginning
     point_cloud_max_length[i] = -1.F;
@@ -241,7 +244,7 @@ int DSPMapStaticV2::update(int    point_cloud_num,
       pyramid_index_v = findPointPyramidVerticalIndex(rotated_point_this[0], rotated_point_this[1],
                                                       rotated_point_this[2]);
 
-      int pyramid_index         = pyramid_index_h * observation_pyramid_num_v + pyramid_index_v;
+      int pyramid_index         = pyramid_index_h * mp_.n_pyramid_obsrv_v_ + pyramid_index_v;
       int observation_inner_seq = observation_num_each_pyramid[pyramid_index];
 
       float length = sqrtf(rotated_point_this[0] * rotated_point_this[0] +
@@ -274,10 +277,10 @@ int DSPMapStaticV2::update(int    point_cloud_num,
     iter_num += size_of_one_point;
   }
 
-  expected_new_born_objects =
-      new_born_particle_weight * (float)valid_points * (float)new_born_particle_number_each_point;
-  new_born_each_object_weight =
-      new_born_particle_weight * (float)new_born_particle_number_each_point;
+  md_.newborn_objects_expected_ =
+      md_.newborn_particles_weight_ * (float)valid_points * (float)md_.newborn_particles_per_point_;
+  md_.newborn_objects_weight_ =
+      md_.newborn_particles_weight_ * (float)md_.newborn_particles_per_point_;
 
   /// Start a new thread for velocity estimation
   std::thread velocity_estimation(velocityEstimationThread);
@@ -285,7 +288,7 @@ int DSPMapStaticV2::update(int    point_cloud_num,
   /*** Prediction ***/
   //        clock_t start7, finish7;
   //        start7 = clock();
-
+  // TODO: slow
   mapPrediction(-odom_delt_px, -odom_delt_py, -odom_delt_pz,
                 delt_t);  // Particles move in the opposite of the robot moving direction
                           //
@@ -297,7 +300,7 @@ int DSPMapStaticV2::update(int    point_cloud_num,
   //        clock_t start8, finish8;
   //        start8 = clock();
   if (point_cloud_num >= 0) {
-    mapUpdate();
+    mapUpdate();  // TODO: too slow
   } else {
     cout << "No points to update." << endl;
   }
@@ -327,7 +330,7 @@ int DSPMapStaticV2::update(int    point_cloud_num,
   /// NOTE in this step the flag which is set to be 7.F in prediction step will be changed to 1.F or
   /// 0.6F. Removing this step will make prediction malfunction unless the flag is reset somewhere
   /// else.
-  mapOccupancyCalculationAndResample();
+  mapOccupancyCalculationAndResample();  // TODO: slow
 
   //        finish9 = clock();
   //        double duration9 = (double)(finish9 - start9) / CLOCKS_PER_SEC;
@@ -347,16 +350,16 @@ int DSPMapStaticV2::update(int    point_cloud_num,
   /*** Record particles for analysis  ***/
   static int recorded_once_flag = 0;
 
-  if (if_record_particle_csv) {
-    if (if_record_particle_csv < 0 || (update_time > record_time && !recorded_once_flag)) {
+  if (mp_.is_csv_output_) {
+    if (mp_.is_csv_output_ < 0 || (update_time > record_time && !recorded_once_flag)) {
       recorded_once_flag = 1;
 
       ofstream particle_log_writer;
-      string   file_name = "/home/clarence/particles_update_t_" + to_string(update_counter) + "_" +
+      string   file_name = "/home/clarence/particles_update_t_" + to_string(md_.idx_update_) + "_" +
                          to_string((int)(update_time * 1000)) + ".csv";
       particle_log_writer.open(file_name, ios::out | ios::trunc);
 
-      for (int i = 0; i < voxels_total_num; i++) {
+      for (int i = 0; i < mp_.n_voxel_; i++) {
         for (int j = 0; j < SAFE_PARTICLE_NUM_VOXEL; j++) {
           if (voxels_with_particle[i][j][0] > 0.1F) {
             for (int k = 0; k < 8; k++) {
@@ -376,37 +379,37 @@ int DSPMapStaticV2::update(int    point_cloud_num,
 }
 
 void DSPMapStaticV2::setPredictionVariance(float p_stddev, float v_stddev) {
-  position_prediction_stddev = p_stddev;
-  velocity_prediction_stddev = v_stddev;
+  md_.stddev_pos_predict_ = p_stddev;
+  md_.stddev_vel_predict_ = v_stddev;
   // regenerate randoms
   generateGaussianRandomsVectorZeroCenter();
 }
 
 void DSPMapStaticV2::setObservationStdDev(float ob_stddev) {
-  sigma_observation = ob_stddev;
-  sigma_update      = sigma_observation;
+  md_.sigma_obsrv_  = ob_stddev;
+  md_.sigma_update_ = md_.sigma_obsrv_;
 
-  cout << "Observation stddev changed to " << sigma_observation << endl;
+  cout << "Observation stddev changed to " << md_.sigma_obsrv_ << endl;
 }
 
 void DSPMapStaticV2::setLocalizationStdDev(float lo_stddev) {
   float tuned_scale_factor = 0.1F;
-  sigma_localization       = lo_stddev * tuned_scale_factor;
-  cout << "Localization stddev changed to " << sigma_localization << endl;
+  md_.sigma_loc_           = lo_stddev * tuned_scale_factor;
+  cout << "Localization stddev changed to " << md_.sigma_loc_ << endl;
   // regenerate randoms
   generateGaussianRandomsVectorZeroCenter();
 }
 
 void DSPMapStaticV2::setParticleRecordFlag(int record_particle_flag, float record_csv_time) {
-  if_record_particle_csv = record_particle_flag;
-  record_time            = record_csv_time;
+  mp_.is_csv_output_ = record_particle_flag;
+  record_time        = record_csv_time;
 }
 
 void DSPMapStaticV2::getOccupancyMap(int &                           obstacles_num,
                                      pcl::PointCloud<pcl::PointXYZ> &cloud,
                                      const float                     threshold) {
   obstacles_num = 0;
-  for (int i = 0; i < voxels_total_num; i++) {
+  for (int i = 0; i < mp_.n_voxel_; i++) {
     if (voxels_objects_number[i][0] > threshold) {
       pcl::PointXYZ pcl_point;
       getVoxelPositionFromIndex(i, pcl_point.x, pcl_point.y, pcl_point.z);
@@ -427,7 +430,7 @@ void DSPMapStaticV2::getOccupancyMapWithVelocity(int &                          
                                                  pcl::PointCloud<pcl::PointNormal> &cloud,
                                                  const float                        threshold) {
   obstacles_num = 0;
-  for (int i = 0; i < voxels_total_num; i++) {
+  for (int i = 0; i < mp_.n_voxel_; i++) {
     if (voxels_objects_number[i][0] > threshold) {
       pcl::PointNormal pcl_point;
       pcl_point.normal_x = voxels_objects_number[i][1];  // vx
@@ -451,7 +454,7 @@ void DSPMapStaticV2::getOccupancyMapWithFutureStatus(int &                      
                                                      float *                         future_status,
                                                      const float                     threshold) {
   obstacles_num = 0;
-  for (int i = 0; i < voxels_total_num; i++) {
+  for (int i = 0; i < mp_.n_voxel_; i++) {
     if (voxels_objects_number[i][0] > threshold) {
       pcl::PointXYZ pcl_point;
       getVoxelPositionFromIndex(i, pcl_point.x, pcl_point.y, pcl_point.z);
@@ -476,7 +479,7 @@ void DSPMapStaticV2::getOccupancyMapWithRiskMaps(int &                          
                                                  float *                         risk_maps,
                                                  const float                     threshold) {
   obstacles_num = 0;
-  for (int i = 0; i < voxels_total_num; i++) {
+  for (int i = 0; i < mp_.n_voxel_; i++) {
     if (voxels_objects_number[i][0] > threshold) {
       pcl::PointXYZ pcl_point;
       getVoxelPositionFromIndex(i, pcl_point.x, pcl_point.y, pcl_point.z);
@@ -501,7 +504,7 @@ void DSPMapStaticV2::getOccupancyMapWithRiskMaps(int &                          
 }
 
 void DSPMapStaticV2::clearOccupancyMapPrediction() {
-  for (int i = 0; i < voxels_total_num; i++) {
+  for (int i = 0; i < mp_.n_voxel_; i++) {
     for (int j = 4; j < voxels_objects_number_dimension; ++j) {
       voxels_objects_number[i][j] = 0.F;
     }
@@ -554,7 +557,7 @@ void DSPMapStaticV2::mapPrediction(float odom_delt_px,
   int moves_out_counter = 0;
 
   update_time += delt_t;
-  update_counter += 1;
+  md_.idx_update_ += 1;
 
   /// Clear pyramids first
   for (auto &j : pyramids_in_fov) {
@@ -644,7 +647,7 @@ void DSPMapStaticV2::mapUpdate() {
   int operation_counter_update = 0;
 
   /// Calculate Ck + kappa first
-  for (int i = 0; i < observation_pyramid_num; ++i) {
+  for (int i = 0; i < mp_.n_pyramid_obsrv_; ++i) {
     for (int j = 0; j < observation_num_each_pyramid[i]; ++j) {
       // Iteration of z
       for (int n_seq = 0; n_seq < observation_pyramid_neighbors[i][0]; ++n_seq) {
@@ -664,27 +667,27 @@ void DSPMapStaticV2::mapUpdate() {
             float gk =
                 queryNormalPDF(
                     voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][4],
-                    point_cloud[i][j][0], sigma_update) *
+                    point_cloud[i][j][0], md_.sigma_update_) *
                 queryNormalPDF(
                     voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][5],
-                    point_cloud[i][j][1], sigma_update) *
+                    point_cloud[i][j][1], md_.sigma_update_) *
                 queryNormalPDF(
                     voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][6],
-                    point_cloud[i][j][2], sigma_update);
+                    point_cloud[i][j][2], md_.sigma_update_);
 
             point_cloud[i][j][3] +=
-                P_detection *
+                md_.P_detection_ *
                 voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][7] * gk;
           }
         }
       }
       /// add weight for new born particles
-      point_cloud[i][j][3] += (expected_new_born_objects + kappa);
+      point_cloud[i][j][3] += (md_.newborn_objects_expected_ + md_.kappa_);
     }
   }
 
   /// Update weight for each particle in view
-  for (int i = 0; i < observation_pyramid_num; i++) {
+  for (int i = 0; i < mp_.n_pyramid_obsrv_; i++) {
     int current_pyramid_index = i;
 
     for (int inner_seq = 0; inner_seq < SAFE_PARTICLE_NUM_PYRAMID; inner_seq++) {
@@ -706,9 +709,9 @@ void DSPMapStaticV2::mapUpdate() {
         if (point_cloud_max_length[i] > 0.F &&
             particle_dist_length >
                 point_cloud_max_length[i] +
-                    obstacle_thickness_for_occlusion)  // Update only particles that are not
-                                                       // occluded, use voxel_resolution as the
-                                                       // distance metric.
+                    mp_.obstacles_inflation_)  // Update only particles that are not
+                                               // occluded, use voxel_resolution as the
+                                               // distance metric.
         {
           // occluded
           continue;
@@ -723,17 +726,17 @@ void DSPMapStaticV2::mapUpdate() {
                ++z_seq)  // for all observation points in a neighbor pyramid
           {
             float gk =
-                queryNormalPDF(px_this, point_cloud[neighbor_index][z_seq][0], sigma_update) *
-                queryNormalPDF(py_this, point_cloud[neighbor_index][z_seq][1], sigma_update) *
-                queryNormalPDF(pz_this, point_cloud[neighbor_index][z_seq][2], sigma_update);
+                queryNormalPDF(px_this, point_cloud[neighbor_index][z_seq][0], md_.sigma_update_) *
+                queryNormalPDF(py_this, point_cloud[neighbor_index][z_seq][1], md_.sigma_update_) *
+                queryNormalPDF(pz_this, point_cloud[neighbor_index][z_seq][2], md_.sigma_update_);
 
-            sum_by_zk += P_detection * gk / point_cloud[neighbor_index][z_seq][3];
+            sum_by_zk += md_.P_detection_ * gk / point_cloud[neighbor_index][z_seq][3];
             ++operation_counter_update;
           }
         }
 
         voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][7] *=
-            ((1 - P_detection) + sum_by_zk);
+            ((1 - md_.P_detection_) + sum_by_zk);
         voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][8] = update_time;
       }
     }
@@ -744,22 +747,22 @@ void DSPMapStaticV2::mapUpdate() {
 void DSPMapStaticV2::mapAddNewBornParticlesByObservation() {
   /** Calculate normalization coefficient first **/
   float normalization_coefficient = 0.F;
-  for (int i = 0; i < observation_pyramid_num; i++) {
+  for (int i = 0; i < mp_.n_pyramid_obsrv_; i++) {
     for (int j = 0; j < observation_num_each_pyramid[i]; j++) {
       normalization_coefficient += 1.F / point_cloud[i][j][3];
     }
   }
-  float updated_weight_new_born = new_born_particle_weight * normalization_coefficient;
+  float updated_weight_new_born = md_.newborn_particles_weight_ * normalization_coefficient;
 
   /** Add new born particles **/
   static int min_static_new_born_particle_number_each_point =
-      (int)((float)new_born_particle_number_each_point * 0.15F);
+      (int)((float)md_.newborn_particles_per_point_ * 0.15F);
   static int static_new_born_particle_number_each_point =
-      (int)((float)new_born_particle_number_each_point * 0.4F);  // static points takes 3 in 10
+      (int)((float)md_.newborn_particles_per_point_ * 0.4F);  // static points takes 3 in 10
   static int pf_derive_new_born_particle_number_each_point =
-      (int)((float)new_born_particle_number_each_point * 0.5F);  // Derived takes half
+      (int)((float)md_.newborn_particles_per_point_ * 0.5F);  // Derived takes half
   static const int model_generated_particle_number_each_point =
-      (int)((float)new_born_particle_number_each_point * 0.8F);
+      (int)((float)md_.newborn_particles_per_point_ * 0.8F);
 
   int successfully_born_particles = 0;
   /// TODO: Improve efficiency in this new born procedure
@@ -821,7 +824,7 @@ void DSPMapStaticV2::mapAddNewBornParticlesByObservation() {
     static_new_born_particle_number_each_point = max(min_static_new_born_particle_number_each_point,
                                                      static_new_born_particle_number_each_point);
 
-    for (int p = 0; p < new_born_particle_number_each_point; p++) {
+    for (int p = 0; p < md_.newborn_particles_per_point_; p++) {
       std::shared_ptr<Particle> particle_ptr{new Particle};
 
       particle_ptr->px = p_corrected.x + getPositionGaussianZeroCenter();
@@ -950,15 +953,14 @@ void DSPMapStaticV2::mapOccupancyCalculationAndResample() {
 
     // Calculate desired particle number after resampling
     int particle_num_voxel_after_resample;
-    if (particle_num_voxel > MAX_PARTICLE_NUM_VOXEL) {
-      particle_num_voxel_after_resample = MAX_PARTICLE_NUM_VOXEL;
+    if (particle_num_voxel > mp_.n_particles_max_per_voxel_) {
+      particle_num_voxel_after_resample = mp_.n_particles_max_per_voxel_;
     } else {
       particle_num_voxel_after_resample = particle_num_voxel;
     }
 
     static float weight_after_resample;
     weight_after_resample = weight_sum_voxel / (float)particle_num_voxel_after_resample;
-
     particle_num_after_resampling_should_be += particle_num_voxel_after_resample;
 
     // Resample
@@ -1091,9 +1093,9 @@ void DSPMapStaticV2::getVoxelPositionFromIndex(const int &index,
 
 void DSPMapStaticV2::generateGaussianRandomsVectorZeroCenter() const {
   std::default_random_engine      random(time(NULL));
-  std::normal_distribution<float> n1(0, position_prediction_stddev);
-  std::normal_distribution<float> n2(0, velocity_prediction_stddev);
-  std::normal_distribution<float> n3(0, sigma_localization);
+  std::normal_distribution<float> n1(0, md_.stddev_pos_predict_);
+  std::normal_distribution<float> n2(0, md_.stddev_vel_predict_);
+  std::normal_distribution<float> n3(0, md_.sigma_loc_);
 
   for (int i = 0; i < GAUSSIAN_RANDOMS_NUM; i++) {
     *(p_gaussian_randoms + i)            = n1(random);
@@ -1121,7 +1123,7 @@ float DSPMapStaticV2::getLocalizationGaussianZeroCenter() {
 }
 
 float DSPMapStaticV2::getVelocityGaussianZeroCenter() {
-  float delt_v = v_gaussian_randoms[mp_.vel_gaussian_idx_];
+  float delt_v = v_gaussian_randoms[md_.vel_gaussian_idx_];
   md_.vel_gaussian_idx_ += 1;
   if (md_.vel_gaussian_idx_ >= GAUSSIAN_RANDOMS_NUM) {
     md_.vel_gaussian_idx_ = 0;
@@ -1193,7 +1195,7 @@ int DSPMapStaticV2::moveParticle(const int &new_voxel_index,
         voxels_with_particle[new_voxel_index][new_voxel_inner_index][5],
         voxels_with_particle[new_voxel_index][new_voxel_inner_index][6]);
 
-    int particle_pyramid_index_new = h_index * observation_pyramid_num_v + v_index;
+    int particle_pyramid_index_new = h_index * mp_.n_pyramid_obsrv_v_ + v_index;
 
     int successfully_moved_by_pyramid = 0;
     for (int j = 0; j < SAFE_PARTICLE_NUM_PYRAMID; j++) {
@@ -1231,31 +1233,12 @@ int DSPMapStaticV2::moveParticle(const int &new_voxel_index,
   return 1;
 }
 
-int DSPMapStaticV2::ifInPyramidsArea(float &x, float &y, float &z) {
-  //        vectorCOut(&pyramid_BPnorm_params_v[observation_pyramid_num_v][0]);
-
-  if (vectorMultiply(x, y, z, pyramid_BPnorm_params_h[0][0], pyramid_BPnorm_params_h[0][1],
-                     pyramid_BPnorm_params_h[0][2]) >= 0.F &&
-      vectorMultiply(x, y, z, pyramid_BPnorm_params_h[observation_pyramid_num_h][0],
-                     pyramid_BPnorm_params_h[observation_pyramid_num_h][1],
-                     pyramid_BPnorm_params_h[observation_pyramid_num_h][2]) <= 0.F &&
-      vectorMultiply(x, y, z, pyramid_BPnorm_params_v[0][0], pyramid_BPnorm_params_v[0][1],
-                     pyramid_BPnorm_params_v[0][2]) <= 0.F &&
-      vectorMultiply(x, y, z, pyramid_BPnorm_params_v[observation_pyramid_num_v][0],
-                     pyramid_BPnorm_params_v[observation_pyramid_num_v][1],
-                     pyramid_BPnorm_params_v[observation_pyramid_num_v][2]) >= 0.F) {
-    return 1;
-  } else {
-    return 0;
-  }
-}
-
 int DSPMapStaticV2::findPointPyramidHorizontalIndex(
     float &x, float &y, float &z) {  /// The point should already be inside of Pyramids Area
   float last_dot_multiply =
       1.F;  // for horizontal direction, if the point is inside of Pyramids Area. The symbol of
             // the first dot multiplication should be positive
-  for (int i = 0; i < observation_pyramid_num_h; i++) {
+  for (int i = 0; i < mp_.n_pyramid_obsrv_h_; i++) {
     float this_dot_multiply =
         vectorMultiply(x, y, z, pyramid_BPnorm_params_h[i + 1][0],
                        pyramid_BPnorm_params_h[i + 1][1], pyramid_BPnorm_params_h[i + 1][2]);
@@ -1276,7 +1259,7 @@ int DSPMapStaticV2::findPointPyramidVerticalIndex(
   float last_dot_multiply =
       -1.F;  // for vertical direction, if the point is inside of Pyramids Area. The symbol of the
              // first dot multiplication should be negative
-  for (int j = 0; j < observation_pyramid_num_v; j++) {
+  for (int j = 0; j < mp_.n_pyramid_obsrv_v_; j++) {
     float this_dot_multiply =
         vectorMultiply(x, y, z, pyramid_BPnorm_params_v[j + 1][0],
                        pyramid_BPnorm_params_v[j + 1][1], pyramid_BPnorm_params_v[j + 1][2]);
