@@ -87,6 +87,42 @@ static const float obstacle_thickness_for_occlusion       = 0.3;
 
 using namespace std;
 
+
+// flag value 0: invalid, value 1: valid but not newborn, value 3: valid newborn 7: Recently
+// predicted
+/// Container for voxels h particles
+//  1.flag 2.vx 3.vy 4.vz 5.px 6.py 7.pz
+//  8.weight 9.update time
+static float voxels_with_particle[VOXEL_NUM][SAFE_PARTICLE_NUM_VOXEL][9];
+
+// 1. objects number; 2-4. Avg vx, vy, vz; 5-. Future objects number
+static const int voxels_objects_number_dimension = 4 + PREDICTION_TIMES;
+static float     voxels_objects_number[VOXEL_NUM][voxels_objects_number_dimension];
+
+/// Container for pyramids
+// 0.flag 1.particle voxel index  2.particle index inside voxel
+static int pyramids_in_fov[observation_pyramid_num][SAFE_PARTICLE_NUM_PYRAMID][3];
+
+// 1.neighbors num 2-10:neighbor indexes
+static int observation_pyramid_neighbors[observation_pyramid_num][10]{};
+
+/// Variables for velocity estimation
+pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_current_view_rotated(
+    new pcl::PointCloud<pcl::PointXYZ>());
+static float                               current_position[3]          = {0.f, 0.f, 0.f};
+static float                               voxel_filtered_resolution    = 0.15;
+static float                               delt_t_from_last_observation = 0.f;
+pcl::PointCloud<pcl::PointXYZINormal>::Ptr input_cloud_with_velocity(
+    new pcl::PointCloud<pcl::PointXYZINormal>());
+
+/** Storage for Gaussian randoms and Gaussian PDF**/
+// static float p_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
+// static float v_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
+// static float localization_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
+
+static float standard_gaussian_pdf[20000];
+
+
 /** Struct for an individual particle**/
 struct Particle {
   float px;
@@ -160,8 +196,13 @@ struct MappingParameters {
 
 struct MappingData {
   /* main map data, occupancy of each voxel and Euclidean distance */
-  std::vector<float> occupancy_buffer_;
-  std::vector<char>  occupancy_buffer_inflate_;
+  // std::vector<float> occupancy_buffer_;
+  // std::vector<char>  occupancy_buffer_inflate_;
+
+  /* gaussian random buffers */
+  std::vector<float> pos_gaussian_randoms_;
+  std::vector<float> vel_gaussian_randoms_;
+  std::vector<float> loc_gaussian_randoms_;  /* localization */
 
   /* camera position and pose data */
   Eigen::Vector3d camera_pos_, last_camera_pos_;
@@ -183,6 +224,8 @@ struct MappingData {
 
   /* computation time */
   double total_time_;
+  float  update_time_;
+  float  record_time_;
   int    idx_update_;  // number of updates
 
   /* index */
@@ -206,40 +249,6 @@ struct MappingData {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-// flag value 0: invalid, value 1: valid but not newborn, value 3: valid newborn 7: Recently
-// predicted
-/// Container for voxels h particles
-//  1.flag 2.vx 3.vy 4.vz 5.px 6.py 7.pz
-//  8.weight 9.update time
-static float voxels_with_particle[VOXEL_NUM][SAFE_PARTICLE_NUM_VOXEL][9];
-
-// 1. objects number; 2-4. Avg vx, vy, vz; 5-. Future objects number
-static const int voxels_objects_number_dimension = 4 + PREDICTION_TIMES;
-static float     voxels_objects_number[VOXEL_NUM][voxels_objects_number_dimension];
-
-/// Container for pyramids
-// 0.flag 1.particle voxel index  2.particle index inside voxel
-static int pyramids_in_fov[observation_pyramid_num][SAFE_PARTICLE_NUM_PYRAMID][3];
-
-// 1.neighbors num 2-10:neighbor indexes
-static int observation_pyramid_neighbors[observation_pyramid_num][10]{};
-
-/// Variables for velocity estimation
-pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_current_view_rotated(
-    new pcl::PointCloud<pcl::PointXYZ>());
-static float                               current_position[3]          = {0.f, 0.f, 0.f};
-static float                               voxel_filtered_resolution    = 0.15;
-static float                               delt_t_from_last_observation = 0.f;
-pcl::PointCloud<pcl::PointXYZINormal>::Ptr input_cloud_with_velocity(
-    new pcl::PointCloud<pcl::PointXYZINormal>());
-
-/** Storage for Gaussian randoms and Gaussian PDF**/
-static float p_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
-static float v_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
-static float localization_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
-
-static float standard_gaussian_pdf[20000];
-
 class DSPMapStaticV2 {
  private:
   /** ROS **/
@@ -250,9 +259,6 @@ class DSPMapStaticV2 {
 
   /** Parameters **/
   float record_time;
-
-  /** Variables **/
-  float update_time;
 
   // 1.px, 2.py, 3.pz 4.acc 5.length for later usage
   float point_cloud[observation_pyramid_num][observation_max_points_num_one_pyramid][5];
@@ -312,7 +318,7 @@ class DSPMapStaticV2 {
 
   /// record_particle_flag O: don't record; -1 or other negative value: record all; positive value:
   /// record a time
-  void setParticleRecordFlag(int record_particle_flag, float record_csv_time = 1.f);
+  void setParticleRecordFlag(bool record_particle_flag, float record_csv_time = 1.f);
 
   static void setOriginalVoxelFilterResolution(float res) { voxel_filtered_resolution = res; }
 
@@ -383,7 +389,7 @@ class DSPMapStaticV2 {
     }
   }
 
-  void  generateGaussianRandomsVectorZeroCenter() const;
+  void  generateGaussianRandomsVectorZeroCenter();
   float getPositionGaussianZeroCenter();
   float getLocalizationGaussianZeroCenter();
   float getVelocityGaussianZeroCenter();
