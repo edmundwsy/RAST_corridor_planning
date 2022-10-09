@@ -378,9 +378,9 @@ int DSPMapStaticV2::update(int                      point_cloud_num,
 }
 
 void DSPMapStaticV2::mapPrediction(const Eigen::Vector3f &dp, float dt) {
-  int operation_counter         = 0;
-  int exist_particles           = 0;
-  int voxel_full_remove_counter = 0, pyramid_full_remove_counter = 0;
+  // int operation_counter         = 0;
+  // int exist_particles           = 0;
+  // int voxel_full_remove_counter = 0, pyramid_full_remove_counter = 0;
   int moves_out_counter = 0;
 
   md_.update_time_ += dt;
@@ -395,48 +395,45 @@ void DSPMapStaticV2::mapPrediction(const Eigen::Vector3f &dp, float dt) {
 
   /// Update Particles' state and index in both voxels and pyramids
   for (int v_index = 0; v_index < VOXEL_NUM; ++v_index) {
+    auto *v = _voxels_with_particle[v_index];
     for (int p = 0; p < SAFE_PARTICLE_NUM_VOXEL; p++) {
-      if (_voxels_with_particle[v_index][p][0] > 0.1F &&
-          _voxels_with_particle[v_index][p][0] < 6.F) {  /// exsit, but not new moved
-        _voxels_with_particle[v_index][p][0] = 1.F;      // If valid, remove resample flag.
-        ++operation_counter;
+      auto *ptc  = v[p];
+      float ptcf = ptc[0];
+      if (ptcf > 0.1F && ptcf < 6.F) {  /// exit, but not new moved
+        ptcf = 1.F;                     // If valid, remove resample flag.
+        // ++operation_counter;
 
-        if (fabs(_voxels_with_particle[v_index][p][1] * _voxels_with_particle[v_index][p][2] *
-                 _voxels_with_particle[v_index][p][3]) < 1e-6) {
+        if (fabs(ptc[1] * ptc[2] * ptc[3]) < 1e-6) {
           // keep small, for static obstacles
         } else {
-          _voxels_with_particle[v_index][p][1] += getVelocityGaussianZeroCenter();  // vx
-          _voxels_with_particle[v_index][p][2] += getVelocityGaussianZeroCenter();  // vy
-          _voxels_with_particle[v_index][p][3] += getVelocityGaussianZeroCenter();  // vz
+          ptc[1] += getVelocityGaussianZeroCenter();  // vx
+          ptc[2] += getVelocityGaussianZeroCenter();  // vy
+          ptc[3] += getVelocityGaussianZeroCenter();  // vz
         }
 
-        _voxels_with_particle[v_index][p][4] += dt * _voxels_with_particle[v_index][p][1] + dp.x() +
-                                                getLocalizationGaussianZeroCenter();
-        _voxels_with_particle[v_index][p][5] += dt * _voxels_with_particle[v_index][p][2] + dp.y() +
-                                                getLocalizationGaussianZeroCenter();
-        _voxels_with_particle[v_index][p][6] += dt * _voxels_with_particle[v_index][p][3] + dp.z() +
-                                                getLocalizationGaussianZeroCenter();
+        ptc[4] += dt * ptc[1] + dp.x() + getLocalizationGaussianZeroCenter();
+        ptc[5] += dt * ptc[2] + dp.y() + getLocalizationGaussianZeroCenter();
+        ptc[6] += dt * ptc[3] + dp.z() + getLocalizationGaussianZeroCenter();
         int particle_voxel_index_new;
-        if (getParticleVoxelsIndex(
-                _voxels_with_particle[v_index][p][4], _voxels_with_particle[v_index][p][5],
-                _voxels_with_particle[v_index][p][6], particle_voxel_index_new)) {
+        if (getParticleVoxelsIndex(ptc[4], ptc[5], ptc[6], particle_voxel_index_new)) {
           // move particle. If moved, the flag turns to 7.F. If should move but failed because
           // target voxel is full, delete the voxel.
-          int move_flag = moveParticle(particle_voxel_index_new, v_index, p,
-                                       &_voxels_with_particle[v_index][p][0]);
+          int move_flag = moveParticle(particle_voxel_index_new, v_index, p, &ptc[0]);
           if (move_flag == -2) {
             // Move the particle, if fails, "moveParticleByVoxel" will delete the particle
-            ++pyramid_full_remove_counter;
-            continue;
-          } else if (move_flag == -1) {
-            ++voxel_full_remove_counter;
+            // ++pyramid_full_remove_counter;
             continue;
           }
-          ++exist_particles;
+
+          if (move_flag == -1) {
+            // ++voxel_full_remove_counter;
+            continue;
+          }
+          // ++exist_particles;
 
         } else {
           /// Particle moves out
-          removeParticle(&_voxels_with_particle[v_index][p][0]);
+          removeParticle(&ptc[0]);
           ++moves_out_counter;
         }
       }
@@ -457,45 +454,39 @@ void DSPMapStaticV2::mapPrediction(const Eigen::Vector3f &dp, float dt) {
 }
 
 void DSPMapStaticV2::mapUpdate() {
-  int operation_counter_update = 0;
+  // int operation_counter_update = 0;
 
   /// Calculate Ck + kappa first
   for (int i = 0; i < mp_.n_pyramid_obsrv_; ++i) {
     for (int j = 0; j < observation_num_each_pyramid[i]; ++j) {
+      auto *ptr_pt = point_cloud[i][j];
       // Iteration of z
       for (int n_seq = 0; n_seq < _observation_pyramid_neighbors[i][0]; ++n_seq) {
         int pyramid_check_index =
             _observation_pyramid_neighbors[i][n_seq + 1];  // 0.neighbors num 1-9:neighbor indexes
 
         for (int particle_seq = 0; particle_seq < SAFE_PARTICLE_NUM_PYRAMID; ++particle_seq) {
+          auto *particle = _pyramids_in_fov[pyramid_check_index][particle_seq];
           if (_pyramids_in_fov[pyramid_check_index][particle_seq][0] &
               O_MAKE_VALID) {  // Check only valid particles
-            int particle_voxel_index       = _pyramids_in_fov[pyramid_check_index][particle_seq][1];
-            int particle_voxel_inner_index = _pyramids_in_fov[pyramid_check_index][particle_seq][2];
+            int particle_voxel_index       = particle[1];
+            int particle_voxel_inner_index = particle[2];
 
             //                            cout<<"pyramid_check_index="<<pyramid_check_index<<",
             //                            particle_v_inner_index="<<particle_v_inner_index<<",
             //                            point_cloud[i][j][0]="<<point_cloud[i][j][0]<<endl;
+            auto vx = _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index];
 
-            float gk =
-                queryNormalPDF(
-                    _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][4],
-                    point_cloud[i][j][0], mp_.sigma_update_) *
-                queryNormalPDF(
-                    _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][5],
-                    point_cloud[i][j][1], mp_.sigma_update_) *
-                queryNormalPDF(
-                    _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][6],
-                    point_cloud[i][j][2], mp_.sigma_update_);
+            float gk = queryNormalPDF(vx[4], ptr_pt[0], mp_.sigma_update_) *
+                       queryNormalPDF(vx[5], ptr_pt[1], mp_.sigma_update_) *
+                       queryNormalPDF(vx[6], ptr_pt[2], mp_.sigma_update_);
 
-            point_cloud[i][j][3] +=
-                md_.P_detection_ *
-                _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][7] * gk;
+            ptr_pt[3] += md_.P_detection_ * vx[7] * gk;
           }
         }
       }
       /// add weight for new born particles
-      point_cloud[i][j][3] += (mp_.newborn_objects_expected_ + mp_.kappa_);
+      ptr_pt[3] += (mp_.newborn_objects_expected_ + mp_.kappa_);
     }
   }
 
@@ -503,29 +494,25 @@ void DSPMapStaticV2::mapUpdate() {
   for (int i = 0; i < mp_.n_pyramid_obsrv_; i++) {
     int current_pyramid_index = i;
 
+    auto *current_pyramid = _pyramids_in_fov[current_pyramid_index];
+    int   neighbor_num    = _observation_pyramid_neighbors[current_pyramid_index][0];
     for (int inner_seq = 0; inner_seq < SAFE_PARTICLE_NUM_PYRAMID; inner_seq++) {
       // Iteration of particles
-      if (_pyramids_in_fov[current_pyramid_index][inner_seq][0] &
-          O_MAKE_VALID) {  // update only valid particle
+      if (current_pyramid[inner_seq][0] & O_MAKE_VALID) {
+        // update only valid particle
 
-        int neighbor_num = _observation_pyramid_neighbors[current_pyramid_index][0];
+        int   particle_voxel_index       = current_pyramid[inner_seq][1];
+        int   particle_voxel_inner_index = current_pyramid[inner_seq][2];
+        auto *vpt = _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index];
 
-        int particle_voxel_index       = _pyramids_in_fov[current_pyramid_index][inner_seq][1];
-        int particle_voxel_inner_index = _pyramids_in_fov[current_pyramid_index][inner_seq][2];
+        float px                   = vpt[4];
+        float py                   = vpt[5];
+        float pz                   = vpt[6];
 
-        float px_this = _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][4];
-        float py_this = _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][5];
-        float pz_this = _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][6];
-        float particle_dist_length =
-            sqrtf(px_this * px_this + py_this * py_this + pz_this * pz_this);
-
+        float particle_dist_length = sqrtf(px * px + py * py + pz * pz);
+        // Update only particles that are not occluded, use voxel_resolution as the distance metric.
         if (point_cloud_max_length[i] > 0.F &&
-            particle_dist_length >
-                point_cloud_max_length[i] +
-                    mp_.obstacles_inflation_)  // Update only particles that are not
-                                               // occluded, use voxel_resolution as the
-                                               // distance metric.
-        {
+            particle_dist_length > point_cloud_max_length[i] + mp_.obstacles_inflation_) {
           // occluded
           continue;
         }
@@ -534,24 +521,23 @@ void DSPMapStaticV2::mapUpdate() {
         for (int neighbor_seq = 0; neighbor_seq < neighbor_num; ++neighbor_seq) {
           int neighbor_index =
               _observation_pyramid_neighbors[current_pyramid_index][neighbor_seq + 1];
+          auto *ptz = point_cloud[neighbor_index];
 
           for (int z_seq = 0; z_seq < observation_num_each_pyramid[neighbor_index];
-               ++z_seq)  // for all observation points in a neighbor pyramid
-          {
-            float gk =
-                queryNormalPDF(px_this, point_cloud[neighbor_index][z_seq][0], mp_.sigma_update_) *
-                queryNormalPDF(py_this, point_cloud[neighbor_index][z_seq][1], mp_.sigma_update_) *
-                queryNormalPDF(pz_this, point_cloud[neighbor_index][z_seq][2], mp_.sigma_update_);
+               ++z_seq) {  // for all observation points in a neighbor pyramid
 
-            sum_by_zk += md_.P_detection_ * gk / point_cloud[neighbor_index][z_seq][3];
-            ++operation_counter_update;
+            auto  pt = ptz[z_seq];
+            float gk = queryNormalPDF(px, pt[0], mp_.sigma_update_) *
+                       queryNormalPDF(py, pt[1], mp_.sigma_update_) *
+                       queryNormalPDF(pz, pt[2], mp_.sigma_update_);
+
+            sum_by_zk += md_.P_detection_ * gk / pt[3];
+            // ++operation_counter_update;
           }
         }
 
-        _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][7] *=
-            ((1 - md_.P_detection_) + sum_by_zk);
-        _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][8] =
-            md_.update_time_;
+        vpt[7] *= ((1 - md_.P_detection_) + sum_by_zk);
+        vpt[8] = md_.update_time_;
       }
     }
   }
@@ -562,46 +548,41 @@ void DSPMapStaticV2::mapOccupancyCalculationAndResample() {
   int removed_particle_counter                = 0;
   int particle_num_after_resampling_should_be = 0;
 
-  float weight_sum_voxel = 0.F;
-  float vx_sum_voxel     = 0.F;
-  float vy_sum_voxel     = 0.F;
-  float vz_sum_voxel     = 0.F;
-
   for (int v_index = 0; v_index < VOXEL_NUM; ++v_index) {
     // Calculate estimated object number in each voxel
     // static float weight_sum_voxel, vx_sum_voxel, vy_sum_voxel, vz_sum_voxel;
-    weight_sum_voxel = 0.F;
-    vx_sum_voxel = vy_sum_voxel = vz_sum_voxel = 0.F;
+    float weight_sum_voxel       = 0.F;
+    float vx_sum_voxel           = 0.F;
+    float vy_sum_voxel           = 0.F;
+    float vz_sum_voxel           = 0.F;
+    int   particle_num_voxel     = 0;
+    int   old_particle_num_voxel = 0;
 
-    int particle_num_voxel     = 0;
-    int old_particle_num_voxel = 0;
+    auto *vptc = _voxels_with_particle[v_index];
+    auto *vobj = _voxels_objects_number[v_index];
     for (int p = 0; p < SAFE_PARTICLE_NUM_VOXEL; p++) {
-      if (_voxels_with_particle[v_index][p][0] > 0.1F) {
-        if (_voxels_with_particle[v_index][p][7] < 1e-3) {
-          _voxels_with_particle[v_index][p][0] =
-              0.F;  // Remove the particle directly if the weight is too small
+      auto ptkl = vptc[p];
+      if (ptkl[0] > 0.1F) {
+        if (ptkl[7] < 1e-3) {
+          // Remove the particle directly if the weight is too small
+          ptkl[0] = 0.F;
         } else {
-          if (_voxels_with_particle[v_index][p][0] < 10.F) {  // exclude new-born particles
+          if (vptc[p][0] < 10.F) {  // exclude new-born particles
             ++old_particle_num_voxel;
-            vx_sum_voxel += _voxels_with_particle[v_index][p][1];
-            vy_sum_voxel += _voxels_with_particle[v_index][p][2];
-            vz_sum_voxel += _voxels_with_particle[v_index][p][3];
+            vx_sum_voxel += ptkl[1];
+            vy_sum_voxel += ptkl[2];
+            vz_sum_voxel += ptkl[3];
 
             /*** Future status prediction ***/
-            float px_future, py_future, pz_future;
             for (int i = 0; i < PREDICTION_TIMES; ++i) {
               float prediction_time = _prediction_future_time[i];
-              px_future             = _voxels_with_particle[v_index][p][4] +
-                          _voxels_with_particle[v_index][p][1] * prediction_time;
-              py_future = _voxels_with_particle[v_index][p][5] +
-                          _voxels_with_particle[v_index][p][2] * prediction_time;
-              pz_future = _voxels_with_particle[v_index][p][6] +
-                          _voxels_with_particle[v_index][p][3] * prediction_time;
+              float px_future       = ptkl[4] + ptkl[1] * prediction_time;
+              float py_future       = ptkl[5] + ptkl[2] * prediction_time;
+              float pz_future       = ptkl[6] + ptkl[3] * prediction_time;
 
               int prediction_index;
               if (getParticleVoxelsIndex(px_future, py_future, pz_future, prediction_index)) {
-                _voxels_objects_number[prediction_index][4 + i] +=
-                    _voxels_with_particle[v_index][p][7];  // weight
+                _voxels_objects_number[prediction_index][4 + i] += ptkl[7];  // weight
               }
             }
             /**** End of prediction ****/
@@ -610,20 +591,19 @@ void DSPMapStaticV2::mapOccupancyCalculationAndResample() {
           _voxels_with_particle[v_index][p][0] =
               1.F;  // Remove newborn flag and moved flag in prediction
           ++particle_num_voxel;
-          weight_sum_voxel += _voxels_with_particle[v_index][p][7];
+          weight_sum_voxel += ptkl[7];
         }
       }
     }
-    _voxels_objects_number[v_index][0] = weight_sum_voxel;
-
+    vobj[0] = weight_sum_voxel;
     if (old_particle_num_voxel > 0) {
-      _voxels_objects_number[v_index][1] = vx_sum_voxel / (float)old_particle_num_voxel;
-      _voxels_objects_number[v_index][2] = vy_sum_voxel / (float)old_particle_num_voxel;
-      _voxels_objects_number[v_index][3] = vz_sum_voxel / (float)old_particle_num_voxel;
+      vobj[1] = vx_sum_voxel / (float)old_particle_num_voxel;
+      vobj[2] = vy_sum_voxel / (float)old_particle_num_voxel;
+      vobj[3] = vz_sum_voxel / (float)old_particle_num_voxel;
     } else {
-      _voxels_objects_number[v_index][1] = 0.F;
-      _voxels_objects_number[v_index][2] = 0.F;
-      _voxels_objects_number[v_index][3] = 0.F;
+      vobj[1] = 0.F;
+      vobj[2] = 0.F;
+      vobj[3] = 0.F;
     }
 
     if (particle_num_voxel < 5) {  // Too few particles, no need to resample.
@@ -641,38 +621,35 @@ void DSPMapStaticV2::mapOccupancyCalculationAndResample() {
 
     float weight_after_resample = weight_sum_voxel / (float)particle_num_voxel_after_resample;
     particle_num_after_resampling_should_be += particle_num_voxel_after_resample;
-
     // Resample
     float acc_ori_weight = 0.F;
     float acc_new_weight = weight_after_resample * 0.5F;
     for (int p = 0; p < SAFE_PARTICLE_NUM_VOXEL; ++p) {
-      if (_voxels_with_particle[v_index][p][0] >
-          0.7F) {  // exclude invalid and newly_added_by_resampling particles
-        float ori_particle_weight = _voxels_with_particle[v_index][p][7];
+      auto ptcl = vptc[p];
+      if (ptcl[0] > 0.7F) {  // exclude invalid and newly_added_by_resampling particles
+        float ori_particle_weight = ptcl[7];
         acc_ori_weight += ori_particle_weight;
 
         if (acc_ori_weight > acc_new_weight) {
-          _voxels_with_particle[v_index][p][7] =
-              weight_after_resample;  // keep the particle but change weight
+          ptcl[7] = weight_after_resample;  // keep the particle but change weight
           acc_new_weight += weight_after_resample;
 
-          int if_space_is_currently_full = 0;
+          bool if_space_is_currently_full = false;
           /** copy particles that have a very large weight **/
           int p_i = 0;
 
           while (acc_ori_weight >
                  acc_new_weight) {  // copy the particle if the original weight is very large
-            int if_found_position_in_voxel = 0;
+            bool if_found_position_in_voxel = false;
             if (!if_space_is_currently_full) {
               for (; p_i < SAFE_PARTICLE_NUM_VOXEL; ++p_i) {
-                if (_voxels_with_particle[v_index][p_i][0] <
-                    0.1F) {  // find an empty position in voxel
+                if (vptc[p_i][0] < 0.1F) {  // find an empty position in voxel
                   // Now copy the particle
-                  _voxels_with_particle[v_index][p_i][0] = 0.6F;  // Flag: newly_added_by_resampling
+                  vptc[p_i][0] = 0.6F;  // Flag: newly_added_by_resampling
                   for (int k = 1; k < 9; k++) {
-                    _voxels_with_particle[v_index][p_i][k] = _voxels_with_particle[v_index][p][k];
+                    vptc[p_i][k] = ptcl[k];
                   }
-                  if_found_position_in_voxel = 1;
+                  if_found_position_in_voxel = true;
                   break;
                 }
               }
@@ -681,8 +658,8 @@ void DSPMapStaticV2::mapOccupancyCalculationAndResample() {
             if (!if_found_position_in_voxel) {
               // If the particle should be copied but no space left in either voxel or pyramid,
               // add the weight of the original particle to keep the total weight unchanged.
-              _voxels_with_particle[v_index][p][7] += weight_after_resample;
-              if_space_is_currently_full = 1;
+              vptc[p][7] += weight_after_resample;
+              if_space_is_currently_full = true;
             }
 
             acc_new_weight += weight_after_resample;
@@ -690,7 +667,7 @@ void DSPMapStaticV2::mapOccupancyCalculationAndResample() {
 
         } else {
           // Remove the particle
-          _voxels_with_particle[v_index][p][0] = 0.F;
+          vptc[p][0] = 0.F;
           removed_particle_counter++;
         }
       }
