@@ -87,7 +87,6 @@ static const float obstacle_thickness_for_occlusion       = 0.3;
 
 using namespace std;
 
-
 // flag value 0: invalid, value 1: valid but not newborn, value 3: valid newborn 7: Recently
 // predicted
 /// Container for voxels h particles
@@ -122,7 +121,6 @@ pcl::PointCloud<pcl::PointXYZINormal>::Ptr _input_cloud_with_velocity(
 // static float localization_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
 
 static float _standard_gaussian_pdf[20000];
-
 
 /** Struct for an individual particle**/
 struct Particle {
@@ -192,7 +190,7 @@ struct MappingParameters {
   int n_particles_max_per_voxel_;
 
   /* new born particles */
-  int newborn_particles_per_point_;
+  int   newborn_particles_per_point_;
   float newborn_particles_weight_;
   float newborn_objects_weight_;
   float newborn_objects_expected_;
@@ -200,7 +198,7 @@ struct MappingParameters {
   /* other mapping variables */
   float kappa_;
   float sigma_update_;
-  float sigma_obsrv_, sigma_loc_; /* observation & localization */
+  float sigma_obsrv_, sigma_loc_;                 /* observation & localization */
   float stddev_pos_predict_, stddev_vel_predict_; /* prediction variance */
 
   /* others */
@@ -215,12 +213,12 @@ struct MappingData {
   /* gaussian random buffers */
   std::vector<float> pos_gaussian_randoms_;
   std::vector<float> vel_gaussian_randoms_;
-  std::vector<float> loc_gaussian_randoms_;  /* localization */
+  std::vector<float> loc_gaussian_randoms_; /* localization */
 
   /* camera position and pose data */
-  Eigen::Vector3f camera_pos_, last_camera_pos_;
+  Eigen::Vector3f    camera_pos_, last_camera_pos_;
   Eigen::Quaternionf camera_pose_, last_camera_pose_;
-  Eigen::Matrix4d cam2body_;
+  Eigen::Matrix4d    cam2body_;
 
   /* flags of map state */
   bool occ_need_update_, local_updated_;
@@ -284,8 +282,7 @@ class DSPMapStaticV2 {
 
  public:
   typedef std::shared_ptr<DSPMapStaticV2> Ptr;
-  DSPMapStaticV2(int init_particle_num = 0, float init_weight = 0.01f)
-   {
+  DSPMapStaticV2(int init_particle_num = 0, float init_weight = 0.01f) {
     addRandomParticles(init_particle_num, init_weight);
 
     std::cout << "Map is ready to update!" << endl;
@@ -295,10 +292,10 @@ class DSPMapStaticV2 {
 
   void initMap(ros::NodeHandle &nh);
 
-  int update(int    point_cloud_num,
-             int    size_of_one_point,
-             float *point_cloud_ptr,
-             const Eigen::Vector3f sensor_pos,
+  int update(int                      point_cloud_num,
+             int                      size_of_one_point,
+             float *                  point_cloud_ptr,
+             const Eigen::Vector3f    sensor_pos,
              const Eigen::Quaternionf sensor_quaternion,
              double time_stamp_second);  /// also requires point cloud and velocity
 
@@ -348,7 +345,7 @@ class DSPMapStaticV2 {
   void setInitParameters();
 
   void addRandomParticles(int particle_num, float avg_weight);
-  void mapPrediction(const Eigen::Vector3f & dp, float dt);
+  void mapPrediction(const Eigen::Vector3f &dp, float dt);
 
   void mapUpdate();
 
@@ -363,9 +360,9 @@ class DSPMapStaticV2 {
   inline bool isInMap(const Particle &p) const;
   inline bool isInMap(const float &px, const float &py, const float &pz) const;
   inline bool ifInPyramidsArea(float &x, float &y, float &z);
-  inline void rotateVectorByQuaternion(const float              *ori_vector,
+  inline void rotateVectorByQuaternion(const float *             ori_vector,
                                        const Eigen::Quaternionf &q,
-                                       float                    *rotated_vector);
+                                       float *                   rotated_vector);
 
   inline float vectorMultiply(float &x1, float &y1, float &z1, float &x2, float &y2, float &z2);
 
@@ -470,9 +467,10 @@ inline bool DSPMapStaticV2::isInMap(const float &px, const float &py, const floa
           py <= -mp_.half_map_size_y_ || pz >= mp_.half_map_size_z_ || pz <= -mp_.half_map_size_z_);
 }
 
-inline float DSPMapStaticV2::vectorMultiply(float &x1, float &y1, float &z1, float &x2, float &y2, float &z2) {
-    return x1 * x2 + y1 * y2 + z1 * z2;
-  } 
+inline float DSPMapStaticV2::vectorMultiply(
+    float &x1, float &y1, float &z1, float &x2, float &y2, float &z2) {
+  return x1 * x2 + y1 * y2 + z1 * z2;
+}
 
 inline bool DSPMapStaticV2::ifInPyramidsArea(float &x, float &y, float &z) {
   //        vectorCOut(&pyramid_BPnorm_params_v[mp_.n_pyramid_obsrv_v_][0]);
@@ -488,22 +486,20 @@ inline bool DSPMapStaticV2::ifInPyramidsArea(float &x, float &y, float &z) {
                         pyramid_BPnorm_params_v[mp_.n_pyramid_obsrv_v_][2]) >= 0.F;
 }
 
+inline void DSPMapStaticV2::rotateVectorByQuaternion(const float *             ori_vector,
+                                                     const Eigen::Quaternionf &q,
+                                                     float *                   rotated_vector) {
+  // Lazy. Use Eigen directly
+  Eigen::Quaternionf ori_vector_quaternion, vector_quaternion;
+  ori_vector_quaternion.w() = 0;
+  ori_vector_quaternion.x() = *ori_vector;
+  ori_vector_quaternion.y() = *(ori_vector + 1);
+  ori_vector_quaternion.z() = *(ori_vector + 2);
 
-  inline void DSPMapStaticV2::rotateVectorByQuaternion(const float *ori_vector,
-                                       const Eigen::Quaternionf & q,
-                                       float *      rotated_vector) {
-    // Lazy. Use Eigen directly
-    Eigen::Quaternionf ori_vector_quaternion, vector_quaternion;
-    ori_vector_quaternion.w() = 0;
-    ori_vector_quaternion.x() = *ori_vector;
-    ori_vector_quaternion.y() = *(ori_vector + 1);
-    ori_vector_quaternion.z() = *(ori_vector + 2);
-
-    vector_quaternion     = q * ori_vector_quaternion * q.inverse();
-    *rotated_vector       = vector_quaternion.x();
-    *(rotated_vector + 1) = vector_quaternion.y();
-    *(rotated_vector + 2) = vector_quaternion.z();
-  }
-
+  vector_quaternion     = q * ori_vector_quaternion * q.inverse();
+  *rotated_vector       = vector_quaternion.x();
+  *(rotated_vector + 1) = vector_quaternion.y();
+  *(rotated_vector + 2) = vector_quaternion.z();
+}
 
 #endif  // _DSP_MAP_H_
