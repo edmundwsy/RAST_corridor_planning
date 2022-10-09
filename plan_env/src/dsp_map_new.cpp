@@ -43,6 +43,17 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
 
   nh_.param("grid_map/show_occ_time", mp_.show_occ_time_, false);
 
+  nh_.param("grid_map/newborn/particles_number", mp_.newborn_particles_per_point_, 20);
+  nh_.param("grid_map/newborn/particles_weight", mp_.newborn_particles_weight_, 0.0001F);
+  nh_.param("grid_map/newborn/objects_weight", mp_.newborn_objects_weight_, 0.04F);
+
+  /* standard derivations */
+  nh_.param("grid_map/stddev_pos", mp_.stddev_pos_predict_, 0.05F); /* prediction variance */
+  nh_.param("grid_map/stddev_vel", mp_.stddev_vel_predict_, 0.05F); /* prediction variance */
+  nh_.param("grid_map/sigma_update", mp_.sigma_update_, -1.0F);
+  nh_.param("grid_map/sigma_observation", mp_.sigma_obsrv_, -1.0F);
+  nh_.param("grid_map/sigma_localization", mp_.sigma_loc_, -1.0F);
+
   nh_.param("grid_map/frame_id", mp_.frame_id_, string("world"));
   nh_.param("grid_map/local_map_margin", mp_.local_map_margin_, 1);
   nh_.param("grid_map/ground_height", mp_.ground_height_, 1.0F);
@@ -79,29 +90,26 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   md_.pos_gaussian_idx_ = 0;
   md_.loc_gaussian_idx_ = 0;
 
-  md_.sigma_obsrv_                 = 0.2F;
-  md_.sigma_update_                = md_.sigma_obsrv_;
-  md_.kappa_                       = 0.01F;
-  md_.stddev_pos_predict_          = 0.2F;
-  md_.stddev_vel_predict_          = 0.1F;
-  md_.sigma_loc_                   = 0.F;
-  md_.P_detection_                 = 0.95F;
-  md_.update_time_                      = 0.F;
-  md_.idx_update_                  = 0;
-  md_.newborn_objects_expected_    = 0.F;
-  md_.newborn_particles_weight_    = 0.04F;
-  md_.newborn_particles_per_point_ = 20;
-  md_.newborn_objects_weight_      = 0.F;
-  md_.record_time_                      = 1.F;
-  md_.total_time_                       = 0.0;
+  mp_.sigma_update_ = mp_.sigma_obsrv_;
+  mp_.kappa_        = 0.01F;
+
+  md_.P_detection_ = 0.95F;
+  md_.update_time_ = 0.F;
+  md_.idx_update_  = 0;
+  md_.record_time_ = 1.F;
+  md_.total_time_  = 0.0;
 
   /* initialize map data */
   md_.pos_gaussian_randoms_.reserve(GAUSSIAN_RANDOMS_NUM);
   md_.vel_gaussian_randoms_.reserve(GAUSSIAN_RANDOMS_NUM);
   md_.loc_gaussian_randoms_.reserve(GAUSSIAN_RANDOMS_NUM);
 
+  /* initialize position data */
+  md_.last_camera_pos_ = Eigen::Vector3f::Zero();
+  md_.last_camera_pose_ = Eigen::Quaternionf::Identity();
+
   // Initialize voxels
-  for (auto &i : voxels_with_particle) {
+  for (auto &i : _voxels_with_particle) {
     for (auto &j : i) {
       for (float &k : j) {
         k = 0.F;
@@ -110,7 +118,7 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   }
 
   // Initialize pyramids
-  for (auto &pyramid : pyramids_in_fov) {
+  for (auto &pyramid : _pyramids_in_fov) {
     for (auto &p : pyramid) {
       p[0] = 0;
       p[1] = 0;
@@ -137,8 +145,8 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
 
   // Find neighborhood pyramids' indexes for observation pyramids
   for (int i = 0; i < mp_.n_pyramid_obsrv_; i++) {  // Initialize point num in the storage
-    findPyramidNeighborIndexInFOV(i, observation_pyramid_neighbors[i][0],
-                                  &observation_pyramid_neighbors[i][1]);
+    findPyramidNeighborIndexInFOV(i, _observation_pyramid_neighbors[i][0],
+                                  &_observation_pyramid_neighbors[i][1]);
   }
 
   // Generate Gaussian randoms.
@@ -147,69 +155,59 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   calculateNormalPDFBuffer();
 }
 
-int DSPMapStaticV2::update(int    point_cloud_num,
-                           int    size_of_one_point,
-                           float *point_cloud_ptr,
-                           float  sensor_px,
-                           float  sensor_py,
-                           float  sensor_pz,
-                           double time_stamp_second,
-                           float  sensor_quaternion_w,
-                           float  sensor_quaternion_x,
-                           float  sensor_quaternion_y,
-                           float  sensor_quaternion_z) {
+int DSPMapStaticV2::update(int                      point_cloud_num,
+                           int                      size_of_one_point,
+                           float *                  point_cloud_ptr,
+                           const Eigen::Vector3f    sensor_pos,
+                           const Eigen::Quaternionf sensor_quat,
+                           double                   time_stamp_second) {
   /** Get delt p **/
-  static float  sensor_px_last         = sensor_px;
-  static float  sensor_py_last         = sensor_py;
-  static float  sensor_pz_last         = sensor_pz;
+  // md_.last_camera_pos_                 = sensor_pos;
+
   static double time_stamp_second_last = time_stamp_second;
 
   // Check if the odometry data is invalid
-  if (fabs(sensor_quaternion_w) > 1.001F || fabs(sensor_quaternion_x) > 1.001F ||
-      fabs(sensor_quaternion_y) > 1.001F || fabs(sensor_quaternion_z) > 1.001F) {
+  if (fabs(sensor_quat.x()) > 1.001F || fabs(sensor_quat.w()) > 1.001F ||
+      fabs(sensor_quat.y()) > 1.001F || fabs(sensor_quat.z()) > 1.001F) {
     cout << "Invalid quaternion." << endl;
     return 0;
   }
+  Eigen::Vector3f odom_delt_p = sensor_pos - md_.last_camera_pos_;
 
-  float odom_delt_px = sensor_px - sensor_px_last;
-  float odom_delt_py = sensor_py - sensor_py_last;
-  float odom_delt_pz = sensor_pz - sensor_pz_last;
-  auto  delt_t       = (float)(time_stamp_second - time_stamp_second_last);
+  auto            delt_t      = (float)(time_stamp_second - time_stamp_second_last);
 
-  if (fabs(odom_delt_px) > 10.F || fabs(odom_delt_py) > 10.F || fabs(odom_delt_pz) > 10.F ||
-      delt_t < 0.F || delt_t > 10.F) {
+  /* avoid rapid change */
+  if (fabs(odom_delt_p.x()) > 10.F || fabs(odom_delt_p.y()) > 10.F ||
+      fabs(odom_delt_p.z()) > 10.F || delt_t < 0.F || delt_t > 10.F) {
     cout << "!!! delt_t = " << delt_t << endl;
-    cout << "!!! sensor_px_last = " << sensor_px_last << "sensor_px = " << sensor_px
-         << " odom_delt_px=" << odom_delt_px << endl;
-    cout << "!!! sensor_py_last = " << sensor_py_last << "sensor_py = " << sensor_py
-         << " odom_delt_py=" << odom_delt_py << endl;
+    cout << "!!! sensor_px_last = " << md_.last_camera_pos_.x() << "sensor_px = " << sensor_pos.x()
+         << " odom_delt_px=" << odom_delt_p.x() << endl;
+    cout << "!!! sensor_py_last = " << md_.last_camera_pos_.y() << "sensor_py = " << sensor_pos.y()
+         << " odom_delt_py=" << odom_delt_p.y() << endl;
     return 0;
   }
 
   // clock_t start11, finish11;
   // start11 = clock();
+  md_.camera_pos_        = sensor_pos;
+  md_.last_camera_pos_   = sensor_pos;
+  _current_position[0] = sensor_pos.x();
+  _current_position[1] = sensor_pos.y();
+  _current_position[2] = sensor_pos.z();
+  time_stamp_second_last = time_stamp_second;
 
-  current_position[0] = sensor_px_last = sensor_px;
-  current_position[1] = sensor_py_last = sensor_py;
-  current_position[2] = sensor_pz_last = sensor_pz;
-  time_stamp_second_last               = time_stamp_second;
-
-  delt_t_from_last_observation = delt_t;
+  _delt_t_from_last_observation = delt_t;
 
   /** Update pyramid boundary planes' normal vectors' parameters **/
-
-  sensor_rotation_quaternion[0] = sensor_quaternion_w;
-  sensor_rotation_quaternion[1] = sensor_quaternion_x;
-  sensor_rotation_quaternion[2] = sensor_quaternion_y;
-  sensor_rotation_quaternion[3] = sensor_quaternion_z;
+  md_.camera_pose_ = sensor_quat;
 
   for (int i = 0; i < mp_.n_pyramid_obsrv_h_ + 1; i++) {
-    rotateVectorByQuaternion(&pyramid_BPnorm_params_ori_h[i][0], sensor_rotation_quaternion,
+    rotateVectorByQuaternion(&pyramid_BPnorm_params_ori_h[i][0], md_.camera_pose_,
                              &pyramid_BPnorm_params_h[i][0]);
   }
 
   for (int j = 0; j < mp_.n_pyramid_obsrv_v_ + 1; j++) {
-    rotateVectorByQuaternion(&pyramid_BPnorm_params_ori_v[j][0], sensor_rotation_quaternion,
+    rotateVectorByQuaternion(&pyramid_BPnorm_params_ori_v[j][0], md_.camera_pose_,
                              &pyramid_BPnorm_params_v[j][0]);
   }
 
@@ -220,7 +218,7 @@ int DSPMapStaticV2::update(int    point_cloud_num,
     point_cloud_max_length[i] = -1.F;
   }
 
-  cloud_in_current_view_rotated->clear();  // Clear first
+  _cloud_in_current_view_rotated->clear();  // Clear first
 
   int iter_num =
       0;  // This is defined because one point has more than one float values. like px, py, pz
@@ -229,7 +227,7 @@ int DSPMapStaticV2::update(int    point_cloud_num,
                          // point is outside of the map but is still in FOV, it will be counted.
   for (int p_seq = 0; p_seq < point_cloud_num; ++p_seq) {
     float rotated_point_this[3];
-    rotateVectorByQuaternion(&point_cloud_ptr[iter_num], sensor_rotation_quaternion,
+    rotateVectorByQuaternion(&point_cloud_ptr[iter_num], md_.camera_pose_,
                              rotated_point_this);
 
     // Store in pcl point cloud for velocity estimation of new born particles
@@ -237,7 +235,7 @@ int DSPMapStaticV2::update(int    point_cloud_num,
     p_this.x = rotated_point_this[0];
     p_this.y = rotated_point_this[1];
     p_this.z = rotated_point_this[2];
-    cloud_in_current_view_rotated->push_back(p_this);
+    _cloud_in_current_view_rotated->push_back(p_this);
 
     // Store in pyramids for update
     if (ifInPyramidsArea(rotated_point_this[0], rotated_point_this[1], rotated_point_this[2])) {
@@ -280,10 +278,10 @@ int DSPMapStaticV2::update(int    point_cloud_num,
     iter_num += size_of_one_point;
   }
 
-  md_.newborn_objects_expected_ =
-      md_.newborn_particles_weight_ * (float)valid_points * (float)md_.newborn_particles_per_point_;
-  md_.newborn_objects_weight_ =
-      md_.newborn_particles_weight_ * (float)md_.newborn_particles_per_point_;
+  mp_.newborn_objects_expected_ =
+      mp_.newborn_particles_weight_ * (float)valid_points * (float)mp_.newborn_particles_per_point_;
+  mp_.newborn_objects_weight_ =
+      mp_.newborn_particles_weight_ * (float)mp_.newborn_particles_per_point_;
 
   /// Start a new thread for velocity estimation
   std::thread velocity_estimation(velocityEstimationThread);
@@ -292,12 +290,11 @@ int DSPMapStaticV2::update(int    point_cloud_num,
   //        clock_t start7, finish7;
   //        start7 = clock();
   // TODO: slow
-  mapPrediction(-odom_delt_px, -odom_delt_py, -odom_delt_pz,
-                delt_t);  // Particles move in the opposite of the robot moving direction
-                          //
-                          //        finish7 = clock();
-                          //        double duration7= (double)(finish7 - start7) / CLOCKS_PER_SEC;
-                          //        printf( "****** Prediction time %f seconds\n", duration7 );
+  /* Particles move in the opposite of the robot moving direction */
+  mapPrediction(odom_delt_p, delt_t);
+  //        finish7 = clock();
+  //        double duration7= (double)(finish7 - start7) / CLOCKS_PER_SEC;
+  //        printf( "****** Prediction time %f seconds\n", duration7 );
 
   /*** Update ***/
   //        clock_t start8, finish8;
@@ -364,11 +361,11 @@ int DSPMapStaticV2::update(int    point_cloud_num,
 
       for (int i = 0; i < mp_.n_voxel_; i++) {
         for (int j = 0; j < SAFE_PARTICLE_NUM_VOXEL; j++) {
-          if (voxels_with_particle[i][j][0] > 0.1F) {
+          if (_voxels_with_particle[i][j][0] > 0.1F) {
             for (int k = 0; k < 8; k++) {
               //  1.Flag 2.vx 3.vy 4.vz 5.px 6.py 7.pz
               //  8.weight 9.update time
-              particle_log_writer << voxels_with_particle[i][j][k] << ",";
+              particle_log_writer << _voxels_with_particle[i][j][k] << ",";
             }
             particle_log_writer << i << "\n";
           }
@@ -382,30 +379,30 @@ int DSPMapStaticV2::update(int    point_cloud_num,
 }
 
 void DSPMapStaticV2::setPredictionVariance(float p_stddev, float v_stddev) {
-  md_.stddev_pos_predict_ = p_stddev;
-  md_.stddev_vel_predict_ = v_stddev;
+  mp_.stddev_pos_predict_ = p_stddev;
+  mp_.stddev_vel_predict_ = v_stddev;
   // regenerate randoms
   generateGaussianRandomsVectorZeroCenter();
 }
 
 void DSPMapStaticV2::setObservationStdDev(float ob_stddev) {
-  md_.sigma_obsrv_  = ob_stddev;
-  md_.sigma_update_ = md_.sigma_obsrv_;
+  mp_.sigma_obsrv_  = ob_stddev;
+  mp_.sigma_update_ = mp_.sigma_obsrv_;
 
-  cout << "Observation stddev changed to " << md_.sigma_obsrv_ << endl;
+  cout << "Observation stddev changed to " << mp_.sigma_obsrv_ << endl;
 }
 
 void DSPMapStaticV2::setLocalizationStdDev(float lo_stddev) {
   float tuned_scale_factor = 0.1F;
-  md_.sigma_loc_           = lo_stddev * tuned_scale_factor;
-  cout << "Localization stddev changed to " << md_.sigma_loc_ << endl;
+  mp_.sigma_loc_           = lo_stddev * tuned_scale_factor;
+  cout << "Localization stddev changed to " << mp_.sigma_loc_ << endl;
   // regenerate randoms
   generateGaussianRandomsVectorZeroCenter();
 }
 
 void DSPMapStaticV2::setParticleRecordFlag(bool record_particle_flag, float record_csv_time) {
   mp_.is_csv_output_ = record_particle_flag;
-  md_.record_time_        = record_csv_time;
+  md_.record_time_   = record_csv_time;
 }
 
 void DSPMapStaticV2::getOccupancyMap(int &                           obstacles_num,
@@ -413,7 +410,7 @@ void DSPMapStaticV2::getOccupancyMap(int &                           obstacles_n
                                      const float                     threshold) {
   obstacles_num = 0;
   for (int i = 0; i < mp_.n_voxel_; i++) {
-    if (voxels_objects_number[i][0] > threshold) {
+    if (_voxels_objects_number[i][0] > threshold) {
       pcl::PointXYZ pcl_point;
       getVoxelPositionFromIndex(i, pcl_point.x, pcl_point.y, pcl_point.z);
       cloud.push_back(pcl_point);
@@ -422,8 +419,8 @@ void DSPMapStaticV2::getOccupancyMap(int &                           obstacles_n
     }
 
     /// Clear weights for next prediction
-    for (int j = 4; j < voxels_objects_number_dimension; ++j) {
-      voxels_objects_number[i][j] = 0.F;
+    for (int j = 4; j < _voxels_objects_number_dimension; ++j) {
+      _voxels_objects_number[i][j] = 0.F;
     }
   }
 }
@@ -434,20 +431,20 @@ void DSPMapStaticV2::getOccupancyMapWithVelocity(int &                          
                                                  const float                        threshold) {
   obstacles_num = 0;
   for (int i = 0; i < mp_.n_voxel_; i++) {
-    if (voxels_objects_number[i][0] > threshold) {
+    if (_voxels_objects_number[i][0] > threshold) {
       pcl::PointNormal pcl_point;
-      pcl_point.normal_x = voxels_objects_number[i][1];  // vx
-      pcl_point.normal_y = voxels_objects_number[i][2];  // vy
-      pcl_point.normal_z = voxels_objects_number[i][3];  // vz
+      pcl_point.normal_x = _voxels_objects_number[i][1];  // vx
+      pcl_point.normal_y = _voxels_objects_number[i][2];  // vy
+      pcl_point.normal_z = _voxels_objects_number[i][3];  // vz
       getVoxelPositionFromIndex(i, pcl_point.x, pcl_point.y, pcl_point.z);
       cloud.push_back(pcl_point);
-      weights.push_back(voxels_objects_number[i][0]);
+      weights.push_back(_voxels_objects_number[i][0]);
       ++obstacles_num;
     }
 
     /// Clear weights for next prediction
-    for (int j = 4; j < voxels_objects_number_dimension; ++j) {
-      voxels_objects_number[i][j] = 0.F;
+    for (int j = 4; j < _voxels_objects_number_dimension; ++j) {
+      _voxels_objects_number[i][j] = 0.F;
     }
   }
 }
@@ -458,7 +455,7 @@ void DSPMapStaticV2::getOccupancyMapWithFutureStatus(int &                      
                                                      const float                     threshold) {
   obstacles_num = 0;
   for (int i = 0; i < mp_.n_voxel_; i++) {
-    if (voxels_objects_number[i][0] > threshold) {
+    if (_voxels_objects_number[i][0] > threshold) {
       pcl::PointXYZ pcl_point;
       getVoxelPositionFromIndex(i, pcl_point.x, pcl_point.y, pcl_point.z);
       cloud.push_back(pcl_point);
@@ -467,12 +464,12 @@ void DSPMapStaticV2::getOccupancyMapWithFutureStatus(int &                      
     }
 
     for (int n = 0; n < PREDICTION_TIMES; ++n) {  // Set future weights
-      *(future_status + i * PREDICTION_TIMES + n) = voxels_objects_number[i][n + 4];
+      *(future_status + i * PREDICTION_TIMES + n) = _voxels_objects_number[i][n + 4];
     }
 
     /// Clear weights for next prediction
-    for (int j = 4; j < voxels_objects_number_dimension; ++j) {
-      voxels_objects_number[i][j] = 0.F;
+    for (int j = 4; j < _voxels_objects_number_dimension; ++j) {
+      _voxels_objects_number[i][j] = 0.F;
     }
   }
 }
@@ -483,7 +480,7 @@ void DSPMapStaticV2::getOccupancyMapWithRiskMaps(int &                          
                                                  const float                     threshold) {
   obstacles_num = 0;
   for (int i = 0; i < mp_.n_voxel_; i++) {
-    if (voxels_objects_number[i][0] > threshold) {
+    if (_voxels_objects_number[i][0] > threshold) {
       pcl::PointXYZ pcl_point;
       getVoxelPositionFromIndex(i, pcl_point.x, pcl_point.y, pcl_point.z);
       cloud.push_back(pcl_point);
@@ -494,28 +491,28 @@ void DSPMapStaticV2::getOccupancyMapWithRiskMaps(int &                          
     for (int n = 0; n < mp_.n_risk_map_; ++n) {  // Set future weights
       float temp_risk = 0.F;
       for (int m = 0; m < mp_.n_prediction_per_risk_map_; ++m) {
-        temp_risk += voxels_objects_number[i][4 + n * mp_.n_prediction_per_risk_map_ + m];
+        temp_risk += _voxels_objects_number[i][4 + n * mp_.n_prediction_per_risk_map_ + m];
       }
       *(risk_maps + i * mp_.n_risk_map_ + n) = temp_risk;
     }
 
     /// Clear weights for next prediction
-    for (int j = 4; j < voxels_objects_number_dimension; ++j) {
-      voxels_objects_number[i][j] = 0.F;
+    for (int j = 4; j < _voxels_objects_number_dimension; ++j) {
+      _voxels_objects_number[i][j] = 0.F;
     }
   }
 }
 
 void DSPMapStaticV2::clearOccupancyMapPrediction() {
   for (int i = 0; i < mp_.n_voxel_; i++) {
-    for (int j = 4; j < voxels_objects_number_dimension; ++j) {
-      voxels_objects_number[i][j] = 0.F;
+    for (int j = 4; j < _voxels_objects_number_dimension; ++j) {
+      _voxels_objects_number[i][j] = 0.F;
     }
   }
 }
 
 void DSPMapStaticV2::getKMClusterResult(pcl::PointCloud<pcl::PointXYZINormal> &cluster_cloud) {
-  for (auto &point : *input_cloud_with_velocity) {
+  for (auto &point : *_input_cloud_with_velocity) {
     cluster_cloud.push_back(point);
   }
 }
@@ -550,20 +547,18 @@ void DSPMapStaticV2::addRandomParticles(int particle_num, float avg_weight) {
   //        cout << "voxel_overflow_num="<<voxel_overflow_num<<endl;
 }
 
-void DSPMapStaticV2::mapPrediction(float odom_delt_px,
-                                   float odom_delt_py,
-                                   float odom_delt_pz,
-                                   float delt_t) {
+void DSPMapStaticV2::mapPrediction(const Eigen::Vector3f & dp,
+                                   float dt) {
   int operation_counter         = 0;
   int exist_particles           = 0;
   int voxel_full_remove_counter = 0, pyramid_full_remove_counter = 0;
   int moves_out_counter = 0;
 
-  md_.update_time_ += delt_t;
+  md_.update_time_ += dt;
   md_.idx_update_ += 1;
 
   /// Clear pyramids first
-  for (auto &j : pyramids_in_fov) {
+  for (auto &j : _pyramids_in_fov) {
     for (auto &i : j) {
       i[0] &= O_MAKE_INVALID;
     }
@@ -572,48 +567,34 @@ void DSPMapStaticV2::mapPrediction(float odom_delt_px,
   /// Update Particles' state and index in both voxels and pyramids
   for (int v_index = 0; v_index < VOXEL_NUM; ++v_index) {
     for (int p = 0; p < SAFE_PARTICLE_NUM_VOXEL; p++) {
-      if (voxels_with_particle[v_index][p][0] > 0.1F &&
-          voxels_with_particle[v_index][p][0] < 6.F) {  /// exsit, but not new moved
-        voxels_with_particle[v_index][p][0] = 1.F;      // If valid, remove resample flag.
+      if (_voxels_with_particle[v_index][p][0] > 0.1F &&
+          _voxels_with_particle[v_index][p][0] < 6.F) {  /// exsit, but not new moved
+        _voxels_with_particle[v_index][p][0] = 1.F;      // If valid, remove resample flag.
         ++operation_counter;
 
-        if (fabs(voxels_with_particle[v_index][p][1] * voxels_with_particle[v_index][p][2] *
-                 voxels_with_particle[v_index][p][3]) < 1e-6) {
+        if (fabs(_voxels_with_particle[v_index][p][1] * _voxels_with_particle[v_index][p][2] *
+                 _voxels_with_particle[v_index][p][3]) < 1e-6) {
           // keep small, for static obstacles
         } else {
-          voxels_with_particle[v_index][p][1] += getVelocityGaussianZeroCenter();  // vx
-          voxels_with_particle[v_index][p][2] += getVelocityGaussianZeroCenter();  // vy
-          voxels_with_particle[v_index][p][3] += getVelocityGaussianZeroCenter();  // vz
+          _voxels_with_particle[v_index][p][1] += getVelocityGaussianZeroCenter();  // vx
+          _voxels_with_particle[v_index][p][2] += getVelocityGaussianZeroCenter();  // vy
+          _voxels_with_particle[v_index][p][3] += getVelocityGaussianZeroCenter();  // vz
         }
 
-        // #if (LIMIT_MOVEMENT_IN_XY_PLANE)
-        //           voxels_with_particle[v_index][p][3] = 0.F;
-        // #endif
-
-        // #if (CONSIDER_LOCALIZATION_UNCERTAINTY)
-        voxels_with_particle[v_index][p][4] += delt_t * voxels_with_particle[v_index][p][1] +
-                                               odom_delt_px + getLocalizationGaussianZeroCenter();
-        voxels_with_particle[v_index][p][5] += delt_t * voxels_with_particle[v_index][p][2] +
-                                               odom_delt_py + getLocalizationGaussianZeroCenter();
-        voxels_with_particle[v_index][p][6] += delt_t * voxels_with_particle[v_index][p][3] +
-                                               odom_delt_pz + getLocalizationGaussianZeroCenter();
-        // #else
-        //           voxels_with_particle[v_index][p][4] +=
-        //               delt_t * voxels_with_particle[v_index][p][1] + odom_delt_px;  // px
-        //           voxels_with_particle[v_index][p][5] +=
-        //               delt_t * voxels_with_particle[v_index][p][2] + odom_delt_py;  // py
-        //           voxels_with_particle[v_index][p][6] +=
-        //               delt_t * voxels_with_particle[v_index][p][3] + odom_delt_pz;  // pz
-        // #endif
-
+        _voxels_with_particle[v_index][p][4] += dt * _voxels_with_particle[v_index][p][1] +
+                                               dp.x() + getLocalizationGaussianZeroCenter();
+        _voxels_with_particle[v_index][p][5] += dt * _voxels_with_particle[v_index][p][2] +
+                                               dp.y() + getLocalizationGaussianZeroCenter();
+        _voxels_with_particle[v_index][p][6] += dt * _voxels_with_particle[v_index][p][3] +
+                                               dp.z() + getLocalizationGaussianZeroCenter();
         int particle_voxel_index_new;
-        if (getParticleVoxelsIndex(voxels_with_particle[v_index][p][4],
-                                   voxels_with_particle[v_index][p][5],
-                                   voxels_with_particle[v_index][p][6], particle_voxel_index_new)) {
+        if (getParticleVoxelsIndex(_voxels_with_particle[v_index][p][4],
+                                   _voxels_with_particle[v_index][p][5],
+                                   _voxels_with_particle[v_index][p][6], particle_voxel_index_new)) {
           // move particle. If moved, the flag turns to 7.F. If should move but failed because
           // target voxel is full, delete the voxel.
           int move_flag = moveParticle(particle_voxel_index_new, v_index, p,
-                                       &voxels_with_particle[v_index][p][0]);
+                                       &_voxels_with_particle[v_index][p][0]);
           if (move_flag == -2) {
             // Move the particle, if fails, "moveParticleByVoxel" will delete the particle
             ++pyramid_full_remove_counter;
@@ -626,7 +607,7 @@ void DSPMapStaticV2::mapPrediction(float odom_delt_px,
 
         } else {
           /// Particle moves out
-          removeParticle(&voxels_with_particle[v_index][p][0]);
+          removeParticle(&_voxels_with_particle[v_index][p][0]);
           ++moves_out_counter;
         }
       }
@@ -640,9 +621,9 @@ void DSPMapStaticV2::mapPrediction(float odom_delt_px,
   //        cout << "operation_counter_prediction="<<operation_counter<<endl;
 
   if (moves_out_counter > 10000) {
-    cout << "!!!!! An error occured! delt_t = " << delt_t << endl;
-    cout << "odom_delt_px = " << odom_delt_px << " odom_delt_py = " << odom_delt_py
-         << "odom_delt_pz=" << odom_delt_pz << endl;
+    cout << "!!!!! An error occured! delt_t = " << dt << endl;
+    cout << "odom_delt_px = " << dp.x() << " odom_delt_py = " << dp.y()
+         << "odom_delt_pz=" << dp.z() << endl;
   }
 }
 
@@ -653,15 +634,15 @@ void DSPMapStaticV2::mapUpdate() {
   for (int i = 0; i < mp_.n_pyramid_obsrv_; ++i) {
     for (int j = 0; j < observation_num_each_pyramid[i]; ++j) {
       // Iteration of z
-      for (int n_seq = 0; n_seq < observation_pyramid_neighbors[i][0]; ++n_seq) {
+      for (int n_seq = 0; n_seq < _observation_pyramid_neighbors[i][0]; ++n_seq) {
         int pyramid_check_index =
-            observation_pyramid_neighbors[i][n_seq + 1];  // 0.neighbors num 1-9:neighbor indexes
+            _observation_pyramid_neighbors[i][n_seq + 1];  // 0.neighbors num 1-9:neighbor indexes
 
         for (int particle_seq = 0; particle_seq < SAFE_PARTICLE_NUM_PYRAMID; ++particle_seq) {
-          if (pyramids_in_fov[pyramid_check_index][particle_seq][0] &
+          if (_pyramids_in_fov[pyramid_check_index][particle_seq][0] &
               O_MAKE_VALID) {  // Check only valid particles
-            int particle_voxel_index       = pyramids_in_fov[pyramid_check_index][particle_seq][1];
-            int particle_voxel_inner_index = pyramids_in_fov[pyramid_check_index][particle_seq][2];
+            int particle_voxel_index       = _pyramids_in_fov[pyramid_check_index][particle_seq][1];
+            int particle_voxel_inner_index = _pyramids_in_fov[pyramid_check_index][particle_seq][2];
 
             //                            cout<<"pyramid_check_index="<<pyramid_check_index<<",
             //                            particle_v_inner_index="<<particle_v_inner_index<<",
@@ -669,23 +650,23 @@ void DSPMapStaticV2::mapUpdate() {
 
             float gk =
                 queryNormalPDF(
-                    voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][4],
-                    point_cloud[i][j][0], md_.sigma_update_) *
+                    _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][4],
+                    point_cloud[i][j][0], mp_.sigma_update_) *
                 queryNormalPDF(
-                    voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][5],
-                    point_cloud[i][j][1], md_.sigma_update_) *
+                    _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][5],
+                    point_cloud[i][j][1], mp_.sigma_update_) *
                 queryNormalPDF(
-                    voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][6],
-                    point_cloud[i][j][2], md_.sigma_update_);
+                    _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][6],
+                    point_cloud[i][j][2], mp_.sigma_update_);
 
             point_cloud[i][j][3] +=
                 md_.P_detection_ *
-                voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][7] * gk;
+                _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][7] * gk;
           }
         }
       }
       /// add weight for new born particles
-      point_cloud[i][j][3] += (md_.newborn_objects_expected_ + md_.kappa_);
+      point_cloud[i][j][3] += (mp_.newborn_objects_expected_ + mp_.kappa_);
     }
   }
 
@@ -695,17 +676,17 @@ void DSPMapStaticV2::mapUpdate() {
 
     for (int inner_seq = 0; inner_seq < SAFE_PARTICLE_NUM_PYRAMID; inner_seq++) {
       // Iteration of particles
-      if (pyramids_in_fov[current_pyramid_index][inner_seq][0] &
+      if (_pyramids_in_fov[current_pyramid_index][inner_seq][0] &
           O_MAKE_VALID) {  // update only valid particle
 
-        int neighbor_num = observation_pyramid_neighbors[current_pyramid_index][0];
+        int neighbor_num = _observation_pyramid_neighbors[current_pyramid_index][0];
 
-        int particle_voxel_index       = pyramids_in_fov[current_pyramid_index][inner_seq][1];
-        int particle_voxel_inner_index = pyramids_in_fov[current_pyramid_index][inner_seq][2];
+        int particle_voxel_index       = _pyramids_in_fov[current_pyramid_index][inner_seq][1];
+        int particle_voxel_inner_index = _pyramids_in_fov[current_pyramid_index][inner_seq][2];
 
-        float px_this = voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][4];
-        float py_this = voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][5];
-        float pz_this = voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][6];
+        float px_this = _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][4];
+        float py_this = _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][5];
+        float pz_this = _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][6];
         float particle_dist_length =
             sqrtf(px_this * px_this + py_this * py_this + pz_this * pz_this);
 
@@ -723,24 +704,25 @@ void DSPMapStaticV2::mapUpdate() {
         float sum_by_zk = 0.F;
         for (int neighbor_seq = 0; neighbor_seq < neighbor_num; ++neighbor_seq) {
           int neighbor_index =
-              observation_pyramid_neighbors[current_pyramid_index][neighbor_seq + 1];
+              _observation_pyramid_neighbors[current_pyramid_index][neighbor_seq + 1];
 
           for (int z_seq = 0; z_seq < observation_num_each_pyramid[neighbor_index];
                ++z_seq)  // for all observation points in a neighbor pyramid
           {
             float gk =
-                queryNormalPDF(px_this, point_cloud[neighbor_index][z_seq][0], md_.sigma_update_) *
-                queryNormalPDF(py_this, point_cloud[neighbor_index][z_seq][1], md_.sigma_update_) *
-                queryNormalPDF(pz_this, point_cloud[neighbor_index][z_seq][2], md_.sigma_update_);
+                queryNormalPDF(px_this, point_cloud[neighbor_index][z_seq][0], mp_.sigma_update_) *
+                queryNormalPDF(py_this, point_cloud[neighbor_index][z_seq][1], mp_.sigma_update_) *
+                queryNormalPDF(pz_this, point_cloud[neighbor_index][z_seq][2], mp_.sigma_update_);
 
             sum_by_zk += md_.P_detection_ * gk / point_cloud[neighbor_index][z_seq][3];
             ++operation_counter_update;
           }
         }
 
-        voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][7] *=
+        _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][7] *=
             ((1 - md_.P_detection_) + sum_by_zk);
-        voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][8] = md_.update_time_;
+        _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][8] =
+            md_.update_time_;
       }
     }
   }
@@ -755,25 +737,25 @@ void DSPMapStaticV2::mapAddNewBornParticlesByObservation() {
       normalization_coefficient += 1.F / point_cloud[i][j][3];
     }
   }
-  float updated_weight_new_born = md_.newborn_particles_weight_ * normalization_coefficient;
+  float updated_weight_new_born = mp_.newborn_particles_weight_ * normalization_coefficient;
 
   /** Add new born particles **/
   static int min_static_new_born_particle_number_each_point =
-      (int)((float)md_.newborn_particles_per_point_ * 0.15F);
+      (int)((float)mp_.newborn_particles_per_point_ * 0.15F);
   static int static_new_born_particle_number_each_point =
-      (int)((float)md_.newborn_particles_per_point_ * 0.4F);  // static points takes 3 in 10
+      (int)((float)mp_.newborn_particles_per_point_ * 0.4F);  // static points takes 3 in 10
   static int pf_derive_new_born_particle_number_each_point =
-      (int)((float)md_.newborn_particles_per_point_ * 0.5F);  // Derived takes half
+      (int)((float)mp_.newborn_particles_per_point_ * 0.5F);  // Derived takes half
   static const int model_generated_particle_number_each_point =
-      (int)((float)md_.newborn_particles_per_point_ * 0.8F);
+      (int)((float)mp_.newborn_particles_per_point_ * 0.8F);
 
   int successfully_born_particles = 0;
   /// TODO: Improve efficiency in this new born procedure
-  for (auto &point : *input_cloud_with_velocity) {
+  for (auto &point : *_input_cloud_with_velocity) {
     pcl::PointXYZ p_corrected;
-    p_corrected.x = point.x - current_position[0];
-    p_corrected.y = point.y - current_position[1];
-    p_corrected.z = point.z - current_position[2];
+    p_corrected.x = point.x - _current_position[0];
+    p_corrected.y = point.y - _current_position[1];
+    p_corrected.z = point.z - _current_position[2];
 
     int   point_voxel_index;
     float static_particle_weight_sum   = 0.F;
@@ -784,20 +766,20 @@ void DSPMapStaticV2::mapAddNewBornParticlesByObservation() {
       // This condition should always be true because the point cloud outside of the map should be
       // omitted in the first place. Just an insurance.
       for (int kk = 0; kk < SAFE_PARTICLE_NUM_VOXEL; ++kk) {
-        if (voxels_with_particle[point_voxel_index][kk][0] > 0.9F &&
-            voxels_with_particle[point_voxel_index][kk][0] < 14.F) {  // not new born
-          float v_abs = fabs(voxels_with_particle[point_voxel_index][kk][1]) +
-                        fabs(voxels_with_particle[point_voxel_index][kk][2]) +
-                        fabs(voxels_with_particle[point_voxel_index][kk][3]);
+        if (_voxels_with_particle[point_voxel_index][kk][0] > 0.9F &&
+            _voxels_with_particle[point_voxel_index][kk][0] < 14.F) {  // not new born
+          float v_abs = fabs(_voxels_with_particle[point_voxel_index][kk][1]) +
+                        fabs(_voxels_with_particle[point_voxel_index][kk][2]) +
+                        fabs(_voxels_with_particle[point_voxel_index][kk][3]);
           if (v_abs < 0.1F) {
             // Static
-            static_particle_weight_sum += voxels_with_particle[point_voxel_index][kk][7];
+            static_particle_weight_sum += _voxels_with_particle[point_voxel_index][kk][7];
           } else if (v_abs < 0.5F) {
             // Static or dynamic
-            static_or_dynamic_weight_sum += voxels_with_particle[point_voxel_index][kk][7];
+            static_or_dynamic_weight_sum += _voxels_with_particle[point_voxel_index][kk][7];
           } else {
             // Dynamic
-            dynamic_particle_weight_sum += voxels_with_particle[point_voxel_index][kk][7];
+            dynamic_particle_weight_sum += _voxels_with_particle[point_voxel_index][kk][7];
           }
         }
       }
@@ -827,7 +809,7 @@ void DSPMapStaticV2::mapAddNewBornParticlesByObservation() {
     static_new_born_particle_number_each_point = max(min_static_new_born_particle_number_each_point,
                                                      static_new_born_particle_number_each_point);
 
-    for (int p = 0; p < md_.newborn_particles_per_point_; p++) {
+    for (int p = 0; p < mp_.newborn_particles_per_point_; p++) {
       std::shared_ptr<Particle> particle_ptr{new Particle};
 
       particle_ptr->px = p_corrected.x + getPositionGaussianZeroCenter();
@@ -868,11 +850,6 @@ void DSPMapStaticV2::mapAddNewBornParticlesByObservation() {
             particle_ptr->vz = 0.F;
           }
         }
-
-#if (LIMIT_MOVEMENT_IN_XY_PLANE)
-        particle_ptr->vz = 0.F;
-#endif
-
         particle_ptr->weight = updated_weight_new_born;
 
         int test = addAParticle(*particle_ptr, particle_ptr->voxel_index);
@@ -899,54 +876,54 @@ void DSPMapStaticV2::mapOccupancyCalculationAndResample() {
     int particle_num_voxel     = 0;
     int old_particle_num_voxel = 0;
     for (int p = 0; p < SAFE_PARTICLE_NUM_VOXEL; p++) {
-      if (voxels_with_particle[v_index][p][0] > 0.1F) {
-        if (voxels_with_particle[v_index][p][7] < 1e-3) {
-          voxels_with_particle[v_index][p][0] =
+      if (_voxels_with_particle[v_index][p][0] > 0.1F) {
+        if (_voxels_with_particle[v_index][p][7] < 1e-3) {
+          _voxels_with_particle[v_index][p][0] =
               0.F;  // Remove the particle directly if the weight is too small
         } else {
-          if (voxels_with_particle[v_index][p][0] < 10.F) {  // exclude new-born particles
+          if (_voxels_with_particle[v_index][p][0] < 10.F) {  // exclude new-born particles
             ++old_particle_num_voxel;
-            vx_sum_voxel += voxels_with_particle[v_index][p][1];
-            vy_sum_voxel += voxels_with_particle[v_index][p][2];
-            vz_sum_voxel += voxels_with_particle[v_index][p][3];
+            vx_sum_voxel += _voxels_with_particle[v_index][p][1];
+            vy_sum_voxel += _voxels_with_particle[v_index][p][2];
+            vz_sum_voxel += _voxels_with_particle[v_index][p][3];
 
             /*** Future status prediction ***/
             float px_future, py_future, pz_future;
             for (int i = 0; i < PREDICTION_TIMES; ++i) {
-              float prediction_time = prediction_future_time[i];
-              px_future             = voxels_with_particle[v_index][p][4] +
-                          voxels_with_particle[v_index][p][1] * prediction_time;
-              py_future = voxels_with_particle[v_index][p][5] +
-                          voxels_with_particle[v_index][p][2] * prediction_time;
-              pz_future = voxels_with_particle[v_index][p][6] +
-                          voxels_with_particle[v_index][p][3] * prediction_time;
+              float prediction_time = _prediction_future_time[i];
+              px_future             = _voxels_with_particle[v_index][p][4] +
+                          _voxels_with_particle[v_index][p][1] * prediction_time;
+              py_future = _voxels_with_particle[v_index][p][5] +
+                          _voxels_with_particle[v_index][p][2] * prediction_time;
+              pz_future = _voxels_with_particle[v_index][p][6] +
+                          _voxels_with_particle[v_index][p][3] * prediction_time;
 
               int prediction_index;
               if (getParticleVoxelsIndex(px_future, py_future, pz_future, prediction_index)) {
-                voxels_objects_number[prediction_index][4 + i] +=
-                    voxels_with_particle[v_index][p][7];  // weight
+                _voxels_objects_number[prediction_index][4 + i] +=
+                    _voxels_with_particle[v_index][p][7];  // weight
               }
             }
             /**** End of prediction ****/
           }
 
-          voxels_with_particle[v_index][p][0] =
+          _voxels_with_particle[v_index][p][0] =
               1.F;  // Remove newborn flag and moved flag in prediction
           ++particle_num_voxel;
-          weight_sum_voxel += voxels_with_particle[v_index][p][7];
+          weight_sum_voxel += _voxels_with_particle[v_index][p][7];
         }
       }
     }
-    voxels_objects_number[v_index][0] = weight_sum_voxel;
+    _voxels_objects_number[v_index][0] = weight_sum_voxel;
 
     if (old_particle_num_voxel > 0) {
-      voxels_objects_number[v_index][1] = vx_sum_voxel / (float)old_particle_num_voxel;
-      voxels_objects_number[v_index][2] = vy_sum_voxel / (float)old_particle_num_voxel;
-      voxels_objects_number[v_index][3] = vz_sum_voxel / (float)old_particle_num_voxel;
+      _voxels_objects_number[v_index][1] = vx_sum_voxel / (float)old_particle_num_voxel;
+      _voxels_objects_number[v_index][2] = vy_sum_voxel / (float)old_particle_num_voxel;
+      _voxels_objects_number[v_index][3] = vz_sum_voxel / (float)old_particle_num_voxel;
     } else {
-      voxels_objects_number[v_index][1] = 0.F;
-      voxels_objects_number[v_index][2] = 0.F;
-      voxels_objects_number[v_index][3] = 0.F;
+      _voxels_objects_number[v_index][1] = 0.F;
+      _voxels_objects_number[v_index][2] = 0.F;
+      _voxels_objects_number[v_index][3] = 0.F;
     }
 
     if (particle_num_voxel < 5) {  // Too few particles, no need to resample.
@@ -970,13 +947,13 @@ void DSPMapStaticV2::mapOccupancyCalculationAndResample() {
     float acc_ori_weight = 0.F;
     float acc_new_weight = weight_after_resample * 0.5F;
     for (int p = 0; p < SAFE_PARTICLE_NUM_VOXEL; ++p) {
-      if (voxels_with_particle[v_index][p][0] >
+      if (_voxels_with_particle[v_index][p][0] >
           0.7F) {  // exclude invalid and newly_added_by_resampling particles
-        float ori_particle_weight = voxels_with_particle[v_index][p][7];
+        float ori_particle_weight = _voxels_with_particle[v_index][p][7];
         acc_ori_weight += ori_particle_weight;
 
         if (acc_ori_weight > acc_new_weight) {
-          voxels_with_particle[v_index][p][7] =
+          _voxels_with_particle[v_index][p][7] =
               weight_after_resample;  // keep the particle but change weight
           acc_new_weight += weight_after_resample;
 
@@ -989,12 +966,12 @@ void DSPMapStaticV2::mapOccupancyCalculationAndResample() {
             int if_found_position_in_voxel = 0;
             if (!if_space_is_currently_full) {
               for (; p_i < SAFE_PARTICLE_NUM_VOXEL; ++p_i) {
-                if (voxels_with_particle[v_index][p_i][0] <
+                if (_voxels_with_particle[v_index][p_i][0] <
                     0.1F) {  // find an empty position in voxel
                   // Now copy the particle
-                  voxels_with_particle[v_index][p_i][0] = 0.6F;  // Flag: newly_added_by_resampling
+                  _voxels_with_particle[v_index][p_i][0] = 0.6F;  // Flag: newly_added_by_resampling
                   for (int k = 1; k < 9; k++) {
-                    voxels_with_particle[v_index][p_i][k] = voxels_with_particle[v_index][p][k];
+                    _voxels_with_particle[v_index][p_i][k] = _voxels_with_particle[v_index][p][k];
                   }
                   if_found_position_in_voxel = 1;
                   break;
@@ -1005,7 +982,7 @@ void DSPMapStaticV2::mapOccupancyCalculationAndResample() {
             if (!if_found_position_in_voxel) {
               // If the particle should be copied but no space left in either voxel or pyramid,
               // add the weight of the original particle to keep the total weight unchanged.
-              voxels_with_particle[v_index][p][7] += weight_after_resample;
+              _voxels_with_particle[v_index][p][7] += weight_after_resample;
               if_space_is_currently_full = 1;
             }
 
@@ -1014,7 +991,7 @@ void DSPMapStaticV2::mapOccupancyCalculationAndResample() {
 
         } else {
           // Remove the particle
-          voxels_with_particle[v_index][p][0] = 0.F;
+          _voxels_with_particle[v_index][p][0] = 0.F;
           removed_particle_counter++;
         }
       }
@@ -1027,7 +1004,7 @@ void DSPMapStaticV2::mapOccupancyCalculationAndResample() {
   //        for(int v_index=0; v_index<VOXEL_NUM; ++v_index)
   //        {
   //            for(int i=0; i<SAFE_PARTICLE_NUM_VOXEL; i++){
-  //                if(voxels_with_particle[v_index][i][0] > 0.1F){
+  //                if(_voxels_with_particle[v_index][i][0] > 0.1F){
   //                    ++ particle_num_after_resampling;
   //                }
   //            }
@@ -1096,9 +1073,9 @@ void DSPMapStaticV2::getVoxelPositionFromIndex(const int &index,
 
 void DSPMapStaticV2::generateGaussianRandomsVectorZeroCenter() {
   std::default_random_engine      random(time(NULL));
-  std::normal_distribution<float> n1(0, md_.stddev_pos_predict_);
-  std::normal_distribution<float> n2(0, md_.stddev_vel_predict_);
-  std::normal_distribution<float> n3(0, md_.sigma_loc_);
+  std::normal_distribution<float> n1(0, mp_.stddev_pos_predict_);
+  std::normal_distribution<float> n2(0, mp_.stddev_vel_predict_);
+  std::normal_distribution<float> n3(0, mp_.sigma_loc_);
 
   for (int i = 0; i < GAUSSIAN_RANDOMS_NUM; i++) {
     md_.pos_gaussian_randoms_.emplace_back(n1(random));
@@ -1136,16 +1113,16 @@ float DSPMapStaticV2::getVelocityGaussianZeroCenter() {
 
 int DSPMapStaticV2::addAParticle(const Particle &p, const int &voxel_index) const {
   for (int i = 0; i < SAFE_PARTICLE_NUM_VOXEL; i++) {
-    if (voxels_with_particle[voxel_index][i][0] < 0.1F) {  // found an empty particle position
-      voxels_with_particle[voxel_index][i][0] = 15.F;      // New born flag
-      voxels_with_particle[voxel_index][i][1] = p.vx;
-      voxels_with_particle[voxel_index][i][2] = p.vy;
-      voxels_with_particle[voxel_index][i][3] = p.vz;
-      voxels_with_particle[voxel_index][i][4] = p.px;
-      voxels_with_particle[voxel_index][i][5] = p.py;
-      voxels_with_particle[voxel_index][i][6] = p.pz;
-      voxels_with_particle[voxel_index][i][7] = p.weight;
-      voxels_with_particle[voxel_index][i][8] = md_.update_time_;
+    if (_voxels_with_particle[voxel_index][i][0] < 0.1F) {  // found an empty particle position
+      _voxels_with_particle[voxel_index][i][0] = 15.F;      // New born flag
+      _voxels_with_particle[voxel_index][i][1] = p.vx;
+      _voxels_with_particle[voxel_index][i][2] = p.vy;
+      _voxels_with_particle[voxel_index][i][3] = p.vz;
+      _voxels_with_particle[voxel_index][i][4] = p.px;
+      _voxels_with_particle[voxel_index][i][5] = p.py;
+      _voxels_with_particle[voxel_index][i][6] = p.pz;
+      _voxels_with_particle[voxel_index][i][7] = p.weight;
+      _voxels_with_particle[voxel_index][i][8] = md_.update_time_;
 
       return 1;
     }
@@ -1166,13 +1143,13 @@ int DSPMapStaticV2::moveParticle(const int &new_voxel_index,
     /// This particle would vanish.
     int successfully_moved_by_voxel = 0;
     for (int i = 0; i < SAFE_PARTICLE_NUM_VOXEL; ++i) {
-      if (voxels_with_particle[new_voxel_index][i][0] < 0.1F) {  // empty
+      if (_voxels_with_particle[new_voxel_index][i][0] < 0.1F) {  // empty
         new_voxel_inner_index       = i;
         successfully_moved_by_voxel = 1;
 
-        voxels_with_particle[new_voxel_index][i][0] = 7.F;  // newly moved flag
+        _voxels_with_particle[new_voxel_index][i][0] = 7.F;  // newly moved flag
         for (int k = 1; k < 9; ++k) {                       // set v, p, weight, update time
-          voxels_with_particle[new_voxel_index][i][k] = *(ori_particle_flag_ptr + k);
+          _voxels_with_particle[new_voxel_index][i][k] = *(ori_particle_flag_ptr + k);
         }
         break;  /// Important
       }
@@ -1185,49 +1162,49 @@ int DSPMapStaticV2::moveParticle(const int &new_voxel_index,
 
   // Now check pyramid, pyramids are cleared first so the particle in FOV must be added unless
   // full.
-  if (ifInPyramidsArea(voxels_with_particle[new_voxel_index][new_voxel_inner_index][4],
-                       voxels_with_particle[new_voxel_index][new_voxel_inner_index][5],
-                       voxels_with_particle[new_voxel_index][new_voxel_inner_index][6])) {
+  if (ifInPyramidsArea(_voxels_with_particle[new_voxel_index][new_voxel_inner_index][4],
+                       _voxels_with_particle[new_voxel_index][new_voxel_inner_index][5],
+                       _voxels_with_particle[new_voxel_index][new_voxel_inner_index][6])) {
     int h_index = findPointPyramidHorizontalIndex(
-        voxels_with_particle[new_voxel_index][new_voxel_inner_index][4],
-        voxels_with_particle[new_voxel_index][new_voxel_inner_index][5],
-        voxels_with_particle[new_voxel_index][new_voxel_inner_index][6]);
+        _voxels_with_particle[new_voxel_index][new_voxel_inner_index][4],
+        _voxels_with_particle[new_voxel_index][new_voxel_inner_index][5],
+        _voxels_with_particle[new_voxel_index][new_voxel_inner_index][6]);
 
     int v_index = findPointPyramidVerticalIndex(
-        voxels_with_particle[new_voxel_index][new_voxel_inner_index][4],
-        voxels_with_particle[new_voxel_index][new_voxel_inner_index][5],
-        voxels_with_particle[new_voxel_index][new_voxel_inner_index][6]);
+        _voxels_with_particle[new_voxel_index][new_voxel_inner_index][4],
+        _voxels_with_particle[new_voxel_index][new_voxel_inner_index][5],
+        _voxels_with_particle[new_voxel_index][new_voxel_inner_index][6]);
 
     int particle_pyramid_index_new = h_index * mp_.n_pyramid_obsrv_v_ + v_index;
 
     int successfully_moved_by_pyramid = 0;
     for (int j = 0; j < SAFE_PARTICLE_NUM_PYRAMID; j++) {
-      if (pyramids_in_fov[particle_pyramid_index_new][j][0] == 0) {
-        pyramids_in_fov[particle_pyramid_index_new][j][0] |= O_MAKE_VALID;
-        pyramids_in_fov[particle_pyramid_index_new][j][1] = new_voxel_index;
-        pyramids_in_fov[particle_pyramid_index_new][j][2] = new_voxel_inner_index;
+      if (_pyramids_in_fov[particle_pyramid_index_new][j][0] == 0) {
+        _pyramids_in_fov[particle_pyramid_index_new][j][0] |= O_MAKE_VALID;
+        _pyramids_in_fov[particle_pyramid_index_new][j][1] = new_voxel_index;
+        _pyramids_in_fov[particle_pyramid_index_new][j][2] = new_voxel_inner_index;
         successfully_moved_by_pyramid                     = 1;
         break;
       }
     }
 
     if (!successfully_moved_by_pyramid) {  /// let the particle vanish
-      voxels_with_particle[new_voxel_index][new_voxel_inner_index][0] = 0.F;  /// vanish
+      _voxels_with_particle[new_voxel_index][new_voxel_inner_index][0] = 0.F;  /// vanish
       return -2;
     }
 
     /// Add Gaussian randoms to velocities of particles inside FOV
-    if (fabs(voxels_with_particle[new_voxel_index][new_voxel_inner_index][1] *
-             voxels_with_particle[new_voxel_index][new_voxel_inner_index][2] *
-             voxels_with_particle[new_voxel_index][new_voxel_inner_index][3]) < 1e-6) {
+    if (fabs(_voxels_with_particle[new_voxel_index][new_voxel_inner_index][1] *
+             _voxels_with_particle[new_voxel_index][new_voxel_inner_index][2] *
+             _voxels_with_particle[new_voxel_index][new_voxel_inner_index][3]) < 1e-6) {
       // keep small, for static obstacles
       //                cout << "keeped"<<endl;
     } else {
-      voxels_with_particle[new_voxel_index][new_voxel_inner_index][1] +=
+      _voxels_with_particle[new_voxel_index][new_voxel_inner_index][1] +=
           getVelocityGaussianZeroCenter();  // vx
-      voxels_with_particle[new_voxel_index][new_voxel_inner_index][2] +=
+      _voxels_with_particle[new_voxel_index][new_voxel_inner_index][2] +=
           getVelocityGaussianZeroCenter();  // vy
-      voxels_with_particle[new_voxel_index][new_voxel_inner_index][3] =
+      _voxels_with_particle[new_voxel_index][new_voxel_inner_index][3] =
           0.F;  //+= getVelocityGaussianZeroCenter();  //vz
     }
 
@@ -1279,21 +1256,21 @@ int DSPMapStaticV2::findPointPyramidVerticalIndex(
 }
 
 void DSPMapStaticV2::velocityEstimationThread() {
-  if (cloud_in_current_view_rotated->points.empty()) return;
+  if (_cloud_in_current_view_rotated->points.empty()) return;
 
-  input_cloud_with_velocity->clear();
+  _input_cloud_with_velocity->clear();
 
   /// Remove ground and transform data
   pcl::PointCloud<pcl::PointXYZ>::Ptr static_points(new pcl::PointCloud<pcl::PointXYZ>());
   pcl::PointCloud<pcl::PointXYZ>::Ptr non_ground_points(new pcl::PointCloud<pcl::PointXYZ>());
 
-  for (auto &p : cloud_in_current_view_rotated->points) {
+  for (auto &p : _cloud_in_current_view_rotated->points) {
     pcl::PointXYZ transformed_p;
-    transformed_p.x = p.x + current_position[0];
-    transformed_p.y = p.y + current_position[1];
-    transformed_p.z = p.z + current_position[2];
+    transformed_p.x = p.x + _current_position[0];
+    transformed_p.y = p.y + _current_position[1];
+    transformed_p.z = p.z + _current_position[2];
 
-    if (transformed_p.z > voxel_filtered_resolution) {
+    if (transformed_p.z > _voxel_filtered_resolution) {
       non_ground_points->points.push_back(transformed_p);
     } else {
       static_points->points.push_back(transformed_p);
@@ -1311,7 +1288,7 @@ void DSPMapStaticV2::velocityEstimationThread() {
     tree->setInputCloud(non_ground_points);
 
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    ec.setClusterTolerance(2 * voxel_filtered_resolution);
+    ec.setClusterTolerance(2 * _voxel_filtered_resolution);
     ec.setMinClusterSize(5);
     ec.setMaxClusterSize(10000);
 
@@ -1356,7 +1333,7 @@ void DSPMapStaticV2::velocityEstimationThread() {
 
     /// Move last feature vector d and match by KM algorithm
     if (!clusters_feature_vector_dynamic_last.empty() && !clusters_feature_vector_dynamic.empty()) {
-      if (delt_t_from_last_observation > 0.00001 && delt_t_from_last_observation < 10.0) {
+      if (_delt_t_from_last_observation > 0.00001 && _delt_t_from_last_observation < 10.0) {
         Matrix<float> matrix_cost(
             clusters_feature_vector_dynamic.size(),
             clusters_feature_vector_dynamic_last.size());  // This is a Matrix defined in munkres.h
@@ -1389,15 +1366,15 @@ void DSPMapStaticV2::velocityEstimationThread() {
               clusters_feature_vector_dynamic[row].vx =
                   (clusters_feature_vector_dynamic[row].center_x -
                    clusters_feature_vector_dynamic_last[col].center_x) /
-                  delt_t_from_last_observation;
+                  _delt_t_from_last_observation;
               clusters_feature_vector_dynamic[row].vy =
                   (clusters_feature_vector_dynamic[row].center_y -
                    clusters_feature_vector_dynamic_last[col].center_y) /
-                  delt_t_from_last_observation;
+                  _delt_t_from_last_observation;
               clusters_feature_vector_dynamic[row].vz =
                   (clusters_feature_vector_dynamic[row].center_z -
                    clusters_feature_vector_dynamic_last[col].center_z) /
-                  delt_t_from_last_observation;
+                  _delt_t_from_last_observation;
               //                        cout << "v=("<<clusters_feature_vector_dynamic[row].vx<<",
               //                        " << clusters_feature_vector_dynamic[row].vy <<",
               //                        "<<clusters_feature_vector_dynamic[row].vz << ")" << endl;
@@ -1445,7 +1422,7 @@ void DSPMapStaticV2::velocityEstimationThread() {
                             .intensity;  // For visualization. //
                                          // clusters_feature_vector_dynamic[cluster_indice_seq].v
                                          // / maximum_velocity;
-          input_cloud_with_velocity->push_back(p);
+          _input_cloud_with_velocity->push_back(p);
         }
         ++cluster_dynamic_vector_seq;
       }
@@ -1463,7 +1440,7 @@ void DSPMapStaticV2::velocityEstimationThread() {
     p.normal_y  = 0.F;
     p.normal_z  = 0.F;
     p.intensity = 0.F;
-    input_cloud_with_velocity->push_back(p);
+    _input_cloud_with_velocity->push_back(p);
   }
 
   clusters_feature_vector_dynamic_last = clusters_feature_vector_dynamic;

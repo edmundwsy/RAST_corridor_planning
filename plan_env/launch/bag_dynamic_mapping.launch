@@ -40,6 +40,16 @@
     <param name="grid_map/n_risk_map" value="3" />
     <param name="grid_map/n_prediction_per_risk" value="3" />
     <param name="grid_map/n_particles_max_per_voxel" value="18" />
+    <!-- Variances -->
+    <param name="grid_map/stddev_pos" value="0.05" />
+    <param name="grid_map/stddev_vel" value="0.05" />
+    <param name="grid_map/sigma_update" value="0.1" />
+    <param name="grid_map/sigma_observation" value="0.05" />
+    <param name="grid_map/sigma_localization" value="0.00" />
+    <!-- Newborn particles -->
+    <param name="grid_map/newborn/particles_weight" value="0.0001" />
+    <param name="grid_map/newborn/particles_number" value="20" />
+    <param name="grid_map/newborn/objects_weight"   value="0.04" />
     <!-- FOV settings -->
     <param name="grid_map/half_fov_horizontal" value="48" />
     <param name="grid_map/half_fov_vertical" value="30" />

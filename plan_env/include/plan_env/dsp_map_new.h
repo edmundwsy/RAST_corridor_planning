@@ -41,13 +41,13 @@
 #define MAX_PARTICLE_NUM_VOXEL 18  // 18 //80
 
 /// Note: RISK_MAP_NUMBER * RISK_MAP_PREDICTION_TIME = PREDICTION_TIMES. RISK_MAP_PREDICTION_TIMES
-/// items in prediction_future_time should be within time a_star_search_time_step
+/// items in _prediction_future_time should be within time a_star_search_time_step
 #define PREDICTION_TIMES          9
 #define RISK_MAP_PREDICTION_TIMES 3
 
-static const float prediction_future_time[PREDICTION_TIMES] = {
+static const float _prediction_future_time[PREDICTION_TIMES] = {
     0.1f, 0.3f, 0.5f, 0.7f, 0.9f, 1.1f, 1.3f, 1.5f, 1.8f};  // unit: second
-// static const float prediction_future_time[PREDICTION_TIMES] = {0.1f, 0.2f, 0.4f, 0.6f,
+// static const float _prediction_future_time[PREDICTION_TIMES] = {0.1f, 0.2f, 0.4f, 0.6f,
 // 0.8f, 1.f, 1.2f, 1.4f, 1.6f, 1.8f, 2.f}; //unit: second
 
 const int half_fov_h = 48;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
@@ -93,26 +93,27 @@ using namespace std;
 /// Container for voxels h particles
 //  1.flag 2.vx 3.vy 4.vz 5.px 6.py 7.pz
 //  8.weight 9.update time
-static float voxels_with_particle[VOXEL_NUM][SAFE_PARTICLE_NUM_VOXEL][9];
+static float _voxels_with_particle[VOXEL_NUM][SAFE_PARTICLE_NUM_VOXEL][9];
 
 // 1. objects number; 2-4. Avg vx, vy, vz; 5-. Future objects number
-static const int voxels_objects_number_dimension = 4 + PREDICTION_TIMES;
-static float     voxels_objects_number[VOXEL_NUM][voxels_objects_number_dimension];
+static const int _voxels_objects_number_dimension = 4 + PREDICTION_TIMES;
+static float     _voxels_objects_number[VOXEL_NUM][_voxels_objects_number_dimension];
 
 /// Container for pyramids
 // 0.flag 1.particle voxel index  2.particle index inside voxel
-static int pyramids_in_fov[observation_pyramid_num][SAFE_PARTICLE_NUM_PYRAMID][3];
+static int _pyramids_in_fov[observation_pyramid_num][SAFE_PARTICLE_NUM_PYRAMID][3];
 
 // 1.neighbors num 2-10:neighbor indexes
-static int observation_pyramid_neighbors[observation_pyramid_num][10]{};
+static int _observation_pyramid_neighbors[observation_pyramid_num][10]{};
 
 /// Variables for velocity estimation
-pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_current_view_rotated(
+pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud_in_current_view_rotated(
     new pcl::PointCloud<pcl::PointXYZ>());
-static float                               current_position[3]          = {0.f, 0.f, 0.f};
-static float                               voxel_filtered_resolution    = 0.15;
-static float                               delt_t_from_last_observation = 0.f;
-pcl::PointCloud<pcl::PointXYZINormal>::Ptr input_cloud_with_velocity(
+
+static float                               _current_position[3]          = {0.f, 0.f, 0.f};
+static float                               _voxel_filtered_resolution    = 0.15;
+static float                               _delt_t_from_last_observation = 0.f;
+pcl::PointCloud<pcl::PointXYZINormal>::Ptr _input_cloud_with_velocity(
     new pcl::PointCloud<pcl::PointXYZINormal>());
 
 /** Storage for Gaussian randoms and Gaussian PDF**/
@@ -120,7 +121,7 @@ pcl::PointCloud<pcl::PointXYZINormal>::Ptr input_cloud_with_velocity(
 // static float v_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
 // static float localization_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
 
-static float standard_gaussian_pdf[20000];
+static float _standard_gaussian_pdf[20000];
 
 
 /** Struct for an individual particle**/
@@ -190,6 +191,18 @@ struct MappingParameters {
   int n_particles_max_;
   int n_particles_max_per_voxel_;
 
+  /* new born particles */
+  int newborn_particles_per_point_;
+  float newborn_particles_weight_;
+  float newborn_objects_weight_;
+  float newborn_objects_expected_;
+
+  /* other mapping variables */
+  float kappa_;
+  float sigma_update_;
+  float sigma_obsrv_, sigma_loc_; /* observation & localization */
+  float stddev_pos_predict_, stddev_vel_predict_; /* prediction variance */
+
   /* others */
   bool is_csv_output_; /* output particles as csv file or not */
 };
@@ -205,8 +218,8 @@ struct MappingData {
   std::vector<float> loc_gaussian_randoms_;  /* localization */
 
   /* camera position and pose data */
-  Eigen::Vector3d camera_pos_, last_camera_pos_;
-  Eigen::Matrix3d camera_r_m_, last_camera_r_m_;
+  Eigen::Vector3f camera_pos_, last_camera_pos_;
+  Eigen::Quaternionf camera_pose_, last_camera_pose_;
   Eigen::Matrix4d cam2body_;
 
   /* flags of map state */
@@ -233,17 +246,6 @@ struct MappingData {
   int pos_gaussian_idx_;
   int loc_gaussian_idx_;  // localization
 
-  /* new born particles */
-  float newborn_particles_weight_;
-  float newborn_particles_per_point_;
-  float newborn_objects_weight_;
-  float newborn_objects_expected_;
-
-  /* other mapping variables */
-  float kappa_;
-  float sigma_update_;
-  float sigma_obsrv_, sigma_loc_; /* observation & localization */
-  float stddev_pos_predict_, stddev_vel_predict_;
   float P_detection_;
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -266,8 +268,6 @@ class DSPMapStaticV2 {
   // 1.point_num
   int observation_num_each_pyramid[observation_pyramid_num]{};
 
-  float sensor_rotation_quaternion[4];
-
   // Normal vectors for pyramids boundary planes when sensor has no rotation
   float pyramid_BPnorm_params_ori_h[observation_pyramid_num_h + 1][3];  // x, y, z
   float pyramid_BPnorm_params_ori_v[observation_pyramid_num_v + 1][3];
@@ -288,39 +288,34 @@ class DSPMapStaticV2 {
    {
     addRandomParticles(init_particle_num, init_weight);
 
-    cout << "Map is ready to update!" << endl;
+    std::cout << "Map is ready to update!" << endl;
   }
 
-  ~DSPMapStaticV2() { cout << "\n See you ;)" << endl; }
+  ~DSPMapStaticV2() { std::cout << "\n See you ;)" << endl; }
 
   void initMap(ros::NodeHandle &nh);
 
   int update(int    point_cloud_num,
              int    size_of_one_point,
              float *point_cloud_ptr,
-             float  sensor_px,
-             float  sensor_py,
-             float  sensor_pz,
-             double time_stamp_second,
-             float  sensor_quaternion_w,
-             float  sensor_quaternion_x,
-             float  sensor_quaternion_y,
-             float  sensor_quaternion_z);  /// also requires point cloud and velocity
+             const Eigen::Vector3f sensor_pos,
+             const Eigen::Quaternionf sensor_quaternion,
+             double time_stamp_second);  /// also requires point cloud and velocity
 
   void setPredictionVariance(float p_stddev, float v_stddev);
   void setObservationStdDev(float ob_stddev);
 
   void setLocalizationStdDev(float lo_stddev);
 
-  void setNewBornParticleWeight(float weight) { md_.newborn_particles_weight_ = weight; }
+  void setNewBornParticleWeight(float weight) { mp_.newborn_particles_weight_ = weight; }
 
-  void setNewBornParticleNumberofEachPoint(int num) { md_.newborn_particles_per_point_ = num; }
+  void setNewBornParticleNumberofEachPoint(int num) { mp_.newborn_particles_per_point_ = num; }
 
   /// record_particle_flag O: don't record; -1 or other negative value: record all; positive value:
   /// record a time
   void setParticleRecordFlag(bool record_particle_flag, float record_csv_time = 1.f);
 
-  static void setOriginalVoxelFilterResolution(float res) { voxel_filtered_resolution = res; }
+  static void setOriginalVoxelFilterResolution(float res) { _voxel_filtered_resolution = res; }
 
   void getOccupancyMap(int &                           obstacles_num,
                        pcl::PointCloud<pcl::PointXYZ> &cloud,
@@ -353,7 +348,7 @@ class DSPMapStaticV2 {
   void setInitParameters();
 
   void addRandomParticles(int particle_num, float avg_weight);
-  void mapPrediction(float odom_delt_px, float odom_delt_py, float odom_delt_pz, float delt_t);
+  void mapPrediction(const Eigen::Vector3f & dp, float dt);
 
   void mapUpdate();
 
@@ -368,6 +363,11 @@ class DSPMapStaticV2 {
   inline bool isInMap(const Particle &p) const;
   inline bool isInMap(const float &px, const float &py, const float &pz) const;
   inline bool ifInPyramidsArea(float &x, float &y, float &z);
+  inline void rotateVectorByQuaternion(const float              *ori_vector,
+                                       const Eigen::Quaternionf &q,
+                                       float                    *rotated_vector);
+
+  inline float vectorMultiply(float &x1, float &y1, float &z1, float &x2, float &y2, float &z2);
 
   static void findPyramidNeighborIndexInFOV(const int &index_ori,
                                             int &      neighbor_spaces_num,
@@ -415,7 +415,7 @@ class DSPMapStaticV2 {
 
   static void calculateNormalPDFBuffer() {
     for (int i = 0; i < 20000; ++i) {
-      standard_gaussian_pdf[i] =
+      _standard_gaussian_pdf[i] =
           standardNormalPDF((float)(i - 10000) * 0.001f);  // range[-10, 10]; 10 sigma
     }
   }
@@ -427,33 +427,7 @@ class DSPMapStaticV2 {
     else if (corrected_x < -9.9f)
       corrected_x = -9.9f;
 
-    return standard_gaussian_pdf[(int)(corrected_x * 1000 + 10000)];
-  }
-
-  static void rotateVectorByQuaternion(const float *ori_vector,
-                                       const float *quaternion,
-                                       float *      rotated_vector) {
-    // Lazy. Use Eigen directly
-    Eigen::Quaternionf ori_vector_quaternion, vector_quaternion;
-    ori_vector_quaternion.w() = 0;
-    ori_vector_quaternion.x() = *ori_vector;
-    ori_vector_quaternion.y() = *(ori_vector + 1);
-    ori_vector_quaternion.z() = *(ori_vector + 2);
-
-    Eigen::Quaternionf att;
-    att.w() = *quaternion;
-    att.x() = *(quaternion + 1);
-    att.y() = *(quaternion + 2);
-    att.z() = *(quaternion + 3);
-
-    vector_quaternion     = att * ori_vector_quaternion * att.inverse();
-    *rotated_vector       = vector_quaternion.x();
-    *(rotated_vector + 1) = vector_quaternion.y();
-    *(rotated_vector + 2) = vector_quaternion.z();
-  }
-
-  static float vectorMultiply(float &x1, float &y1, float &z1, float &x2, float &y2, float &z2) {
-    return x1 * x2 + y1 * y2 + z1 * z2;
+    return _standard_gaussian_pdf[(int)(corrected_x * 1000 + 10000)];
   }
 
   //    static void vectorCOut(float *a){
@@ -496,6 +470,10 @@ inline bool DSPMapStaticV2::isInMap(const float &px, const float &py, const floa
           py <= -mp_.half_map_size_y_ || pz >= mp_.half_map_size_z_ || pz <= -mp_.half_map_size_z_);
 }
 
+inline float DSPMapStaticV2::vectorMultiply(float &x1, float &y1, float &z1, float &x2, float &y2, float &z2) {
+    return x1 * x2 + y1 * y2 + z1 * z2;
+  } 
+
 inline bool DSPMapStaticV2::ifInPyramidsArea(float &x, float &y, float &z) {
   //        vectorCOut(&pyramid_BPnorm_params_v[mp_.n_pyramid_obsrv_v_][0]);
   return vectorMultiply(x, y, z, pyramid_BPnorm_params_h[0][0], pyramid_BPnorm_params_h[0][1],
@@ -509,5 +487,23 @@ inline bool DSPMapStaticV2::ifInPyramidsArea(float &x, float &y, float &z) {
                         pyramid_BPnorm_params_v[mp_.n_pyramid_obsrv_v_][1],
                         pyramid_BPnorm_params_v[mp_.n_pyramid_obsrv_v_][2]) >= 0.F;
 }
+
+
+  inline void DSPMapStaticV2::rotateVectorByQuaternion(const float *ori_vector,
+                                       const Eigen::Quaternionf & q,
+                                       float *      rotated_vector) {
+    // Lazy. Use Eigen directly
+    Eigen::Quaternionf ori_vector_quaternion, vector_quaternion;
+    ori_vector_quaternion.w() = 0;
+    ori_vector_quaternion.x() = *ori_vector;
+    ori_vector_quaternion.y() = *(ori_vector + 1);
+    ori_vector_quaternion.z() = *(ori_vector + 2);
+
+    vector_quaternion     = q * ori_vector_quaternion * q.inverse();
+    *rotated_vector       = vector_quaternion.x();
+    *(rotated_vector + 1) = vector_quaternion.y();
+    *(rotated_vector + 2) = vector_quaternion.z();
+  }
+
 
 #endif  // _DSP_MAP_H_

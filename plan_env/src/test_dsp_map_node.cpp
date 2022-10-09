@@ -186,8 +186,7 @@ void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
   }
   clock_t t_update_0 = clock();
   std::cout << "number of valid points: " << n_valid << std::endl;
-  if (!dsp_map_->update(n_valid, 3, valid_clouds_, pos.x(), pos.y(), pos.z(), t, q.w(), q.x(),
-                        q.y(), q.z())) {
+  if (!dsp_map_->update(n_valid, 3, valid_clouds_, pos, q, t)) {
     return;
   }
   clock_t t_update_1 = clock();
@@ -238,13 +237,11 @@ void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cloud_msg,
   }
   clock_t t_update_0 = clock();
   std::cout << "number of valid points: " << n_valid << std::endl;
-  if (!dsp_map_->update(n_valid, 3, valid_clouds_, pos.x(), pos.y(), pos.z(), t, q.w(), q.x(),
-                        q.y(), q.z())) {
+  if (!dsp_map_->update(n_valid, 3, valid_clouds_, pos, q, t)) {
     return;
   }
   clock_t t_update_1 = clock();
-  double  duration   = static_cast<double>((t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC);
-  std::cout << "update time: " << duration << "ms" << std::endl;
+  std::cout << "update time (ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC << std::endl;
 }
 
 int main(int argc, char **argv) {
@@ -267,11 +264,11 @@ int main(int argc, char **argv) {
   ROS_INFO("init map");
   dsp_map_.reset(new DSPMapStaticV2);
   dsp_map_->initMap(nh);
-  dsp_map_->setPredictionVariance(0.05, 0.05);
-  dsp_map_->setObservationStdDev(0.05f);
-  dsp_map_->setLocalizationStdDev(0.0f);
-  dsp_map_->setNewBornParticleNumberofEachPoint(20);
-  dsp_map_->setNewBornParticleWeight(0.0001);
+  // dsp_map_->setPredictionVariance(0.05, 0.05);
+  // dsp_map_->setObservationStdDev(0.05f);
+  // dsp_map_->setLocalizationStdDev(0.0f);
+  // dsp_map_->setNewBornParticleNumberofEachPoint(20);
+  // dsp_map_->setNewBornParticleWeight(0.0001);
   DSPMapStaticV2::setOriginalVoxelFilterResolution(0.15);
 
   // dsp_map_->initMap(nh);
