@@ -132,7 +132,7 @@ void publishMap() {
   cloud_pub_.publish(cloud_msg);
   clock_t t2 = clock();
   std::cout << "num_occupied: " << num_occupied << std::endl;
-  std::cout << "time: " << (t2 - t1) * 1000 / (double)CLOCKS_PER_SEC << "ms" << std::endl;
+  std::cout << "publish time (ms): " << (t2 - t1) * 1000 / (double)CLOCKS_PER_SEC << std::endl;
 }
 
 /**
@@ -191,8 +191,7 @@ void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
     return;
   }
   clock_t t_update_1 = clock();
-  double  duration   = static_cast<double>((t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC);
-  std::cout << "update time: " << duration << "ms" << std::endl;
+  std::cout << "update time(ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC << std::endl;
 }
 
 /**

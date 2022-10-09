@@ -86,16 +86,19 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   md_.stddev_vel_predict_          = 0.1F;
   md_.sigma_loc_                   = 0.F;
   md_.P_detection_                 = 0.95F;
-  update_time                      = 0.F;
+  md_.update_time_                      = 0.F;
   md_.idx_update_                  = 0;
   md_.newborn_objects_expected_    = 0.F;
   md_.newborn_particles_weight_    = 0.04F;
   md_.newborn_particles_per_point_ = 20;
   md_.newborn_objects_weight_      = 0.F;
-  record_time                      = 1.F;
-  total_time                       = 0.0;
+  md_.record_time_                      = 1.F;
+  md_.total_time_                       = 0.0;
 
   /* initialize map data */
+  md_.pos_gaussian_randoms_.reserve(GAUSSIAN_RANDOMS_NUM);
+  md_.vel_gaussian_randoms_.reserve(GAUSSIAN_RANDOMS_NUM);
+  md_.loc_gaussian_randoms_.reserve(GAUSSIAN_RANDOMS_NUM);
 
   // Initialize voxels
   for (auto &i : voxels_with_particle) {
@@ -340,9 +343,9 @@ int DSPMapStaticV2::update(int    point_cloud_num,
   // double duration11= (double)(finish11 - start11) / CLOCKS_PER_SEC;
   // printf( "****** Update time %f seconds\n", duration11 );
 
-  // total_time += duration11;
-  // ++ update_times;
-  // printf( "****** Average update time = %lf seconds\n", total_time / double(update_times));
+  // md_.total_time_ += duration11;
+  // ++ s;
+  // printf( "****** Average update time = %lf seconds\n", md_.total_time_ / double(update_times));
 
   //        printf( "****** Total time %f seconds\n", duration1 + duration7 + duration8 + duration9
   //        + duration11); printf("############################## \n \n");
@@ -351,12 +354,12 @@ int DSPMapStaticV2::update(int    point_cloud_num,
   static int recorded_once_flag = 0;
 
   if (mp_.is_csv_output_) {
-    if (mp_.is_csv_output_ < 0 || (update_time > record_time && !recorded_once_flag)) {
+    if (mp_.is_csv_output_ < 0 || (md_.update_time_ > md_.record_time_ && !recorded_once_flag)) {
       recorded_once_flag = 1;
 
       ofstream particle_log_writer;
       string   file_name = "/home/clarence/particles_update_t_" + to_string(md_.idx_update_) + "_" +
-                         to_string((int)(update_time * 1000)) + ".csv";
+                         to_string((int)(md_.update_time_ * 1000)) + ".csv";
       particle_log_writer.open(file_name, ios::out | ios::trunc);
 
       for (int i = 0; i < mp_.n_voxel_; i++) {
@@ -400,9 +403,9 @@ void DSPMapStaticV2::setLocalizationStdDev(float lo_stddev) {
   generateGaussianRandomsVectorZeroCenter();
 }
 
-void DSPMapStaticV2::setParticleRecordFlag(int record_particle_flag, float record_csv_time) {
+void DSPMapStaticV2::setParticleRecordFlag(bool record_particle_flag, float record_csv_time) {
   mp_.is_csv_output_ = record_particle_flag;
-  record_time        = record_csv_time;
+  md_.record_time_        = record_csv_time;
 }
 
 void DSPMapStaticV2::getOccupancyMap(int &                           obstacles_num,
@@ -556,7 +559,7 @@ void DSPMapStaticV2::mapPrediction(float odom_delt_px,
   int voxel_full_remove_counter = 0, pyramid_full_remove_counter = 0;
   int moves_out_counter = 0;
 
-  update_time += delt_t;
+  md_.update_time_ += delt_t;
   md_.idx_update_ += 1;
 
   /// Clear pyramids first
@@ -737,7 +740,7 @@ void DSPMapStaticV2::mapUpdate() {
 
         voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][7] *=
             ((1 - md_.P_detection_) + sum_by_zk);
-        voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][8] = update_time;
+        voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][8] = md_.update_time_;
       }
     }
   }
@@ -1091,21 +1094,21 @@ void DSPMapStaticV2::getVoxelPositionFromIndex(const int &index,
   pz = (float)z_index * mp_.resolution_ + correction_z;
 }
 
-void DSPMapStaticV2::generateGaussianRandomsVectorZeroCenter() const {
+void DSPMapStaticV2::generateGaussianRandomsVectorZeroCenter() {
   std::default_random_engine      random(time(NULL));
   std::normal_distribution<float> n1(0, md_.stddev_pos_predict_);
   std::normal_distribution<float> n2(0, md_.stddev_vel_predict_);
   std::normal_distribution<float> n3(0, md_.sigma_loc_);
 
   for (int i = 0; i < GAUSSIAN_RANDOMS_NUM; i++) {
-    *(p_gaussian_randoms + i)            = n1(random);
-    *(v_gaussian_randoms + i)            = n2(random);
-    *(localization_gaussian_randoms + i) = n3(random);
+    md_.pos_gaussian_randoms_.emplace_back(n1(random));
+    md_.vel_gaussian_randoms_.emplace_back(n2(random));
+    md_.loc_gaussian_randoms_.emplace_back(n3(random));
   }
 }
 
 float DSPMapStaticV2::getPositionGaussianZeroCenter() {
-  float delt_p = p_gaussian_randoms[md_.pos_gaussian_idx_];
+  float delt_p = md_.pos_gaussian_randoms_[md_.pos_gaussian_idx_];
   md_.pos_gaussian_idx_ += 1;
   if (md_.pos_gaussian_idx_ >= GAUSSIAN_RANDOMS_NUM) {
     md_.pos_gaussian_idx_ = 0;
@@ -1114,7 +1117,7 @@ float DSPMapStaticV2::getPositionGaussianZeroCenter() {
 }
 
 float DSPMapStaticV2::getLocalizationGaussianZeroCenter() {
-  float delt_p = localization_gaussian_randoms[md_.loc_gaussian_idx_];
+  float delt_p = md_.loc_gaussian_randoms_[md_.loc_gaussian_idx_];
   md_.loc_gaussian_idx_ += 1;
   if (md_.loc_gaussian_idx_ >= GAUSSIAN_RANDOMS_NUM) {
     md_.loc_gaussian_idx_ = 0;
@@ -1123,7 +1126,7 @@ float DSPMapStaticV2::getLocalizationGaussianZeroCenter() {
 }
 
 float DSPMapStaticV2::getVelocityGaussianZeroCenter() {
-  float delt_v = v_gaussian_randoms[md_.vel_gaussian_idx_];
+  float delt_v = md_.vel_gaussian_randoms_[md_.vel_gaussian_idx_];
   md_.vel_gaussian_idx_ += 1;
   if (md_.vel_gaussian_idx_ >= GAUSSIAN_RANDOMS_NUM) {
     md_.vel_gaussian_idx_ = 0;
@@ -1142,7 +1145,7 @@ int DSPMapStaticV2::addAParticle(const Particle &p, const int &voxel_index) cons
       voxels_with_particle[voxel_index][i][5] = p.py;
       voxels_with_particle[voxel_index][i][6] = p.pz;
       voxels_with_particle[voxel_index][i][7] = p.weight;
-      voxels_with_particle[voxel_index][i][8] = update_time;
+      voxels_with_particle[voxel_index][i][8] = md_.update_time_;
 
       return 1;
     }
