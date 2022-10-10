@@ -20,10 +20,6 @@
 
     <param name="is_pose_sub" value="$(arg is_pose_subscribed)" />
 
-    <param name="pool_size_x" value="$(arg pool_size_x)" />
-    <param name="pool_size_y" value="$(arg pool_size_y)" />
-    <param name="pool_size_z" value="$(arg pool_size_z)" />
-
     <!-- <param name="grid_map/map_size_x" value="$(arg map_size_x)" />
     <param name="grid_map/map_size_y" value="$(arg map_size_y)" />
     <param name="grid_map/map_size_z" value="$(arg map_size_z)" /> -->

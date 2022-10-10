@@ -741,6 +741,9 @@ void DSPMapStaticV2::getOccupancyMap(int &                           obstacles_n
     if (_voxels_objects_number[i][0] > threshold) {
       pcl::PointXYZ pcl_point;
       getVoxelPositionFromIndex(i, pcl_point.x, pcl_point.y, pcl_point.z);
+      pcl_point.x += md_.camera_pos_.x();
+      pcl_point.y += md_.camera_pos_.y();
+      pcl_point.z += md_.camera_pos_.z();
       cloud.push_back(pcl_point);
 
       ++obstacles_num;
@@ -765,6 +768,9 @@ void DSPMapStaticV2::getOccupancyMapWithVelocity(int &                          
       pcl_point.normal_y = _voxels_objects_number[i][2];  // vy
       pcl_point.normal_z = _voxels_objects_number[i][3];  // vz
       getVoxelPositionFromIndex(i, pcl_point.x, pcl_point.y, pcl_point.z);
+      pcl_point.x += md_.camera_pos_.x();
+      pcl_point.y += md_.camera_pos_.y();
+      pcl_point.z += md_.camera_pos_.z();
       cloud.push_back(pcl_point);
       weights.push_back(_voxels_objects_number[i][0]);
       ++obstacles_num;
@@ -786,6 +792,9 @@ void DSPMapStaticV2::getOccupancyMapWithFutureStatus(int &                      
     if (_voxels_objects_number[i][0] > threshold) {
       pcl::PointXYZ pcl_point;
       getVoxelPositionFromIndex(i, pcl_point.x, pcl_point.y, pcl_point.z);
+      pcl_point.x += md_.camera_pos_.x();
+      pcl_point.y += md_.camera_pos_.y();
+      pcl_point.z += md_.camera_pos_.z();
       cloud.push_back(pcl_point);
 
       ++obstacles_num;
@@ -811,6 +820,9 @@ void DSPMapStaticV2::getOccupancyMapWithRiskMaps(int &                          
     if (_voxels_objects_number[i][0] > threshold) {
       pcl::PointXYZ pcl_point;
       getVoxelPositionFromIndex(i, pcl_point.x, pcl_point.y, pcl_point.z);
+      pcl_point.x += md_.camera_pos_.x();
+      pcl_point.y += md_.camera_pos_.y();
+      pcl_point.z += md_.camera_pos_.z();
       cloud.push_back(pcl_point);
 
       ++obstacles_num;

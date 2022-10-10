@@ -64,22 +64,22 @@ SynchronizerCloudPose sync_cloud_pose_;
 /* Functions */
 bool inRange(const Eigen::Vector3f &p) {
   return p.x() > -local_update_range_x_ && p.x() < local_update_range_x_ &&
-         p.y() > -local_update_range_y_ && p.y() < local_update_range_y_ && p.z() > 0.0F &&
-         p.z() < local_update_range_z_;
+         p.y() > -local_update_range_y_ && p.y() < local_update_range_y_ &&
+         p.z() > -local_update_range_z_ && p.z() < local_update_range_z_;
 }
 
 /**
  * @brief filter point clouds, keep points in range
- * 
+ *
  * @param cloud_in input point cloud in camera frame
  * @param cloud_out output point cloud in world frame
  * @param valid_clouds array of valid points in world frame
  * @param valid_clouds_num number of valid points
  */
 void filterPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_in,
-                      pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_out,
-                      float *valid_clouds,
-                      int &valid_clouds_num) {
+                      pcl::PointCloud<pcl::PointXYZ>::Ptr &      cloud_out,
+                      float *                                    valid_clouds,
+                      int &                                      valid_clouds_num) {
   pcl::VoxelGrid<pcl::PointXYZ> sor;
   sor.setInputCloud(cloud_in);
   sor.setLeafSize(0.2, 0.2, 0.2);
@@ -103,7 +103,6 @@ void filterPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_in,
   }
 }
 
-
 /**
  * @brief subscribe point cloud and odometry
  *
@@ -113,7 +112,7 @@ void filterPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_in,
 void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
                        const nav_msgs::Odometry::ConstPtr &      odom_msg) {
   Eigen::Vector3f    p(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y,
-                      odom_msg->pose.pose.position.z);
+                    odom_msg->pose.pose.position.z);
   Eigen::Quaternionf q(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x,
                        odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z);
   Eigen::Matrix3f    R = q.toRotationMatrix();
@@ -155,7 +154,7 @@ void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cloud_msg,
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>());
   pcl::fromROSMsg(*cloud_msg, *cloud_in);
 
-  int     n_valid    = 0;
+  int n_valid = 0;
   filterPointCloud(cloud_in, cloud_filtered, valid_clouds_, n_valid);
 
   clock_t t_update_0 = clock();
@@ -167,7 +166,6 @@ void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cloud_msg,
   std::cout << "update time (ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
             << std::endl;
 }
-
 
 /**
  * @brief publish point cloud
@@ -194,8 +192,6 @@ void publishMap() {
  * @param event
  */
 void pubCallback(const ros::TimerEvent &event) { publishMap(); }
-
-
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "dsp_map_node");
@@ -242,7 +238,7 @@ int main(int argc, char **argv) {
   cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("grid_map/occupancy_inflated", 1, true);
 
   /* publish point clouds in 20 Hz */
-  ros::Timer pub_timer  = nh.createTimer(ros::Duration(0.05), pubCallback);
+  ros::Timer pub_timer = nh.createTimer(ros::Duration(0.05), pubCallback);
 
   ros::AsyncSpinner spinner(4);
   spinner.start();
