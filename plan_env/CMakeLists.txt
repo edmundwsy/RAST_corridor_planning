@@ -40,16 +40,23 @@ include_directories(
 )
 
 link_directories(${PCL_LIBRARY_DIRS})
+include_directories(/usr/local/include/munkres)
+set(MunkresLIB
+  /usr/local/lib/libmunkres.a
+)
+
 
 add_library(plan_env
     src/grid_map.cpp
     src/raycast.cpp
     src/obj_predictor.cpp
+    src/dsp_map_new.cpp
 )
 target_link_libraries(plan_env
     ${catkin_LIBRARIES}
     ${PCL_LIBRARIES}
     ${OpenCV_LIBS}
+    ${MunkresLIB}
 )
 
 add_executable(obj_generator
@@ -59,10 +66,27 @@ target_link_libraries(obj_generator
     ${catkin_LIBRARIES}
 )
 
-add_executable(grid_map_node
+
+add_executable(test_grid_map_node
     src/test_grid_map_node.cpp
 )
-target_link_libraries(grid_map_node
+target_link_libraries(test_grid_map_node
+    plan_env
+    ${catkin_LIBRARIES}
+)
+
+add_executable(test_dsp_map_node
+    src/test_dsp_map_node.cpp
+)
+target_link_libraries(test_dsp_map_node
+    plan_env
+    ${catkin_LIBRARIES}
+)
+
+add_executable(dsp_map_node
+    src/dsp_map_node.cpp
+)
+target_link_libraries(dsp_map_node
     plan_env
     ${catkin_LIBRARIES}
 )
