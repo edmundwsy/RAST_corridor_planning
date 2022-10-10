@@ -24,16 +24,19 @@
     <param name="pool_size_y" value="$(arg pool_size_y)" />
     <param name="pool_size_z" value="$(arg pool_size_z)" />
 
-    <param name="grid_map/map_size_x" value="$(arg map_size_x)" />
+    <!-- <param name="grid_map/map_size_x" value="$(arg map_size_x)" />
     <param name="grid_map/map_size_y" value="$(arg map_size_y)" />
-    <param name="grid_map/map_size_z" value="$(arg map_size_z)" />
+    <param name="grid_map/map_size_z" value="$(arg map_size_z)" /> -->
+    <param name="grid_map/voxel_size_x" value="65" />
+    <param name="grid_map/voxel_size_y" value="65" />
+    <param name="grid_map/voxel_size_z" value="35" />
     <!-- Topics -->
     <remap from="~grid_map/odom" to="/odom" />
     <remap from="~grid_map/cloud" to="/camera_front/depth/points" />
     <remap from="~grid_map/pose" to="/mavros/local_position/pose" />
     <remap from="~grid_map/depth" to="/drone_depth_topic" />
     <!-- Resolutions -->
-    <param name="grid_map/resolution" value="0.2" />
+    <param name="grid_map/resolution" value="0.15" />
     <param name="grid_map/angle_resolution" value="3" />
     <param name="grid_map/time_resolution" value="0.2" />
     <!-- Num particles -->
@@ -52,7 +55,7 @@
     <param name="grid_map/newborn/objects_weight"   value="0.04" />
     <!-- FOV settings -->
     <param name="grid_map/half_fov_horizontal" value="48" />
-    <param name="grid_map/half_fov_vertical" value="30" />
+    <param name="grid_map/half_fov_vertical" value="36" />
 
     <param name="grid_map/local_update_range_x" value="5.5" />
     <param name="grid_map/local_update_range_y" value="5.5" />

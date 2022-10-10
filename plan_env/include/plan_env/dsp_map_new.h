@@ -109,17 +109,14 @@ static int _observation_pyramid_neighbors[observation_pyramid_num][10]{};
 pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud_in_current_view_rotated(
     new pcl::PointCloud<pcl::PointXYZ>());
 
-static float                               _current_position[3]          = {0.f, 0.f, 0.f};
-static float                               _voxel_filtered_resolution    = 0.15;
-static float                               _delt_t_from_last_observation = 0.f;
+static float _current_position[3]          = {0.f, 0.f, 0.f};
+static float _voxel_filtered_resolution    = 0.15;
+static float _delt_t_from_last_observation = 0.f;
+
 pcl::PointCloud<pcl::PointXYZINormal>::Ptr _input_cloud_with_velocity(
     new pcl::PointCloud<pcl::PointXYZINormal>());
 
 /** Storage for Gaussian randoms and Gaussian PDF**/
-// static float p_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
-// static float v_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
-// static float localization_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
-
 static float _standard_gaussian_pdf[20000];
 
 /** Struct for an individual particle**/
@@ -188,6 +185,7 @@ struct MappingParameters {
   /* particles */
   int n_particles_max_;
   int n_particles_max_per_voxel_;
+  int n_particles_max_per_pyramid_;
 
   /* new born particles */
   int   newborn_particles_per_point_;
@@ -206,9 +204,13 @@ struct MappingParameters {
 };
 
 struct MappingData {
-  /* main map data, occupancy of each voxel and Euclidean distance */
-  // std::vector<float> occupancy_buffer_;
-  // std::vector<char>  occupancy_buffer_inflate_;
+  /** main map data, point cloud and corresponding value in pyramid representation
+   * point_cloud[index of pyramid][index of point in pyramid]
+   */
+  std::vector<std::vector<Eigen::Vector3f>> point_cloud_;
+  std::vector<std::vector<float>>           point_cloud_val_;
+  std::vector<float> max_length_each_pyramid_; /* max length of each pyramid */
+  std::vector<float> n_obs_each_pyramid_;      /* points in each pyramid */
 
   /* gaussian random buffers */
   std::vector<float> pos_gaussian_randoms_;
@@ -261,10 +263,10 @@ class DSPMapStaticV2 {
   float record_time;
 
   // 1.px, 2.py, 3.pz 4.acc 5.length for later usage
-  float point_cloud[observation_pyramid_num][observation_max_points_num_one_pyramid][5];
+  // float point_cloud_[observation_pyramid_num][observation_max_points_num_one_pyramid][5];
 
   // 1.point_num
-  int observation_num_each_pyramid[observation_pyramid_num]{};
+  // int observation_num_each_pyramid[observation_pyramid_num]{};
 
   // Normal vectors for pyramids boundary planes when sensor has no rotation
   float pyramid_BPnorm_params_ori_h[observation_pyramid_num_h + 1][3];  // x, y, z
@@ -275,7 +277,7 @@ class DSPMapStaticV2 {
   float pyramid_BPnorm_params_v[observation_pyramid_num_v + 1][3];
 
   // Max length, used to judge if occlusion happens
-  float point_cloud_max_length[observation_pyramid_num];
+  // float point_cloud_max_length[observation_pyramid_num];
 
   double       total_time;
   unsigned int update_times;

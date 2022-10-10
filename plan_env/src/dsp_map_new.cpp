@@ -19,6 +19,7 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   nh_.param("grid_map/n_prediction_per_risk", mp_.n_prediction_per_risk_map_, 3);
   nh_.param("grid_map/n_particles_max", mp_.n_particles_max_, 1000);
   nh_.param("grid_map/n_particles_max_per_voxel", mp_.n_particles_max_per_voxel_, 18);
+  nh_.param("grid_map/n_particles_max_per_pyramid", mp_.n_particles_max_per_pyramid_, 100);
 
   nh_.param("grid_map/resolution", mp_.resolution_, -1.0F);
   nh_.param("grid_map/map_size_x", mp_.map_size_x_, -1.0F);
@@ -65,10 +66,19 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
     mp_.virtual_ceil_height_ = mp_.ground_height_ + mp_.map_size_z_;
   }
 
-  mp_.resolution_inv_  = 1 / mp_.resolution_;
-  mp_.voxel_size_x_    = static_cast<int>(mp_.map_size_x_ * mp_.resolution_inv_);
-  mp_.voxel_size_y_    = static_cast<int>(mp_.map_size_y_ * mp_.resolution_inv_);
-  mp_.voxel_size_z_    = static_cast<int>(mp_.map_size_z_ * mp_.resolution_inv_);
+  mp_.resolution_inv_ = 1 / mp_.resolution_;
+
+  /* use map size when voxel size is unknown */
+  if (mp_.voxel_size_x_ < 0 || mp_.voxel_size_y_ < 0 || mp_.voxel_size_z_ < 0) {
+    mp_.voxel_size_x_ = static_cast<int>(mp_.map_size_x_ * mp_.resolution_inv_);
+    mp_.voxel_size_y_ = static_cast<int>(mp_.map_size_y_ * mp_.resolution_inv_);
+    mp_.voxel_size_z_ = static_cast<int>(mp_.map_size_z_ * mp_.resolution_inv_);
+  } else {
+    mp_.map_size_x_ = mp_.voxel_size_x_ * mp_.resolution_;
+    mp_.map_size_y_ = mp_.voxel_size_y_ * mp_.resolution_;
+    mp_.map_size_z_ = mp_.voxel_size_z_ * mp_.resolution_;
+  }
+
   mp_.half_map_size_x_ = mp_.map_size_x_ * 0.5F;
   mp_.half_map_size_y_ = mp_.map_size_y_ * 0.5F;
   mp_.half_map_size_z_ = mp_.map_size_z_ * 0.5F;
@@ -100,6 +110,16 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   md_.total_time_  = 0.0;
 
   /* initialize map data */
+  md_.point_cloud_.resize(mp_.n_pyramid_obsrv_);
+  md_.point_cloud_val_.resize(mp_.n_pyramid_obsrv_);
+  for (int i = 0; i < mp_.n_pyramid_obsrv_; i++) {
+    md_.point_cloud_[i].resize(mp_.n_particles_max_per_pyramid_);
+    md_.point_cloud_val_[i].resize(mp_.n_particles_max_per_pyramid_);
+  }  // TODO(siyuan): it this the best way to store data?
+  md_.n_obs_each_pyramid_.resize(mp_.n_pyramid_obsrv_);
+  md_.max_length_each_pyramid_.resize(mp_.n_pyramid_obsrv_);
+
+  /* initialize gaussian randoms */
   md_.pos_gaussian_randoms_.reserve(GAUSSIAN_RANDOMS_NUM);
   md_.vel_gaussian_randoms_.reserve(GAUSSIAN_RANDOMS_NUM);
   md_.loc_gaussian_randoms_.reserve(GAUSSIAN_RANDOMS_NUM);
@@ -212,11 +232,8 @@ int DSPMapStaticV2::update(int                      point_cloud_num,
   }
 
   /** Insert point cloud to observation storage **/
-  for (int i = 0; i < mp_.n_pyramid_obsrv_; i++) {  // Initialize point num in the storage
-    observation_num_each_pyramid[i] =
-        0;  // Set number of observations in each pyramid as zero in the beginning
-    point_cloud_max_length[i] = -1.F;
-  }
+  std::fill(md_.n_obs_each_pyramid_.begin(), md_.n_obs_each_pyramid_.end(), 0);
+  std::fill(md_.max_length_each_pyramid_.begin(), md_.max_length_each_pyramid_.end(), -1.F);
 
   _cloud_in_current_view_rotated->clear();  // Clear first
 
@@ -245,30 +262,29 @@ int DSPMapStaticV2::update(int                      point_cloud_num,
                                                       rotated_point_this[2]);
 
       int pyramid_index         = pyramid_index_h * mp_.n_pyramid_obsrv_v_ + pyramid_index_v;
-      int observation_inner_seq = observation_num_each_pyramid[pyramid_index];
+      int observation_inner_seq = md_.n_obs_each_pyramid_[pyramid_index];
 
       float length = sqrtf(rotated_point_this[0] * rotated_point_this[0] +
                            rotated_point_this[1] * rotated_point_this[1] +
                            rotated_point_this[2] * rotated_point_this[2]);
 
       // get point cloud position in global coordinate
-      point_cloud[pyramid_index][observation_inner_seq][0] = rotated_point_this[0];
-      point_cloud[pyramid_index][observation_inner_seq][1] = rotated_point_this[1];
-      point_cloud[pyramid_index][observation_inner_seq][2] = rotated_point_this[2];
-      point_cloud[pyramid_index][observation_inner_seq][3] = 0.F;
-      point_cloud[pyramid_index][observation_inner_seq][4] = length;
+      Eigen::Vector3f rp(rotated_point_this[0], rotated_point_this[1], rotated_point_this[2]);
+      md_.point_cloud_[pyramid_index][observation_inner_seq]     = rp;
+      md_.point_cloud_val_[pyramid_index][observation_inner_seq] = 0.F;
+      // point_cloud_[pyramid_index][observation_inner_seq][4] = length;
 
-      if (point_cloud_max_length[pyramid_index] <
+      if (md_.max_length_each_pyramid_[pyramid_index] <
           length) {  // to be used to judge if a particle is occluded
-        point_cloud_max_length[pyramid_index] = length;
+        md_.max_length_each_pyramid_[pyramid_index] = length;
       }
 
-      observation_num_each_pyramid[pyramid_index] += 1;
+      md_.n_obs_each_pyramid_[pyramid_index] += 1;
 
       // Omit the overflowed observation points. It is suggested to used a voxel filter on the input
       // point clouds to avoid overflow.
-      if (observation_num_each_pyramid[pyramid_index] >= observation_max_points_num_one_pyramid) {
-        observation_num_each_pyramid[pyramid_index] = observation_max_points_num_one_pyramid - 1;
+      if (md_.n_obs_each_pyramid_[pyramid_index] >= observation_max_points_num_one_pyramid) {
+        md_.n_obs_each_pyramid_[pyramid_index] = observation_max_points_num_one_pyramid - 1;
       }
 
       ++valid_points;
@@ -458,8 +474,9 @@ void DSPMapStaticV2::mapUpdate() {
 
   /// Calculate Ck + kappa first
   for (int i = 0; i < mp_.n_pyramid_obsrv_; ++i) {
-    for (int j = 0; j < observation_num_each_pyramid[i]; ++j) {
-      auto *ptr_pt = point_cloud[i][j];
+    for (int j = 0; j < md_.n_obs_each_pyramid_[i]; ++j) {
+      Eigen::Vector3f pt     = md_.point_cloud_[i][j];
+      double          pt_val = mp_.newborn_objects_expected_ + mp_.kappa_;
       // Iteration of z
       for (int n_seq = 0; n_seq < _observation_pyramid_neighbors[i][0]; ++n_seq) {
         int pyramid_check_index =
@@ -477,16 +494,16 @@ void DSPMapStaticV2::mapUpdate() {
             //                            point_cloud[i][j][0]="<<point_cloud[i][j][0]<<endl;
             auto vx = _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index];
 
-            float gk = queryNormalPDF(vx[4], ptr_pt[0], mp_.sigma_update_) *
-                       queryNormalPDF(vx[5], ptr_pt[1], mp_.sigma_update_) *
-                       queryNormalPDF(vx[6], ptr_pt[2], mp_.sigma_update_);
+            float gk = queryNormalPDF(vx[4], pt[0], mp_.sigma_update_) *
+                       queryNormalPDF(vx[5], pt[1], mp_.sigma_update_) *
+                       queryNormalPDF(vx[6], pt[2], mp_.sigma_update_);
 
-            ptr_pt[3] += md_.P_detection_ * vx[7] * gk;
+            pt_val += md_.P_detection_ * vx[7] * gk;
           }
         }
       }
       /// add weight for new born particles
-      ptr_pt[3] += (mp_.newborn_objects_expected_ + mp_.kappa_);
+      md_.point_cloud_val_[i][j] = pt_val;
     }
   }
 
@@ -505,14 +522,14 @@ void DSPMapStaticV2::mapUpdate() {
         int   particle_voxel_inner_index = current_pyramid[inner_seq][2];
         auto *vpt = _voxels_with_particle[particle_voxel_index][particle_voxel_inner_index];
 
-        float px                   = vpt[4];
-        float py                   = vpt[5];
-        float pz                   = vpt[6];
+        float px = vpt[4];
+        float py = vpt[5];
+        float pz = vpt[6];
 
         float particle_dist_length = sqrtf(px * px + py * py + pz * pz);
         // Update only particles that are not occluded, use voxel_resolution as the distance metric.
-        if (point_cloud_max_length[i] > 0.F &&
-            particle_dist_length > point_cloud_max_length[i] + mp_.obstacles_inflation_) {
+        if (md_.max_length_each_pyramid_[i] > 0.F &&
+            particle_dist_length > md_.max_length_each_pyramid_[i] + mp_.obstacles_inflation_) {
           // occluded
           continue;
         }
@@ -521,17 +538,15 @@ void DSPMapStaticV2::mapUpdate() {
         for (int neighbor_seq = 0; neighbor_seq < neighbor_num; ++neighbor_seq) {
           int neighbor_index =
               _observation_pyramid_neighbors[current_pyramid_index][neighbor_seq + 1];
-          auto *ptz = point_cloud[neighbor_index];
-
-          for (int z_seq = 0; z_seq < observation_num_each_pyramid[neighbor_index];
+          for (int z_seq = 0; z_seq < md_.n_obs_each_pyramid_[neighbor_index];
                ++z_seq) {  // for all observation points in a neighbor pyramid
-
-            auto  pt = ptz[z_seq];
-            float gk = queryNormalPDF(px, pt[0], mp_.sigma_update_) *
+            Eigen::Vector3f pt     = md_.point_cloud_[neighbor_index][z_seq];
+            float           pt_val = md_.point_cloud_val_[neighbor_index][z_seq];
+            float           gk     = queryNormalPDF(px, pt[0], mp_.sigma_update_) *
                        queryNormalPDF(py, pt[1], mp_.sigma_update_) *
                        queryNormalPDF(pz, pt[2], mp_.sigma_update_);
 
-            sum_by_zk += md_.P_detection_ * gk / pt[3];
+            sum_by_zk += md_.P_detection_ * gk / pt_val;
             // ++operation_counter_update;
           }
         }
@@ -864,8 +879,9 @@ void DSPMapStaticV2::mapAddNewBornParticlesByObservation() {
   /** Calculate normalization coefficient first **/
   float normalization_coefficient = 0.F;
   for (int i = 0; i < mp_.n_pyramid_obsrv_; i++) {
-    for (int j = 0; j < observation_num_each_pyramid[i]; j++) {
-      normalization_coefficient += 1.F / point_cloud[i][j][3];
+    for (int j = 0; j < md_.n_obs_each_pyramid_[i]; j++) {
+      double val = md_.point_cloud_val_[i][j];
+      normalization_coefficient += 1.F / val;
     }
   }
   float updated_weight_new_born = mp_.newborn_particles_weight_ * normalization_coefficient;
