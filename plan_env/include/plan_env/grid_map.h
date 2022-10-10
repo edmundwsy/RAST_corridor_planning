@@ -420,5 +420,3 @@ inline void GridMap::inflatePoint(const Eigen::Vector3i&   pt,
 }
 
 inline double GridMap::getResolution() { return mp_.resolution_; }
-
-#endif

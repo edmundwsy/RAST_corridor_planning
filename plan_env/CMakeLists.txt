@@ -66,6 +66,7 @@ target_link_libraries(obj_generator
     ${catkin_LIBRARIES}
 )
 
+
 add_executable(test_grid_map_node
     src/test_grid_map_node.cpp
 )

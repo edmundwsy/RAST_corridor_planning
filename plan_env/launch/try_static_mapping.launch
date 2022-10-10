@@ -15,7 +15,7 @@
   <arg name="fy" value="387.229248046875"/>
 
 
-  <node pkg="plan_env" name="map" type="grid_map_node" output="screen">
+  <node pkg="plan_env" name="map" type="test_grid_map_node" output="screen">
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />
