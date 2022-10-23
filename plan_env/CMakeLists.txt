@@ -15,7 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
     visualization_msgs
     cv_bridge
     message_filters
-    quadrotor_msgs  # only for examples
+    quadrotor_msgs # only for examples
 )
 
 find_package(Eigen3 REQUIRED)
@@ -42,15 +42,15 @@ include_directories(
 link_directories(${PCL_LIBRARY_DIRS})
 include_directories(/usr/local/include/munkres)
 set(MunkresLIB
-  /usr/local/lib/libmunkres.a
+    /usr/local/lib/libmunkres.a
 )
-
 
 add_library(plan_env
     src/grid_map.cpp
     src/raycast.cpp
     src/obj_predictor.cpp
     src/dsp_map_new.cpp
+    src/risk_voxel.cpp
 )
 target_link_libraries(plan_env
     ${catkin_LIBRARIES}
@@ -65,7 +65,6 @@ add_executable(obj_generator
 target_link_libraries(obj_generator
     ${catkin_LIBRARIES}
 )
-
 
 add_executable(test_grid_map_node
     src/test_grid_map_node.cpp
@@ -87,6 +86,12 @@ add_executable(dsp_map_node
     src/dsp_map_node.cpp
 )
 target_link_libraries(dsp_map_node
+    plan_env
+    ${catkin_LIBRARIES}
+)
+
+add_executable(risk_voxel_node src/risk_voxel_node.cpp)
+target_link_libraries(risk_voxel_node
     plan_env
     ${catkin_LIBRARIES}
 )

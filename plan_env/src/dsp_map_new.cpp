@@ -1,4 +1,4 @@
-/**
+  /**
  * @file dsp_map_new.cpp
  * @author Siyuan Wu (siyuanwu99@gmail.com)
  * @brief
@@ -144,6 +144,10 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
       p[1] = 0;
     }
   }
+
+  /* Initialize point clouds */
+  _cloud_in_current_view_rotated.reset(new pcl::PointCloud<pcl::PointXYZ>);
+  _input_cloud_with_velocity.reset(new pcl::PointCloud<pcl::PointXYZINormal >);
 
   /// New: set pyramid plane initial parameters
   int h_start_seq = -mp_.half_fov_h_ / mp_.angle_resolution_;
@@ -299,7 +303,7 @@ int DSPMapStaticV2::update(int                      point_cloud_num,
       mp_.newborn_particles_weight_ * (float)mp_.newborn_particles_per_point_;
 
   /// Start a new thread for velocity estimation
-  std::thread velocity_estimation(velocityEstimationThread);
+  std::thread velocity_estimation(&DSPMapStaticV2::velocityEstimationThread, this);
 
   /*** Prediction ***/
   //        clock_t start7, finish7;

@@ -106,15 +106,15 @@ static int _pyramids_in_fov[observation_pyramid_num][SAFE_PARTICLE_NUM_PYRAMID][
 static int _observation_pyramid_neighbors[observation_pyramid_num][10]{};
 
 /// Variables for velocity estimation
-pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud_in_current_view_rotated(
-    new pcl::PointCloud<pcl::PointXYZ>());
+// pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud_in_current_view_rotated(
+//     new pcl::PointCloud<pcl::PointXYZ>());
 
 static float _current_position[3]          = {0.f, 0.f, 0.f};
 static float _voxel_filtered_resolution    = 0.15;
 static float _delt_t_from_last_observation = 0.f;
 
-pcl::PointCloud<pcl::PointXYZINormal>::Ptr _input_cloud_with_velocity(
-    new pcl::PointCloud<pcl::PointXYZINormal>());
+// pcl::PointCloud<pcl::PointXYZINormal>::Ptr _input_cloud_with_velocity(
+//     new pcl::PointCloud<pcl::PointXYZINormal>());
 
 /** Storage for Gaussian randoms and Gaussian PDF**/
 static float _standard_gaussian_pdf[20000];
@@ -258,6 +258,10 @@ class DSPMapStaticV2 {
 
   MappingParameters mp_; /** Map Parameters */
   MappingData       md_; /** Map Data */
+
+  /* TODO: merge to md_ */
+  pcl::PointCloud<pcl::PointXYZ>::Ptr        _cloud_in_current_view_rotated;
+  pcl::PointCloud<pcl::PointXYZINormal>::Ptr _input_cloud_with_velocity;
 
   /** Parameters **/
   float record_time;
@@ -443,7 +447,7 @@ class DSPMapStaticV2 {
     return sqrtf(square_distance);
   }
 
-  static void velocityEstimationThread();
+  void velocityEstimationThread();
 
   /*** For test ***/
  public:
