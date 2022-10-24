@@ -19,9 +19,9 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
   nh_.param("map/local_update_range_z", local_update_range_z_, 4.0F);
 
   ROS_INFO("Init risk voxel map");
-  dsp_map_.reset(new DSPMapStaticV2());
+  dsp_map_.reset(new dsp_map::DSPMapStaticV2());
   dsp_map_->initMap(nh_);
-  DSPMapStaticV2::setOriginalVoxelFilterResolution(0.15);
+  dsp_map::DSPMapStaticV2::setOriginalVoxelFilterResolution(0.15);
 
   /* subscribers */
   cloud_sub_.reset(

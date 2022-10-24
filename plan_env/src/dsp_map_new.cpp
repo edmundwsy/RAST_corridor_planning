@@ -1,4 +1,4 @@
-  /**
+/**
  * @file dsp_map_new.cpp
  * @author Siyuan Wu (siyuanwu99@gmail.com)
  * @brief
@@ -10,6 +10,8 @@
  */
 
 #include "plan_env/dsp_map_new.h"
+
+namespace dsp_map {
 
 void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   nh_ = nh;
@@ -147,7 +149,7 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
 
   /* Initialize point clouds */
   _cloud_in_current_view_rotated.reset(new pcl::PointCloud<pcl::PointXYZ>);
-  _input_cloud_with_velocity.reset(new pcl::PointCloud<pcl::PointXYZINormal >);
+  _input_cloud_with_velocity.reset(new pcl::PointCloud<pcl::PointXYZINormal>);
 
   /// New: set pyramid plane initial parameters
   int h_start_seq = -mp_.half_fov_h_ / mp_.angle_resolution_;
@@ -1495,3 +1497,5 @@ int DSPMapStaticV2::getPointVoxelsIndexPublic(const float &px,
   }
   return 1;
 }
+
+}  // namespace dsp_map

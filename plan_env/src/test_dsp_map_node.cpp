@@ -33,6 +33,8 @@
 #include <message_filters/time_synchronizer.h>
 #include <nav_msgs/Odometry.h>
 
+using namespace dsp_map;
+
 /* ROS Utilities */
 ros::Subscriber click_sub_;
 ros::Publisher  cmd_pub_;

@@ -40,7 +40,7 @@ class RiskVoxel {
   ros::Timer      pub_timer_;
 
   /* Data */
-  DSPMapStaticV2::Ptr dsp_map_;
+  dsp_map::DSPMapStaticV2::Ptr dsp_map_;
 
   float risk_maps_[VOXEL_NUM][3];
   float valid_clouds_[5000 * 3];
