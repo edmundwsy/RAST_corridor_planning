@@ -87,6 +87,8 @@ static const float obstacle_thickness_for_occlusion       = 0.3;
 
 using namespace std;
 
+namespace dsp_map {
+
 // flag value 0: invalid, value 1: valid but not newborn, value 3: valid newborn 7: Recently
 // predicted
 /// Container for voxels h particles
@@ -507,5 +509,7 @@ inline void DSPMapStaticV2::rotateVectorByQuaternion(const float *             o
   *(rotated_vector + 1) = vector_quaternion.y();
   *(rotated_vector + 2) = vector_quaternion.z();
 }
+
+} // namespace dsp_map
 
 #endif  // _DSP_MAP_H_

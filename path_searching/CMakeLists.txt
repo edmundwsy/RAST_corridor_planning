@@ -36,6 +36,7 @@ include_directories(
 add_library(path_searching
     src/dyn_a_star.cpp
     src/kinodynamic_a_star.cpp
+    src/risk_hybrid_a_star.cpp
 )
 target_link_libraries(path_searching
     ${catkin_LIBRARIES}
@@ -49,6 +50,12 @@ target_link_libraries(a_star_node
 
 add_executable(kinodyn_a_star_node src/vis_kinodyn_a_star_node.cpp)
 target_link_libraries(kinodyn_a_star_node
+    ${catkin_LIBRARIES}
+    path_searching
+)
+
+add_executable(risk_a_star_node src/vis_risk_a_star_node.cpp)
+target_link_libraries(risk_a_star_node
     ${catkin_LIBRARIES}
     path_searching
 )
