@@ -34,17 +34,17 @@ RiskHybridAstar::~RiskHybridAstar() {
   }
 }
 
-void RiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::Vector3i& map_size) {
+void RiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::Vector3d& map_size) {
   /* ---------- map params ---------- */
   this->inv_resolution_ = 1.0 / resolution_;
   inv_time_resolution_  = 1.0 / time_resolution_;
   tolerance_            = ceil(inv_resolution_);
 
   map_center_ = map_center;
-  POOL_SIZE_ << map_size(0), map_size(1), map_size(2);
+  map_size_   = map_size;
 
   cout << "center_: " << map_center_.transpose() << endl;
-  cout << "map size: " << POOL_SIZE_.transpose() << endl;
+  cout << "map size: " << map_size_.transpose() << endl;
 
   /* ---------- pre-allocated node ---------- */
   path_node_pool_.resize(allocate_num_);
@@ -57,11 +57,7 @@ void RiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::Vecto
   iter_num_     = 0;
 }
 
-void RiskHybridAstar::setEnvironment(const RiskVoxel::Ptr& grid_map) {
-  grid_map_ = grid_map;
-}
-
-
+void RiskHybridAstar::setEnvironment(const RiskVoxel::Ptr& grid_map) { grid_map_ = grid_map; }
 
 void RiskHybridAstar::setParam(ros::NodeHandle& nh) {
   nh.param("search/max_tau", max_tau_, -1.0);
@@ -103,13 +99,13 @@ void RiskHybridAstar::reset() {
 }
 
 ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
-                                   Eigen::Vector3d start_v,
-                                   Eigen::Vector3d start_a,
-                                   Eigen::Vector3d end_pt,
-                                   Eigen::Vector3d end_v,
-                                   bool            init,
-                                   bool            dynamic,
-                                   double          time_start) {
+                                  Eigen::Vector3d start_v,
+                                  Eigen::Vector3d start_a,
+                                  Eigen::Vector3d end_pt,
+                                  Eigen::Vector3d end_v,
+                                  bool            init,
+                                  bool            dynamic,
+                                  double          time_start) {
   start_vel_ = start_v;
   start_acc_ = start_a;
 
@@ -129,11 +125,11 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
   end_index         = posToIndex(end_pt);
   /* Estimate heuristic from start node to the end */
   cur_node->setFScore(lambda_heu_ * estimateHeuristic(cur_node->state, end_state, time_to_goal));
-  
+
   /* push first node to the open set */
   cur_node->setNodeState(IN_OPEN_SET);
   this->open_set_.push(cur_node);
-  
+
   use_node_num_ += 1;
 
   if (dynamic) {
@@ -227,8 +223,8 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     }
 
     // cout << "cur state:" << cur_state.head(3).transpose() << endl;
-    for (int i = 0; i < inputs.size(); ++i)
-      for (int j = 0; j < durations.size(); ++j) {
+    for (unsigned int i = 0; i < inputs.size(); ++i)
+      for (unsigned int j = 0; j < durations.size(); ++j) {
         um         = inputs[i];
         double tau = durations[j];
         stateTransit(cur_state, pro_state, um, tau);
@@ -268,7 +264,8 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
           double dt = tau * double(k) / double(check_num_);
           stateTransit(cur_state, xt, um, dt);
           pos = xt.head(3);
-          if (grid_map_->getInflateOccupancy(pos) == 1) {
+          std::cout << "pos:" << pos.transpose() << std::endl;
+          if (grid_map_->getInflateOccupancy(pos - map_center_) == 1) {
             is_occ = true;
             break;
           }
@@ -318,6 +315,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
               pro_node->time     = cur_node->time + tau;
               pro_node->time_idx = timeToIndex(pro_node->time);
             }
+            std::cout << "pro_node->state: " << pro_node->state.transpose() << std::endl;
             open_set_.push(pro_node);
 
             if (dynamic)
@@ -360,8 +358,8 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
 }
 
 double RiskHybridAstar::estimateHeuristic(Eigen::VectorXd x1,
-                                           Eigen::VectorXd x2,
-                                           double&         optimal_time) {
+                                          Eigen::VectorXd x2,
+                                          double&         optimal_time) {
   const Vector3d dp = x2.head(3) - x1.head(3);
   const Vector3d v0 = x1.segment(3, 3);
   const Vector3d v1 = x2.segment(3, 3);
@@ -396,8 +394,8 @@ double RiskHybridAstar::estimateHeuristic(Eigen::VectorXd x1,
 }
 
 bool RiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
-                                       Eigen::VectorXd state2,
-                                       double          time_to_goal) {
+                                      Eigen::VectorXd state2,
+                                      double          time_to_goal) {
   /* ---------- get coefficient ---------- */
   const Vector3d p0  = state1.head(3);
   const Vector3d dp  = state2.head(3) - p0;
@@ -425,10 +423,16 @@ bool RiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
   Tm << 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 0;
 
   /* ---------- forward checking of trajectory ---------- */
-  double t_delta = t_d / 10;
+  double t_delta         = t_d / 10;
+  double half_map_size_x = map_size_(0) / 2;
+  double half_map_size_y = map_size_(1) / 2;
+  double half_map_size_z = map_size_(2) / 2;
+
   for (double time = t_delta; time <= t_d; time += t_delta) {
     t = VectorXd::Zero(4);
-    for (int j = 0; j < 4; j++) t(j) = pow(time, j);
+    for (int j = 0; j < 4; j++) {
+      t(j) = pow(time, j);
+    }
 
     for (int dim = 0; dim < 3; dim++) {
       poly1d     = coef.row(dim);
@@ -441,9 +445,12 @@ bool RiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
         // return false;
       }
     }
+    std::cout << "coord: " << coord.transpose() << std::endl;
+    coord = coord - map_center_;
+    std::cout << "relative coord: " << coord.transpose() << std::endl;
 
-    if (coord(0) < map_center_(0) || coord(0) >= POOL_SIZE_(0) || coord(1) < map_center_(1) ||
-        coord(1) >= POOL_SIZE_(1) || coord(2) < map_center_(2) || coord(2) >= POOL_SIZE_(2)) {
+    if (coord(0) < -half_map_size_x || coord(0) >= half_map_size_x || coord(1) < -half_map_size_y ||
+        coord(1) >= half_map_size_y || coord(2) < half_map_size_z || coord(2) >= half_map_size_z) {
       return false;
     }
 
@@ -564,8 +571,8 @@ std::vector<Eigen::Vector3d> RiskHybridAstar::getPath(double delta_t) {
 }
 
 void RiskHybridAstar::getSamples(double&                  ts,
-                                  vector<Eigen::Vector3d>& point_set,
-                                  vector<Eigen::Vector3d>& start_end_derivatives) {
+                                 vector<Eigen::Vector3d>& point_set,
+                                 vector<Eigen::Vector3d>& start_end_derivatives) {
   /* ---------- path duration ---------- */
   double T_sum = 0.0;
   if (is_shot_succ_) T_sum += t_shot_;
@@ -673,9 +680,9 @@ int RiskHybridAstar::timeToIndex(double time) {
 }
 
 void RiskHybridAstar::stateTransit(Eigen::Matrix<double, 6, 1>& state0,
-                                    Eigen::Matrix<double, 6, 1>& state1,
-                                    Eigen::Vector3d              um,
-                                    double                       tau) {
+                                   Eigen::Matrix<double, 6, 1>& state1,
+                                   Eigen::Vector3d              um,
+                                   double                       tau) {
   for (int i = 0; i < 3; ++i) phi_(i, i + 3) = tau;
 
   Eigen::Matrix<double, 6, 1> integral;

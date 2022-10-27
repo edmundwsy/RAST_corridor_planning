@@ -349,6 +349,10 @@ class DSPMapStaticV2 {
   void getKMClusterResult(pcl::PointCloud<pcl::PointXYZINormal> &cluster_cloud);
   void mapAddNewBornParticlesByObservation();
 
+  inline bool isInMap(const Particle &p) const;
+  inline bool isInMap(const float &px, const float &py, const float &pz) const;
+  inline bool ifInPyramidsArea(float &x, float &y, float &z);
+
  private:
   void setInitParameters();
 
@@ -365,9 +369,6 @@ class DSPMapStaticV2 {
 
   void getVoxelPositionFromIndex(const int &index, float &px, float &py, float &pz) const;
 
-  inline bool isInMap(const Particle &p) const;
-  inline bool isInMap(const float &px, const float &py, const float &pz) const;
-  inline bool ifInPyramidsArea(float &x, float &y, float &z);
   inline void rotateVectorByQuaternion(const float *             ori_vector,
                                        const Eigen::Quaternionf &q,
                                        float *                   rotated_vector);
@@ -459,7 +460,7 @@ class DSPMapStaticV2 {
 
   void getVoxelPositionFromIndexPublic(const int &index, float &px, float &py, float &pz) const;
 
-  int getPointVoxelsIndexPublic(const float &px, const float &py, const float &pz, int &index);
+  bool getPointVoxelsIndexPublic(const float &px, const float &py, const float &pz, int &index);
 };
 
 /* ----- Definition of Inline Functions ----- */
@@ -467,12 +468,16 @@ class DSPMapStaticV2 {
 inline bool DSPMapStaticV2::isInMap(const Particle &p) const {
   return (p.px >= mp_.half_map_size_x_ || p.px <= -mp_.half_map_size_x_ ||
           p.py >= mp_.half_map_size_y_ || p.py <= -mp_.half_map_size_y_ ||
-          p.pz >= mp_.half_map_size_z_ || p.pz <= -mp_.half_map_size_z_);
+          p.pz >= mp_.half_map_size_z_ || p.pz <= -mp_.half_map_size_z_)
+             ? false
+             : true;
 }
 
 inline bool DSPMapStaticV2::isInMap(const float &px, const float &py, const float &pz) const {
   return (px >= mp_.half_map_size_x_ || px <= -mp_.half_map_size_x_ || py >= mp_.half_map_size_y_ ||
-          py <= -mp_.half_map_size_y_ || pz >= mp_.half_map_size_z_ || pz <= -mp_.half_map_size_z_);
+          py <= -mp_.half_map_size_y_ || pz >= mp_.half_map_size_z_ || pz <= -mp_.half_map_size_z_)
+             ? false
+             : true;
 }
 
 inline float DSPMapStaticV2::vectorMultiply(
@@ -510,6 +515,6 @@ inline void DSPMapStaticV2::rotateVectorByQuaternion(const float *             o
   *(rotated_vector + 2) = vector_quaternion.z();
 }
 
-} // namespace dsp_map
+}  // namespace dsp_map
 
 #endif  // _DSP_MAP_H_

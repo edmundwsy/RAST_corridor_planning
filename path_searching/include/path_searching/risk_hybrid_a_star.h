@@ -43,6 +43,7 @@ class RiskHybridAstar : public AStar {
   // double tie_breaker_;
   // Eigen::Vector3i CENTER_IDX_, POOL_SIZE_;
   // Eigen::Vector3d map_center_;  // map center
+  Eigen::Vector3d map_size_;
 
   RiskVoxel::Ptr grid_map_;
   // GridNodePtr ***          GridNodeMap_;
@@ -87,7 +88,8 @@ class RiskHybridAstar : public AStar {
   /* main API */
   void setParam(ros::NodeHandle& nh);
   void setEnvironment(const RiskVoxel::Ptr& grid_map);
-  void init(const Eigen::Vector3d& map_center, const Eigen::Vector3i& map_size);
+  void setMapCenter(const Eigen::Vector3d& map_center) { map_center_ = map_center; }
+  void init(const Eigen::Vector3d& map_center, const Eigen::Vector3d& map_size);
   void reset();
 
   ASTAR_RET search(Eigen::Vector3d start_pt,

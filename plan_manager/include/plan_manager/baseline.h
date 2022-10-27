@@ -25,9 +25,9 @@
 #include <ros/ros.h>
 #include <Eigen/Eigen>
 #include <memory>
+#include <string>
 #include <termcolor.hpp>  // for colored output
 #include <vector>
-#include <string>
 
 struct BaselineParameters {
   /* data */
@@ -107,6 +107,7 @@ class BaselinePlanner {
 
   void PoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
   void OdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
+  void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
 
   void init();
   bool plan();
@@ -116,12 +117,14 @@ class BaselinePlanner {
   typedef std::shared_ptr<BaselinePlanner> Ptr;
 
  private:
+  /* ROS */
   ros::NodeHandle    nh_;
+  ros::Subscriber    click_sub_, pose_sub_;
   BaselineParameters cfg_;
 
-  Eigen::Vector3d odom_pos_; /** quadrotor's current position */
-  Eigen::Vector3d odom_vel_; /** quadrotor's current velocity */
-  Eigen::Vector3d odom_acc_; /** quadrotor's current acceleration */
+  Eigen::Vector3d    odom_pos_; /** quadrotor's current position */
+  Eigen::Vector3d    odom_vel_; /** quadrotor's current velocity */
+  Eigen::Vector3d    odom_acc_; /** quadrotor's current acceleration */
   Eigen::Quaterniond odom_att_; /** quadrotor's current attitude as a quaternion */
 
   double prev_pt_, prev_px_, prev_py_, prev_pz_; /** previous point */

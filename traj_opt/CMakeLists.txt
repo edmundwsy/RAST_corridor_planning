@@ -39,7 +39,7 @@ include_directories(
 )
 
 add_library(traj_opt
-    src/poly_traj_optimizer.cpp
+    # src/poly_traj_optimizer.cpp
     src/mini_snap.cpp
     src/bezier_optimizer.cpp
 )

@@ -17,52 +17,52 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   nh_ = nh;
 
   /* read parameters */
-  nh_.param("grid_map/n_risk_map", mp_.n_risk_map_, 3);
-  nh_.param("grid_map/n_prediction_per_risk", mp_.n_prediction_per_risk_map_, 3);
-  nh_.param("grid_map/n_particles_max", mp_.n_particles_max_, 1000);
-  nh_.param("grid_map/n_particles_max_per_voxel", mp_.n_particles_max_per_voxel_, 18);
-  nh_.param("grid_map/n_particles_max_per_pyramid", mp_.n_particles_max_per_pyramid_, 100);
+  nh_.param("map/n_risk_map", mp_.n_risk_map_, 3);
+  nh_.param("map/n_prediction_per_risk", mp_.n_prediction_per_risk_map_, 3);
+  nh_.param("map/n_particles_max", mp_.n_particles_max_, 1000);
+  nh_.param("map/n_particles_max_per_voxel", mp_.n_particles_max_per_voxel_, 18);
+  nh_.param("map/n_particles_max_per_pyramid", mp_.n_particles_max_per_pyramid_, 100);
 
-  nh_.param("grid_map/resolution", mp_.resolution_, -1.0F);
-  nh_.param("grid_map/map_size_x", mp_.map_size_x_, -1.0F);
-  nh_.param("grid_map/map_size_y", mp_.map_size_y_, -1.0F);
-  nh_.param("grid_map/map_size_z", mp_.map_size_z_, -1.0F);
-  nh_.param("grid_map/voxel_size_x", mp_.voxel_size_x_, -1);
-  nh_.param("grid_map/voxel_size_y", mp_.voxel_size_y_, -1);
-  nh_.param("grid_map/voxel_size_z", mp_.voxel_size_z_, -1);
-  nh_.param("grid_map/local_update_range_x", mp_.local_update_range_(0), -1.0F);
-  nh_.param("grid_map/local_update_range_y", mp_.local_update_range_(1), -1.0F);
-  nh_.param("grid_map/local_update_range_z", mp_.local_update_range_(2), -1.0F);
-  nh_.param("grid_map/obstacles_inflation", mp_.obstacles_inflation_, -1.0F);
+  nh_.param("map/resolution", mp_.resolution_, -1.0F);
+  nh_.param("map/map_size_x", mp_.map_size_x_, -1.0F);
+  nh_.param("map/map_size_y", mp_.map_size_y_, -1.0F);
+  nh_.param("map/map_size_z", mp_.map_size_z_, -1.0F);
+  nh_.param("map/voxel_size_x", mp_.voxel_size_x_, -1);
+  nh_.param("map/voxel_size_y", mp_.voxel_size_y_, -1);
+  nh_.param("map/voxel_size_z", mp_.voxel_size_z_, -1);
+  nh_.param("map/local_update_range_x", mp_.local_update_range_(0), -1.0F);
+  nh_.param("map/local_update_range_y", mp_.local_update_range_(1), -1.0F);
+  nh_.param("map/local_update_range_z", mp_.local_update_range_(2), -1.0F);
+  nh_.param("map/obstacles_inflation", mp_.obstacles_inflation_, -1.0F);
 
-  nh_.param("grid_map/angle_resolution", mp_.angle_resolution_, 3);
-  nh_.param("grid_map/half_fov_horizontal", mp_.half_fov_h_, -1);
-  nh_.param("grid_map/half_fov_vertical", mp_.half_fov_v_, -1);
+  nh_.param("map/angle_resolution", mp_.angle_resolution_, 3);
+  nh_.param("map/half_fov_horizontal", mp_.half_fov_h_, -1);
+  nh_.param("map/half_fov_vertical", mp_.half_fov_v_, -1);
 
-  nh_.param("grid_map/visualization_truncate_height", mp_.visualization_truncate_height_, -0.1F);
-  nh_.param("grid_map/virtual_ceil_height", mp_.virtual_ceil_height_, -0.1F);
-  nh_.param("grid_map/virtual_ceil_yp", mp_.virtual_ceil_yp_, -0.1F);
-  nh_.param("grid_map/virtual_ceil_yn", mp_.virtual_ceil_yn_, -0.1F);
+  nh_.param("map/visualization_truncate_height", mp_.visualization_truncate_height_, -0.1F);
+  nh_.param("map/virtual_ceil_height", mp_.virtual_ceil_height_, -0.1F);
+  nh_.param("map/virtual_ceil_yp", mp_.virtual_ceil_yp_, -0.1F);
+  nh_.param("map/virtual_ceil_yn", mp_.virtual_ceil_yn_, -0.1F);
 
-  nh_.param("grid_map/show_occ_time", mp_.show_occ_time_, false);
+  nh_.param("map/show_occ_time", mp_.show_occ_time_, false);
 
-  nh_.param("grid_map/newborn/particles_number", mp_.newborn_particles_per_point_, 20);
-  nh_.param("grid_map/newborn/particles_weight", mp_.newborn_particles_weight_, 0.0001F);
-  nh_.param("grid_map/newborn/objects_weight", mp_.newborn_objects_weight_, 0.04F);
+  nh_.param("map/newborn/particles_number", mp_.newborn_particles_per_point_, 20);
+  nh_.param("map/newborn/particles_weight", mp_.newborn_particles_weight_, 0.0001F);
+  nh_.param("map/newborn/objects_weight", mp_.newborn_objects_weight_, 0.04F);
 
   /* standard derivations */
-  nh_.param("grid_map/stddev_pos", mp_.stddev_pos_predict_, 0.05F); /* prediction variance */
-  nh_.param("grid_map/stddev_vel", mp_.stddev_vel_predict_, 0.05F); /* prediction variance */
-  nh_.param("grid_map/sigma_update", mp_.sigma_update_, -1.0F);
-  nh_.param("grid_map/sigma_observation", mp_.sigma_obsrv_, -1.0F);
-  nh_.param("grid_map/sigma_localization", mp_.sigma_loc_, -1.0F);
+  nh_.param("map/stddev_pos", mp_.stddev_pos_predict_, 0.05F); /* prediction variance */
+  nh_.param("map/stddev_vel", mp_.stddev_vel_predict_, 0.05F); /* prediction variance */
+  nh_.param("map/sigma_update", mp_.sigma_update_, -1.0F);
+  nh_.param("map/sigma_observation", mp_.sigma_obsrv_, -1.0F);
+  nh_.param("map/sigma_localization", mp_.sigma_loc_, -1.0F);
 
-  nh_.param("grid_map/frame_id", mp_.frame_id_, string("world"));
-  nh_.param("grid_map/local_map_margin", mp_.local_map_margin_, 1);
-  nh_.param("grid_map/ground_height", mp_.ground_height_, 1.0F);
+  nh_.param("map/frame_id", mp_.frame_id_, string("world"));
+  nh_.param("map/local_map_margin", mp_.local_map_margin_, 1);
+  nh_.param("map/ground_height", mp_.ground_height_, 1.0F);
 
-  nh_.param("grid_map/odom_depth_timeout", mp_.odom_depth_timeout_, 1.0F);
-  nh_.param("grid_map/is_output_csv", mp_.is_csv_output_, false);
+  nh_.param("map/odom_depth_timeout", mp_.odom_depth_timeout_, 1.0F);
+  nh_.param("map/is_output_csv", mp_.is_csv_output_, false);
 
   if (mp_.virtual_ceil_height_ - mp_.ground_height_ > mp_.map_size_z_) {
     mp_.virtual_ceil_height_ = mp_.ground_height_ + mp_.map_size_z_;
@@ -1029,7 +1029,7 @@ void DSPMapStaticV2::mapAddNewBornParticlesByObservation() {
 }
 
 int DSPMapStaticV2::getParticleVoxelsIndex(const Particle &p, int &index) {
-  if (isInMap(p)) {
+  if (!isInMap(p)) {
     return 0;
   }
   auto x = (int)((p.px + mp_.half_map_size_x_) / mp_.resolution_);
@@ -1048,7 +1048,7 @@ int DSPMapStaticV2::getParticleVoxelsIndex(const float &px,
                                            const float &py,
                                            const float &pz,
                                            int &        index) {
-  if (isInMap(px, py, pz)) {
+  if (!isInMap(px, py, pz)) {
     return 0;
   }
   auto x = (int)((px + mp_.half_map_size_x_) / mp_.resolution_);
@@ -1457,7 +1457,7 @@ void DSPMapStaticV2::velocityEstimationThread() {
   }
 
   clusters_feature_vector_dynamic_last = clusters_feature_vector_dynamic;
-  cout << "Velocity estimation done" << endl;
+  // cout << "Velocity estimation done" << endl;
 }
 
 void DSPMapStaticV2::getVoxelPositionFromIndexPublic(const int &index,
@@ -1481,21 +1481,21 @@ void DSPMapStaticV2::getVoxelPositionFromIndexPublic(const int &index,
   pz = (float)z_index * mp_.resolution_ + correction_z;
 }
 
-int DSPMapStaticV2::getPointVoxelsIndexPublic(const float &px,
+bool DSPMapStaticV2::getPointVoxelsIndexPublic(const float &px,
                                               const float &py,
                                               const float &pz,
                                               int &        index) {
-  if (isInMap(px, py, pz)) {
-    return 0;
+  if (!isInMap(px, py, pz)) {
+    return false;
   }
   auto x = (int)((px + mp_.half_map_size_x_) / mp_.resolution_);
   auto y = (int)((py + mp_.half_map_size_y_) / mp_.resolution_);
   auto z = (int)((pz + mp_.half_map_size_z_) / mp_.resolution_);
   index  = z * mp_.voxel_size_y_ * mp_.voxel_size_x_ + y * mp_.voxel_size_x_ + x;
   if (index < 0 || index >= VOXEL_NUM) {
-    return 0;
+    return false;
   }
-  return 1;
+  return true;
 }
 
 }  // namespace dsp_map

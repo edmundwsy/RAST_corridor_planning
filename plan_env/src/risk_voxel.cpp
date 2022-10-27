@@ -17,6 +17,7 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
   nh_.param("map/local_update_range_x", local_update_range_x_, 5.0F);
   nh_.param("map/local_update_range_y", local_update_range_y_, 5.0F);
   nh_.param("map/local_update_range_z", local_update_range_z_, 4.0F);
+  nh_.param("map/risk_threshold", risk_threshold_, 0.15F);
 
   ROS_INFO("Init risk voxel map");
   dsp_map_.reset(new dsp_map::DSPMapStaticV2());
@@ -24,8 +25,7 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
   dsp_map::DSPMapStaticV2::setOriginalVoxelFilterResolution(0.15);
 
   /* subscribers */
-  cloud_sub_.reset(
-      new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "map/cloud", 30));
+  cloud_sub_.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "map/cloud", 30));
   if (!is_pose_sub_) { /* use odometry */
     odom_sub_.reset(new message_filters::Subscriber<nav_msgs::Odometry>(
         nh, "map/odom", 100, ros::TransportHints().tcpNoDelay()));
@@ -46,7 +46,6 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
 
   /* publish point clouds in 20 Hz */
   pub_timer_ = nh.createTimer(ros::Duration(0.05), &RiskVoxel::pubCallback, this);
-
 }
 
 /**
@@ -107,13 +106,13 @@ void RiskVoxel::cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cl
   filterPointCloud(cloud_in, cloud_filtered, valid_clouds_, n_valid);
 
   clock_t t_update_0 = clock();
-  std::cout << "number of valid points: " << n_valid << std::endl;
+  // std::cout << "number of valid points: " << n_valid << std::endl;
   if (!dsp_map_->update(n_valid, 3, valid_clouds_, pos, q, t)) {
     return;
   }
   clock_t t_update_1 = clock();
-  std::cout << "update time (ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
-            << std::endl;
+  // std::cout << "update time (ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
+  //           << std::endl;
 }
 
 /**
@@ -139,13 +138,13 @@ void RiskVoxel::cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &clou
   filterPointCloud(cloud_in, cloud_filtered, valid_clouds_, n_valid);
 
   clock_t t_update_0 = clock();
-  std::cout << "number of valid points: " << n_valid << std::endl;
+  // std::cout << "number of valid points: " << n_valid << std::endl;
   if (!dsp_map_->update(n_valid, 3, valid_clouds_, p, q, t)) {
     return;
   }
   clock_t t_update_1 = clock();
-  std::cout << "update time(ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
-            << std::endl;
+  // std::cout << "update time(ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
+  //           << std::endl;
 }
 
 /**
@@ -166,6 +165,25 @@ void RiskVoxel::publishOccMap() {
   cloud_msg.header.frame_id = "world";
   cloud_pub_.publish(cloud_msg);
   clock_t t2 = clock();
-  std::cout << "num_occupied: " << num_occupied << std::endl;
-  std::cout << "publish time (ms): " << (t2 - t1) * 1000 / (double)CLOCKS_PER_SEC << std::endl;
+  // std::cout << "num_occupied: " << num_occupied << std::endl;
+  // std::cout << "publish time (ms): " << (t2 - t1) * 1000 / (double)CLOCKS_PER_SEC << std::endl;
+}
+
+int RiskVoxel::getInflateOccupancy(Eigen::Vector3d pos) {
+  int   index;
+  float px = static_cast<float>(pos(0));
+  float py = static_cast<float>(pos(1));
+  float pz = static_cast<float>(pos(2));
+
+  std::cout << "getInflatedOcc, pos: " << pos.transpose() << std::endl;
+  if(!dsp_map_->getPointVoxelsIndexPublic(px, py, pz, index)) {
+    return -1;
+  }
+  std::cout << "index: " << index << "|" << VOXEL_NUM << std::endl;
+  float risk = risk_maps_[index][0];
+  if (risk > 0.5) {
+    std::cout << "risk: " << risk << std::endl;
+    return 1;
+  }
+  return 0;
 }

@@ -42,11 +42,13 @@ class RiskVoxel {
   /* Data */
   dsp_map::DSPMapStaticV2::Ptr dsp_map_;
 
+  /* Parameters */
   float risk_maps_[VOXEL_NUM][3];
   float valid_clouds_[5000 * 3];
   float local_update_range_x_;
   float local_update_range_y_;
   float local_update_range_z_;
+  float risk_threshold_;
 
   /* Message filters */
   bool is_pose_sub_ = false;
@@ -86,6 +88,9 @@ class RiskVoxel {
                         pcl::PointCloud<pcl::PointXYZ>::Ptr &      cloud_out,
                         float *                                    valid_clouds,
                         int &                                      valid_clouds_num);
+
+  int getInflateOccupancy(Eigen::Vector3d pos);
+
   typedef std::shared_ptr<RiskVoxel> Ptr;
 };
 
