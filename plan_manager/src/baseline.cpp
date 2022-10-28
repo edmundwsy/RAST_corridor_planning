@@ -115,14 +115,14 @@ void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& 
   }
 
   /*----- Safety Corridor Generation -----*/
-  t1 = ros::Time::now();
+  t1                                  = ros::Time::now();
   std::vector<Eigen::Vector3d>  route = a_star_->getPath(cfg_.a_star_search_time_step);
   std::vector<Eigen::MatrixX4d> hPolys;
   std::vector<Eigen::Vector3d>  pc;
   pc.reserve(3000);
   map_->getObstaclePoints(cfg_.risk_threshold_single_voxel, pc);
 
-  Eigen::Vector3d lower_corner  = Eigen::Vector3d(-5, -5, 0) + odom_pos_;
+  Eigen::Vector3d lower_corner  = Eigen::Vector3d(-5, -5, -1) + odom_pos_;
   Eigen::Vector3d higher_corner = Eigen::Vector3d(5, 5, 3) + odom_pos_;
 
   sfc_gen::convexCover(route, pc, lower_corner, higher_corner, 7.0, 1.0, hPolys);
@@ -130,6 +130,27 @@ void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& 
   t2 = ros::Time::now();
   ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
   visualizer_->visualizePolytope(hPolys);
+
+  /*----- Trajectory Optimization -----*/
+  std::vector<double> time_alloc;
+  for (int i = 0; i < hPolys.size(); i++) {
+    time_alloc.push_back(1.0);
+  }
+  goal_pos = route[route.size() - 1];
+  traj_optimizer_.reset(new traj_opt::BezierOpt());
+  Eigen::Matrix3d init_state, final_state;
+  init_state << odom_pos_, odom_vel_, odom_acc_;
+  final_state << goal_pos, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0);
+  std::cout << "init_state: " << init_state << std::endl;
+  std::cout << "final_state: " << final_state << std::endl;
+  traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.max_vel_optimization,
+                         cfg_.max_acc_optimization);
+  if (!traj_optimizer_->optimize()) {
+    ROS_ERROR("Trajectory optimization failed!");
+    return;
+  }
+
+  traj_optimizer_->getOptBezier(traj_);
 }
 
 /**
