@@ -18,6 +18,7 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
   nh_.param("map/local_update_range_y", local_update_range_y_, 5.0F);
   nh_.param("map/local_update_range_z", local_update_range_z_, 4.0F);
   nh_.param("map/risk_threshold", risk_threshold_, 0.15F);
+  nh_.param("map/static_clearance", clearance_, 0.3F);
 
   ROS_INFO("Init risk voxel map");
   dsp_map_.reset(new dsp_map::DSPMapStaticV2());
@@ -43,7 +44,7 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
 
   /* publishers */
   cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("map/occupancy_inflated", 1, true);
-
+  obstacle_pub_ = nh.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 1, true);
   /* publish point clouds in 20 Hz */
   pub_timer_ = nh.createTimer(ros::Duration(0.05), &RiskVoxel::pubCallback, this);
 }
@@ -171,7 +172,22 @@ void RiskVoxel::publishOccMap() {
 
 void RiskVoxel::getObstaclePoints(const float &threshold, std::vector<Eigen::Vector3d> &points) {
   int num_occupied = 0;
-  dsp_map_->getObstaclePoints(num_occupied, points, threshold);
+  dsp_map_->getObstaclePoints(num_occupied, points, threshold, clearance_);
+
+  /* Debug: publish these obstacle points */
+  pcl::PointCloud<pcl::PointXYZ> cloud;
+  for (int i = 0; i < points.size(); i++) {
+    pcl::PointXYZ p;
+    p.x = points[i](0);
+    p.y = points[i](1);
+    p.z = points[i](2);
+    cloud.push_back(p);
+  }
+  sensor_msgs::PointCloud2 cloud_msg;
+  pcl::toROSMsg(cloud, cloud_msg);
+  cloud_msg.header.stamp    = ros::Time::now();
+  cloud_msg.header.frame_id = "world";
+  obstacle_pub_.publish(cloud_msg);
 }
 
 int RiskVoxel::getInflateOccupancy(Eigen::Vector3d pos) {
@@ -180,11 +196,9 @@ int RiskVoxel::getInflateOccupancy(Eigen::Vector3d pos) {
   float py = static_cast<float>(pos(1));
   float pz = static_cast<float>(pos(2));
 
-  std::cout << "getInflatedOcc, pos: " << pos.transpose() << std::endl;
   if (!dsp_map_->getPointVoxelsIndexPublic(px, py, pz, index)) {
     return -1;
   }
-  std::cout << "index: " << index << "|" << VOXEL_NUM << std::endl;
   float risk = risk_maps_[index][0];
   if (risk > 0.5) {
     std::cout << "risk: " << risk << std::endl;

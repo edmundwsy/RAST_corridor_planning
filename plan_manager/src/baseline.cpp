@@ -109,22 +109,24 @@ void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& 
   ROS_INFO("A star search finished with return code %d", rst);
   showAstarPath();
 
+  if (rst == NO_PATH) {
+    ROS_WARN("No path found!");
+    return;
+  }
+
   /*----- Safety Corridor Generation -----*/
   t1 = ros::Time::now();
   std::vector<Eigen::Vector3d>  route = a_star_->getPath(cfg_.a_star_search_time_step);
   std::vector<Eigen::MatrixX4d> hPolys;
   std::vector<Eigen::Vector3d>  pc;
   pc.reserve(3000);
-  map_->getObstaclePoints(0.5, pc);
-  for (auto & pt : pc) {
-    std::cout << pt.transpose() << std::endl;
-  }
+  map_->getObstaclePoints(cfg_.risk_threshold_single_voxel, pc);
 
-  Eigen::Vector3d lower_corner  = Eigen::Vector3d(-2, -3, 0) + odom_pos_;
-  Eigen::Vector3d higher_corner = Eigen::Vector3d(5, 3, 3) + odom_pos_;
+  Eigen::Vector3d lower_corner  = Eigen::Vector3d(-5, -5, 0) + odom_pos_;
+  Eigen::Vector3d higher_corner = Eigen::Vector3d(5, 5, 3) + odom_pos_;
 
   sfc_gen::convexCover(route, pc, lower_corner, higher_corner, 7.0, 1.0, hPolys);
-  // sfc_gen::shortCut(hPolys);
+  sfc_gen::shortCut(hPolys);
   t2 = ros::Time::now();
   ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
   visualizer_->visualizePolytope(hPolys);
@@ -135,7 +137,7 @@ void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& 
  *
  */
 void BaselinePlanner::showAstarPath() {
-  std::vector<Eigen::Vector3d> path = a_star_->getPath(0.6);
+  std::vector<Eigen::Vector3d> path = a_star_->getPath(0.1);
   visualizer_->visualizeAstarPath(path);
 }
 

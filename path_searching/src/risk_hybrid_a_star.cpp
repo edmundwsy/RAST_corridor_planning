@@ -264,7 +264,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
           double dt = tau * double(k) / double(check_num_);
           stateTransit(cur_state, xt, um, dt);
           pos = xt.head(3);
-          std::cout << "pos:" << pos.transpose() << std::endl;
+          // std::cout << "pos:" << pos.transpose() << std::endl;
           if (grid_map_->getInflateOccupancy(pos - map_center_) == 1) {
             is_occ = true;
             break;

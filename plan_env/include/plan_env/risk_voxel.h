@@ -37,6 +37,7 @@ class RiskVoxel {
   ros::Subscriber click_sub_;
   ros::Publisher  cloud_pub_;
   ros::Publisher  risk_pub_;
+  ros::Publisher  obstacle_pub_;  /* Debug */
   ros::Timer      pub_timer_;
 
   /* Data */
@@ -49,6 +50,7 @@ class RiskVoxel {
   float local_update_range_y_;
   float local_update_range_z_;
   float risk_threshold_;
+  float clearance_;
 
   /* Message filters */
   bool is_pose_sub_ = false;

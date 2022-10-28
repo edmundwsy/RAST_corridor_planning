@@ -741,15 +741,33 @@ void DSPMapStaticV2::setParticleRecordFlag(bool record_particle_flag, float reco
 
 void DSPMapStaticV2::getObstaclePoints(int &                         obstacles_num,
                                        std::vector<Eigen::Vector3d> &points,
-                                       const float                   threshold) {
+                                       const float                   threshold,
+                                       const float                   clearance) {
   obstacles_num = 0;
   for (int i = 0; i < mp_.n_voxel_; i++) {
     if (_voxels_objects_number[i][0] > threshold) {
       Eigen::Vector3f pointf;
       getVoxelPositionFromIndex(i, pointf[0], pointf[1], pointf[2]);
-      pointf = pointf + md_.camera_pos_;
+      pointf                 = pointf + md_.camera_pos_;
       Eigen::Vector3d pointd = pointf.cast<double>();
       points.push_back(pointd);
+      /* add inflated corner points */
+      Eigen::Vector3f pointf_inflated;
+      pointf_inflated = pointf + Eigen::Vector3f(clearance, clearance, 0);
+      points.push_back(pointf_inflated.cast<double>());
+      pointf_inflated = pointf + Eigen::Vector3f(clearance, -clearance, 0);
+      points.push_back(pointf_inflated.cast<double>());
+      pointf_inflated = pointf + Eigen::Vector3f(-clearance, clearance, 0);
+      points.push_back(pointf_inflated.cast<double>());
+      pointf_inflated = pointf + Eigen::Vector3f(-clearance, -clearance, 0);
+      points.push_back(pointf_inflated.cast<double>());
+      pointf_inflated = pointf + Eigen::Vector3f(clearance, 0, 0);
+      points.push_back(pointf_inflated.cast<double>());
+      pointf_inflated = pointf + Eigen::Vector3f(-clearance, 0, 0);
+      points.push_back(pointf_inflated.cast<double>());
+      pointf_inflated = pointf + Eigen::Vector3f(0, clearance, 0);
+      points.push_back(pointf_inflated.cast<double>());
+      pointf_inflated = pointf + Eigen::Vector3f(0, -clearance, 0);
       ++obstacles_num;
     }
   }

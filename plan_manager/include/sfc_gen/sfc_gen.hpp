@@ -64,12 +64,18 @@ inline void convexCover(const std::vector<Eigen::Vector3d> &path,
   const int                   n  = path.size();
   Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();
 
+  /* initialize bounding box */
   bd(0, 0) = 1.0;
   bd(1, 0) = -1.0;
   bd(2, 1) = 1.0;
   bd(3, 1) = -1.0;
   bd(4, 2) = 1.0;
   bd(5, 2) = -1.0;
+
+  /* Debug */
+  for (auto &pt:path) {
+    std::cout << "path: " << pt[1] << std::endl;
+  }
 
   Eigen::MatrixX4d             hp, gap;
   Eigen::Vector3d              a, b = path[0];
@@ -102,7 +108,8 @@ inline void convexCover(const std::vector<Eigen::Vector3d> &path,
     }
     Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> pc(valid_pc[0].data(), 3,
                                                                        valid_pc.size());
-    std::cout << "[SFC] valid_pc size" << valid_pc.size() << std::endl;
+    std::cout << "[SFC] bounding box: " << std::endl << bd << std::endl;
+    std::cout << "[SFC] valid_pc size: " << valid_pc.size() << std::endl;
     std::cout << "[SFC] a: " << a.transpose() << std::endl;
     std::cout << "[SFC] b: " << b.transpose() << std::endl;
     firi::firi(bd, pc, a, b, hp);
