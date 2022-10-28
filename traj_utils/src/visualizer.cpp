@@ -9,7 +9,9 @@
  *
  */
 
+#include <traj_utils/quickhull.hpp>
 #include <traj_utils/visualizer.hpp>
+#include <traj_utils/geo_utils.hpp>
 
 namespace visualizer {
 
@@ -72,8 +74,89 @@ void Visualizer::visualizePolyTraj(const Eigen::Vector3d&        start_pos,
  * @param clear_corridors
  */
 void Visualizer::visualizeCorridors(const traj_utils::Corridors& corridors,
-                                    const Eigen::Vector3d&    map_pose) {
+                                    const Eigen::Vector3d&       map_pose) {
   displayCorridors(corridors, map_pose, _corridor_pub, _frame_id);
+}
+
+void Visualizer::visualizePolytope(const std::vector<Eigen::MatrixX4d>& hPolys) {
+  // Due to the fact that H-representation cannot be directly visualized
+  // We first conduct vertex enumeration of them, then apply quickhull
+  // to obtain triangle meshs of polyhedra
+  Eigen::Matrix3Xd mesh(3, 0), curTris(3, 0), oldTris(3, 0);
+  for (size_t id = 0; id < hPolys.size(); id++) {
+    oldTris = mesh;
+    Eigen::Matrix<double, 3, -1, Eigen::ColMajor> vPoly;
+    geo_utils::enumerateVs(hPolys[id], vPoly);
+
+    quickhull::QuickHull<double> tinyQH;
+    const auto  polyHull  = tinyQH.getConvexHull(vPoly.data(), vPoly.cols(), false, true);
+    const auto& idxBuffer = polyHull.getIndexBuffer();
+    int         hNum      = idxBuffer.size() / 3;
+
+    curTris.resize(3, hNum * 3);
+    for (int i = 0; i < hNum * 3; i++) {
+      curTris.col(i) = vPoly.col(idxBuffer[i]);
+    }
+    mesh.resize(3, oldTris.cols() + curTris.cols());
+    mesh.leftCols(oldTris.cols())  = oldTris;
+    mesh.rightCols(curTris.cols()) = curTris;
+  }
+
+  // RVIZ support tris for visualization
+  visualization_msgs::Marker meshMarker, edgeMarker;
+
+  meshMarker.id                 = 0;
+  meshMarker.header.stamp       = ros::Time::now();
+  meshMarker.header.frame_id    = "world";
+  meshMarker.pose.orientation.w = 1.00;
+  meshMarker.action             = visualization_msgs::Marker::ADD;
+  meshMarker.type               = visualization_msgs::Marker::TRIANGLE_LIST;
+  meshMarker.ns                 = "mesh";
+  meshMarker.color.r            = 0.00;
+  meshMarker.color.g            = 0.00;
+  meshMarker.color.b            = 1.00;
+  meshMarker.color.a            = 0.15;
+  meshMarker.scale.x            = 1.0;
+  meshMarker.scale.y            = 1.0;
+  meshMarker.scale.z            = 1.0;
+
+  edgeMarker         = meshMarker;
+  edgeMarker.type    = visualization_msgs::Marker::LINE_LIST;
+  edgeMarker.ns      = "edge";
+  edgeMarker.color.r = 0.00;
+  edgeMarker.color.g = 1.00;
+  edgeMarker.color.b = 1.00;
+  edgeMarker.color.a = 1.00;
+  edgeMarker.scale.x = 0.02;
+
+  geometry_msgs::Point point;
+
+  int ptnum = mesh.cols();
+
+  for (int i = 0; i < ptnum; i++) {
+    point.x = mesh(0, i);
+    point.y = mesh(1, i);
+    point.z = mesh(2, i);
+    meshMarker.points.push_back(point);
+  }
+
+  for (int i = 0; i < ptnum / 3; i++) {
+    for (int j = 0; j < 3; j++) {
+      point.x = mesh(0, 3 * i + j);
+      point.y = mesh(1, 3 * i + j);
+      point.z = mesh(2, 3 * i + j);
+      edgeMarker.points.push_back(point);
+      point.x = mesh(0, 3 * i + (j + 1) % 3);
+      point.y = mesh(1, 3 * i + (j + 1) % 3);
+      point.z = mesh(2, 3 * i + (j + 1) % 3);
+      edgeMarker.points.push_back(point);
+    }
+  }
+
+  _mesh_pub.publish(meshMarker);
+  _edge_pub.publish(edgeMarker);
+
+  return;
 }
 
 /** NOTE: There are still some bugs in this function
@@ -161,7 +244,6 @@ void Visualizer::visualizePath(const std::vector<Eigen::Vector3d>& route) {
     }
     _astar_path_pub.publish(routeMarker);
   }
-
 }
 
 void Visualizer::visualizeAstarPath(const std::vector<Eigen::Vector3d>& points) {
@@ -308,25 +390,25 @@ void Visualizer::visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
     lastX = X;
   }
   _colorful_traj_pub.publish(traj_marker);
-                                      }
+}
 
-  /* visualize control pointss */
+/* visualize control pointss */
 void Visualizer::visualizeControlPoints(const Eigen::MatrixX3d& cpts) {
   visualization_msgs::Marker cpts_marker;
   cpts_marker.header.frame_id    = _frame_id;
   cpts_marker.header.stamp       = ros::Time::now();
-  cpts_marker.type    = visualization_msgs::Marker::SPHERE_LIST;
+  cpts_marker.type               = visualization_msgs::Marker::SPHERE_LIST;
   cpts_marker.pose.orientation.w = 1.00;
-  cpts_marker.action  = visualization_msgs::Marker::ADD;
-  cpts_marker.id      = 1;
-  cpts_marker.ns      = "control_points";
-  cpts_marker.color.r = 0.00;
-  cpts_marker.color.g = 1.00;
-  cpts_marker.color.b = 0.00;
-  cpts_marker.color.a = 1.00;
-  cpts_marker.scale.x = 0.10;
-  cpts_marker.scale.y = 0.10;
-  cpts_marker.scale.z = 0.10;
+  cpts_marker.action             = visualization_msgs::Marker::ADD;
+  cpts_marker.id                 = 1;
+  cpts_marker.ns                 = "control_points";
+  cpts_marker.color.r            = 0.00;
+  cpts_marker.color.g            = 1.00;
+  cpts_marker.color.b            = 0.00;
+  cpts_marker.color.a            = 1.00;
+  cpts_marker.scale.x            = 0.10;
+  cpts_marker.scale.y            = 0.10;
+  cpts_marker.scale.z            = 0.10;
 
   for (int i = 0; i < cpts.rows(); i++) {
     geometry_msgs::Point point;

@@ -88,8 +88,8 @@ class RiskVoxel {
                         pcl::PointCloud<pcl::PointXYZ>::Ptr &      cloud_out,
                         float *                                    valid_clouds,
                         int &                                      valid_clouds_num);
-
-  int getInflateOccupancy(Eigen::Vector3d pos);
+  void getObstaclePoints(const float &threshold, std::vector<Eigen::Vector3d> &points);
+  int  getInflateOccupancy(Eigen::Vector3d pos);
 
   typedef std::shared_ptr<RiskVoxel> Ptr;
 };

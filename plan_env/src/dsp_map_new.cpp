@@ -739,6 +739,22 @@ void DSPMapStaticV2::setParticleRecordFlag(bool record_particle_flag, float reco
   md_.record_time_   = record_csv_time;
 }
 
+void DSPMapStaticV2::getObstaclePoints(int &                         obstacles_num,
+                                       std::vector<Eigen::Vector3d> &points,
+                                       const float                   threshold) {
+  obstacles_num = 0;
+  for (int i = 0; i < mp_.n_voxel_; i++) {
+    if (_voxels_objects_number[i][0] > threshold) {
+      Eigen::Vector3f pointf;
+      getVoxelPositionFromIndex(i, pointf[0], pointf[1], pointf[2]);
+      pointf = pointf + md_.camera_pos_;
+      Eigen::Vector3d pointd = pointf.cast<double>();
+      points.push_back(pointd);
+      ++obstacles_num;
+    }
+  }
+}
+
 void DSPMapStaticV2::getOccupancyMap(int &                           obstacles_num,
                                      pcl::PointCloud<pcl::PointXYZ> &cloud,
                                      const float                     threshold) {
@@ -1482,9 +1498,9 @@ void DSPMapStaticV2::getVoxelPositionFromIndexPublic(const int &index,
 }
 
 bool DSPMapStaticV2::getPointVoxelsIndexPublic(const float &px,
-                                              const float &py,
-                                              const float &pz,
-                                              int &        index) {
+                                               const float &py,
+                                               const float &pz,
+                                               int &        index) {
   if (!isInMap(px, py, pz)) {
     return false;
   }

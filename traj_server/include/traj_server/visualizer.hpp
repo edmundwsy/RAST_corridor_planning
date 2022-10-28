@@ -122,7 +122,7 @@ class TrajSrvVisualizer {
     mesh_mk.id                 = 0;
     mesh_mk.type               = visualization_msgs::Marker::MESH_RESOURCE;
     mesh_mk.action             = visualization_msgs::Marker::ADD;
-    mesh_mk.mesh_resource      = "package://traj_server/meshes/drone.mesh";
+    mesh_mk.mesh_resource      = "package://traj_server/meshes/f250.dae";
     mesh_mk.pose.position.x    = pose->pose.position.x;
     mesh_mk.pose.position.y    = pose->pose.position.y;
     mesh_mk.pose.position.z    = pose->pose.position.z;

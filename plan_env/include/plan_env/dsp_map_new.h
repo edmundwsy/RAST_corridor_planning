@@ -340,7 +340,9 @@ class DSPMapStaticV2 {
                                    pcl::PointCloud<pcl::PointXYZ> &cloud,
                                    float *                         risk_maps,
                                    const float                     threshold = 0.7);
-
+  void getObstaclePoints(int &                         obstacles_num,
+                         std::vector<Eigen::Vector3d> &points,
+                         const float                   threshold);
   /// NOTE: If you don't want to use any visualization functions like "getOccupancyMap"
   ///      or "getOccupancyMapWithVelocity", you must call this function after update process.
   void clearOccupancyMapPrediction();

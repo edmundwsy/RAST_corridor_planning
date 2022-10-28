@@ -169,6 +169,11 @@ void RiskVoxel::publishOccMap() {
   // std::cout << "publish time (ms): " << (t2 - t1) * 1000 / (double)CLOCKS_PER_SEC << std::endl;
 }
 
+void RiskVoxel::getObstaclePoints(const float &threshold, std::vector<Eigen::Vector3d> &points) {
+  int num_occupied = 0;
+  dsp_map_->getObstaclePoints(num_occupied, points, threshold);
+}
+
 int RiskVoxel::getInflateOccupancy(Eigen::Vector3d pos) {
   int   index;
   float px = static_cast<float>(pos(0));
@@ -176,7 +181,7 @@ int RiskVoxel::getInflateOccupancy(Eigen::Vector3d pos) {
   float pz = static_cast<float>(pos(2));
 
   std::cout << "getInflatedOcc, pos: " << pos.transpose() << std::endl;
-  if(!dsp_map_->getPointVoxelsIndexPublic(px, py, pz, index)) {
+  if (!dsp_map_->getPointVoxelsIndexPublic(px, py, pz, index)) {
     return -1;
   }
   std::cout << "index: " << index << "|" << VOXEL_NUM << std::endl;

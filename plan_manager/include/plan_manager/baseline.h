@@ -22,6 +22,8 @@
 #include <traj_utils/corridor.hpp>
 #include <traj_utils/visualizer.hpp>
 
+#include <sfc_gen/sfc_gen.hpp>
+
 #include <ros/ros.h>
 #include <Eigen/Eigen>
 #include <memory>
@@ -43,7 +45,7 @@ struct BaselineParameters {
   bool  sample_z_acc     = true;
 
   float a_star_acc_sample_step  = 2.f;
-  float a_star_search_time_step = 0.4f;
+  float a_star_search_time_step = 0.6f;  /* TODO */
   float expand_safety_distance  = 0.2f;
 
   float risk_threshold_motion_primitive = 0.15;
@@ -64,6 +66,8 @@ struct BaselineParameters {
   double waypoint_distance     = 4.0;
   double goal_reach_threshold  = 1.0;
   double replan_time_threshold = 0.5;
+
+  /* New */
 
   BaselineParameters(const ros::NodeHandle &nh) {
     nh.getParam("planner/p_goal_x", goal_x);
