@@ -255,9 +255,9 @@ void Visualizer::visualizeAstarPath(const std::vector<Eigen::Vector3d>& points) 
   pt_marker.ns      = "astar_path";
   pt_marker.id      = 0;
   pt_marker.action  = visualization_msgs::Marker::ADD;
-  pt_marker.scale.x = 0.2;
-  pt_marker.scale.y = 0.2;
-  pt_marker.scale.z = 0.2;
+  pt_marker.scale.x = 0.1;
+  pt_marker.scale.y = 0.1;
+  pt_marker.scale.z = 0.1;
   pt_marker.color.a = 1.0;
   pt_marker.color.r = 0.8;
   pt_marker.color.g = 0.3;
@@ -274,10 +274,10 @@ void Visualizer::visualizeAstarPath(const std::vector<Eigen::Vector3d>& points) 
   astar_mkr.scale.x = 0.1;
   astar_mkr.scale.y = 0.1;
   astar_mkr.scale.z = 0.1;
-  astar_mkr.color.a = 0.1;
-  astar_mkr.color.r = 0.9;
-  astar_mkr.color.g = 0.2;
-  astar_mkr.color.b = 1.0;
+  astar_mkr.color.a = 0.7;
+  astar_mkr.color.r = 0.942;
+  astar_mkr.color.g = 0.215;
+  astar_mkr.color.b = 0.322;
 
   astar_mkr.pose.orientation.w = 1.0;
 
@@ -302,8 +302,8 @@ void Visualizer::visualizeAstarPath(const std::vector<Eigen::Vector3d>& points) 
     last = point;
   }
 
-  // _astar_path_pub.publish(astar_mkr);
-  _astar_path_pub.publish(pt_marker);
+  _astar_path_pub.publish(astar_mkr);
+  // _astar_path_pub.publish(pt_marker);
 }
 
 /**
@@ -318,7 +318,7 @@ void Visualizer::visualizeStartGoal(const Eigen::Vector3d& center, int sg) {
   float                      radius = 0.1;
 
   sphereMarkers.id                 = sg;
-  sphereMarkers.type               = visualization_msgs::Marker::SPHERE_LIST;
+  sphereMarkers.type               = visualization_msgs::Marker::SPHERE;
   sphereMarkers.header.stamp       = ros::Time::now();
   sphereMarkers.header.frame_id    = _frame_id;
   sphereMarkers.pose.orientation.w = 1.00;
@@ -332,20 +332,21 @@ void Visualizer::visualizeStartGoal(const Eigen::Vector3d& center, int sg) {
   sphereMarkers.scale.y            = radius * 2.0;
   sphereMarkers.scale.z            = radius * 2.0;
 
-  sphereDeleter        = sphereMarkers;
-  sphereDeleter.action = visualization_msgs::Marker::DELETEALL;
+  sphereMarkers.pose.position.x = center(0);
+  sphereMarkers.pose.position.y = center(1);
+  sphereMarkers.pose.position.z = center(2);
 
-  geometry_msgs::Point point;
-  point.x = center(0);
-  point.y = center(1);
-  point.z = center(2);
-  sphereMarkers.points.push_back(point);
+  // geometry_msgs::Point point;
+  // point.x = center(0);
+  // point.y = center(1);
+  // point.z = center(2);
+  // sphereMarkers.points.push_back(point);
 
-  if (sg == 0) {
-    _start_goal_pub.publish(sphereDeleter);
-    ros::Duration(1.0e-9).sleep();
-    sphereMarkers.header.stamp = ros::Time::now();
-  }
+  // if (sg == 0) {
+  //   _start_goal_pub.publish(sphereDeleter);
+  //   ros::Duration(1.0e-9).sleep();
+  //   sphereMarkers.header.stamp = ros::Time::now();
+  // }
   _start_goal_pub.publish(sphereMarkers);
 }
 

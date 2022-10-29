@@ -35,8 +35,8 @@ struct BaselineParameters {
   /* data */
   double max_vel              = 3.0;
   double max_acc              = 4.0;
-  double max_vel_optimization = 3.0;
-  double max_acc_optimization = 4.0;
+  double opt_max_vel = 3.0;
+  double opt_max_acc = 4.0;
   double delta_corridor       = 0.3;
 
   bool  use_height_limit = true;
@@ -82,8 +82,8 @@ struct BaselineParameters {
     nh.getParam("planner/planning_time_step", planning_time_step);
     nh.getParam("planner/trajectory_piece_max_size", trajectory_piece_max_size);
 
-    nh.getParam("optimizer/max_vel_optimization", max_vel_optimization);
-    nh.getParam("optimizer/max_acc_optimization", max_acc_optimization);
+    nh.getParam("optimizer/max_vel_optimization", opt_max_vel);
+    nh.getParam("optimizer/max_acc_optimization", opt_max_acc);
     nh.getParam("optimizer/delta_corridor", delta_corridor);
 
     nh.getParam("astar/use_height_limit", use_height_limit);

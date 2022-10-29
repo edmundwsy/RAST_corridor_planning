@@ -115,10 +115,12 @@ void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& 
   }
 
   /*----- Safety Corridor Generation -----*/
-  t1                                  = ros::Time::now();
+
   std::vector<Eigen::Vector3d>  route = a_star_->getPath(cfg_.a_star_search_time_step);
   std::vector<Eigen::MatrixX4d> hPolys;
   std::vector<Eigen::Vector3d>  pc;
+
+  t1 = ros::Time::now();
   pc.reserve(3000);
   map_->getObstaclePoints(cfg_.risk_threshold_single_voxel, pc);
 
@@ -126,31 +128,52 @@ void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& 
   Eigen::Vector3d higher_corner = Eigen::Vector3d(5, 5, 3) + odom_pos_;
 
   sfc_gen::convexCover(route, pc, lower_corner, higher_corner, 7.0, 1.0, hPolys);
-  sfc_gen::shortCut(hPolys);
+  // sfc_gen::shortCut(hPolys);  /* merge adjacent corridors */
   t2 = ros::Time::now();
   ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
   visualizer_->visualizePolytope(hPolys);
 
   /*----- Trajectory Optimization -----*/
-  std::vector<double> time_alloc;
-  for (int i = 0; i < hPolys.size(); i++) {
-    time_alloc.push_back(1.0);
-  }
+  std::cout << "hPolys size: " << hPolys.size() << std::endl;
+  std::cout << "route size: " << route.size() << std::endl;
+  /* Goal position and time allocation */
   goal_pos = route[route.size() - 1];
+  std::vector<double> time_alloc;
+  time_alloc.resize(route.size() - 1, 0.5);
+  // std::fill(time_alloc.begin(), time_alloc.end(), 0.5);
+  std::cout << "time_alloc size: " << time_alloc.size() << std::endl;
   traj_optimizer_.reset(new traj_opt::BezierOpt());
   Eigen::Matrix3d init_state, final_state;
-  init_state << odom_pos_, odom_vel_, odom_acc_;
-  final_state << goal_pos, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0);
+  init_state.row(0) = odom_pos_;
+  init_state.row(1) = odom_vel_;
+  init_state.row(2) = odom_acc_;
+  final_state.row(0) = goal_pos;
+  final_state.row(1) = Eigen::Vector3d(0, 0, 0);
+  final_state.row(2) = Eigen::Vector3d(0, 0, 0);
+
   std::cout << "init_state: " << init_state << std::endl;
   std::cout << "final_state: " << final_state << std::endl;
-  traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.max_vel_optimization,
-                         cfg_.max_acc_optimization);
+  visualizer_->visualizeStartGoal(odom_pos_);
+  visualizer_->visualizeStartGoal(goal_pos);
+
+  t1 = ros::Time::now();
+  traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.opt_max_vel,
+                         cfg_.opt_max_acc);
   if (!traj_optimizer_->optimize()) {
+    t2 = ros::Time::now();
+    ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
     ROS_ERROR("Trajectory optimization failed!");
     return;
   }
+    t2 = ros::Time::now();
+  ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
 
   traj_optimizer_->getOptBezier(traj_);
+
+  visualizer_->visualizeBezierCurve(Eigen::Vector3d::Zero(), traj_, 4.0);
+  Eigen::MatrixXd cpts;
+  traj_.getCtrlPoints(cpts);
+  visualizer_->visualizeControlPoints(cpts);
 }
 
 /**
