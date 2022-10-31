@@ -129,6 +129,7 @@ class BaselinePlanner {
   Eigen::Vector3d    odom_pos_; /** quadrotor's current position */
   Eigen::Vector3d    odom_vel_; /** quadrotor's current velocity */
   Eigen::Vector3d    odom_acc_; /** quadrotor's current acceleration */
+  Eigen::Vector3d    goal_pos_; /** quadrotor's goal position */
   Eigen::Quaterniond odom_att_; /** quadrotor's current attitude as a quaternion */
 
   double prev_pt_, prev_px_, prev_py_, prev_pz_; /** previous point */

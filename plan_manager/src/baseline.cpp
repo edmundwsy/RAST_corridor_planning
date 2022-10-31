@@ -85,23 +85,36 @@ void BaselinePlanner::PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& m
 }
 
 void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
-  Eigen::Vector3d goal_pos;
-  goal_pos(0) = msg->pose.position.x;
-  goal_pos(1) = msg->pose.position.y;
-  goal_pos(2) = 1;
+  goal_pos_(0) = msg->pose.position.x;
+  goal_pos_(1) = msg->pose.position.y;
+  goal_pos_(2) = 1;
   ROS_INFO("Start position: (%f, %f, %f)", odom_pos_(0), odom_pos_(1), odom_pos_(2));
-  ROS_INFO("End position: (%f, %f, %f)", goal_pos(0), goal_pos(1), goal_pos(2));
+  ROS_INFO("End position: (%f, %f, %f)", goal_pos_(0), goal_pos_(1), goal_pos_(2));
+  plan();
+}
+
+/**
+ * @brief show A star results
+ *
+ */
+void BaselinePlanner::showAstarPath() {
+  std::vector<Eigen::Vector3d> path = a_star_->getPath(0.1);
+  visualizer_->visualizeAstarPath(path);
+}
+
+bool BaselinePlanner::plan() {
+  ROS_INFO("Planning...");
 
   /*----- Path Searching on DSP Static -----*/
   a_star_->reset();
   a_star_->setMapCenter(odom_pos_);
   auto      t1 = ros::Time::now();
   ASTAR_RET rst =
-      a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos, Eigen::Vector3d(0, 0, 0), true);
+      a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_, Eigen::Vector3d(0, 0, 0), true);
   if (rst == 0) {
     a_star_->reset();
     rst =
-        a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos, Eigen::Vector3d(0, 0, 0), false);
+        a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_, Eigen::Vector3d(0, 0, 0), false);
   }
 
   auto t2 = ros::Time::now();
@@ -111,14 +124,21 @@ void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& 
 
   if (rst == NO_PATH) {
     ROS_WARN("No path found!");
-    return;
+    return false;
   }
 
   /*----- Safety Corridor Generation -----*/
 
-  std::vector<Eigen::Vector3d>  route = a_star_->getPath(cfg_.a_star_search_time_step);
+  std::vector<Eigen::Vector3d>  route_all = a_star_->getPath(cfg_.a_star_search_time_step);
   std::vector<Eigen::MatrixX4d> hPolys;
   std::vector<Eigen::Vector3d>  pc;
+
+  std::vector<Eigen::Vector3d> route;
+  if (route.size() > 3) {
+    std::copy(route_all.begin(), route_all.begin() + 3, std::back_inserter(route));
+  } else {
+    route = route_all;
+  }
 
   t1 = ros::Time::now();
   pc.reserve(3000);
@@ -137,24 +157,24 @@ void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& 
   std::cout << "hPolys size: " << hPolys.size() << std::endl;
   std::cout << "route size: " << route.size() << std::endl;
   /* Goal position and time allocation */
-  goal_pos = route[route.size() - 1];
+  goal_pos_ = route[route.size() - 1];
   std::vector<double> time_alloc;
-  time_alloc.resize(route.size() - 1, 0.5);
+  time_alloc.resize(hPolys.size(), 0.5);
   // std::fill(time_alloc.begin(), time_alloc.end(), 0.5);
   std::cout << "time_alloc size: " << time_alloc.size() << std::endl;
   traj_optimizer_.reset(new traj_opt::BezierOpt());
   Eigen::Matrix3d init_state, final_state;
-  init_state.row(0) = odom_pos_;
-  init_state.row(1) = odom_vel_;
-  init_state.row(2) = odom_acc_;
-  final_state.row(0) = goal_pos;
+  init_state.row(0)  = odom_pos_;
+  init_state.row(1)  = odom_vel_;
+  init_state.row(2)  = odom_acc_;
+  final_state.row(0) = goal_pos_;  // TODO(@Oct 30): use distance to select the goal
   final_state.row(1) = Eigen::Vector3d(0, 0, 0);
   final_state.row(2) = Eigen::Vector3d(0, 0, 0);
 
   std::cout << "init_state: " << init_state << std::endl;
   std::cout << "final_state: " << final_state << std::endl;
   visualizer_->visualizeStartGoal(odom_pos_);
-  visualizer_->visualizeStartGoal(goal_pos);
+  visualizer_->visualizeStartGoal(goal_pos_);
 
   t1 = ros::Time::now();
   traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.opt_max_vel,
@@ -163,9 +183,9 @@ void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& 
     t2 = ros::Time::now();
     ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
     ROS_ERROR("Trajectory optimization failed!");
-    return;
+    return false;
   }
-    t2 = ros::Time::now();
+  t2 = ros::Time::now();
   ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
 
   traj_optimizer_->getOptBezier(traj_);
@@ -174,18 +194,5 @@ void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& 
   Eigen::MatrixXd cpts;
   traj_.getCtrlPoints(cpts);
   visualizer_->visualizeControlPoints(cpts);
-}
-
-/**
- * @brief show A star results
- *
- */
-void BaselinePlanner::showAstarPath() {
-  std::vector<Eigen::Vector3d> path = a_star_->getPath(0.1);
-  visualizer_->visualizeAstarPath(path);
-}
-
-bool BaselinePlanner::plan() {
-  ROS_INFO("Planning...");
   return true;
 }

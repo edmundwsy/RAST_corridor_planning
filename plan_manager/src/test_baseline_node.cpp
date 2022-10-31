@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
   ros::NodeHandle   nh("~");
   BaselinePlanner   baseline_planner(nh, BaselineParameters(nh));
   baseline_planner.init();
-  baseline_planner.plan();
+  // baseline_planner.plan();
   ros::AsyncSpinner spinner(3);  // use 3 threads
   spinner.start();
   ros::waitForShutdown();
