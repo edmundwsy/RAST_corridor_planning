@@ -58,8 +58,8 @@ inline void convexCover(const std::vector<Eigen::Vector3d> &path,
                         const double &                      range,
                         std::vector<Eigen::MatrixX4d> &     hpolys,
                         const double                        eps = 1.0e-6) {
-  std::cout << "lowCorner: " << lowCorner.transpose() << std::endl;
-  std::cout << "highCorner: " << highCorner.transpose() << std::endl;
+  // std::cout << "lowCorner: " << lowCorner.transpose() << std::endl;
+  // std::cout << "highCorner: " << highCorner.transpose() << std::endl;
   hpolys.clear();
   const int                   n  = path.size();
   Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();
@@ -74,7 +74,7 @@ inline void convexCover(const std::vector<Eigen::Vector3d> &path,
 
   /* Debug */
   for (auto &pt:path) {
-    std::cout << "path: " << pt[1] << std::endl;
+    // std::cout << "path: " << pt[1] << std::endl;
   }
 
   Eigen::MatrixX4d             hp, gap;
@@ -83,7 +83,7 @@ inline void convexCover(const std::vector<Eigen::Vector3d> &path,
   std::vector<Eigen::Vector3d> bs;
   valid_pc.reserve(points.size());
   for (int i = 1; i < n;) {
-    std::cout << "====== i: " << i << " ======" << std::endl;
+    // std::cout << "====== i: " << i << " ======" << std::endl;
     a = b;
     if ((a - path[i]).norm() > progress) {
       b = (path[i] - a).normalized() * progress + a;
@@ -108,14 +108,14 @@ inline void convexCover(const std::vector<Eigen::Vector3d> &path,
     }
     Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> pc(valid_pc[0].data(), 3,
                                                                        valid_pc.size());
-    std::cout << "[SFC] bounding box: " << std::endl << bd << std::endl;
-    std::cout << "[SFC] valid_pc size: " << valid_pc.size() << std::endl;
-    std::cout << "[SFC] a: " << a.transpose() << std::endl;
-    std::cout << "[SFC] b: " << b.transpose() << std::endl;
+    // std::cout << "[SFC] bounding box: " << std::endl << bd << std::endl;
+    // std::cout << "[SFC] valid_pc size: " << valid_pc.size() << std::endl;
+    // std::cout << "[SFC] a: " << a.transpose() << std::endl;
+    // std::cout << "[SFC] b: " << b.transpose() << std::endl;
     firi::firi(bd, pc, a, b, hp);
 
-    std::cout << "[SFC] hp size: " << hp.rows() << std::endl;
-    std::cout << hp << std::endl;
+    // std::cout << "[SFC] hp size: " << hp.rows() << std::endl;
+    // std::cout << hp << std::endl;
 
     if (hpolys.size() != 0) {
       const Eigen::Vector4d ah(a(0), a(1), a(2), 1.0);

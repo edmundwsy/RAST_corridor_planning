@@ -13,6 +13,8 @@
 
 
 ## Installation
+<details> 
+ <summary> Installation details </summary>
 
 __Tested environment__: Ubuntu 20.04 + ROS Noetic
 
@@ -84,6 +86,7 @@ To compile the source code, you need:
    cd ../..
    catkin build
    ```
+</details>
 
 ## Quick Start
 
@@ -120,7 +123,10 @@ The RViz simulation will display three agents in a dynamic environment. You can 
 
 ### Gazebo Simulation & Real-World Test
 
-If you would like to test this system in Gazebo simulation and real world, here are the instructions
+
+
+<details>
+  <summary> If you would like to test this system in Gazebo simulation and real world, here are the instructions </summary>
 
 1. Install [PX4-Autopilot](https://github.com/PX4/PX4-Autopilot). PX4 is a professional open-source autopilot supported by an active world wide community. You can either follow the [installation manual](https://docs.px4.io/v1.12/en/simulation/multi_vehicle_simulation_gazebo.html) or copy following commands:
 
@@ -181,7 +187,7 @@ If you would like to test this system in Gazebo simulation and real world, here 
 
 ![gazebo_simulation](assets/README/gazebo_simulation.png)
 
-
+</details>
 
 ## Project Structure
 

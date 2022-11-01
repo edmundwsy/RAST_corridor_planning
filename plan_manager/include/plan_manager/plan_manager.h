@@ -20,7 +20,7 @@
 #include <termcolor.hpp>  // for colored output
 #include <vector>
 
-typedef Bernstein::Bezier Trajectory;
+typedef Bernstein::Bezier      Trajectory;
 typedef traj_utils::BezierTraj TrajMsg;
 
 /**
@@ -45,9 +45,9 @@ enum PLAN_TYPE {
 };
 
 struct FSMParameters {
-  double goal_tolerance   = 0.1;
-  double replan_tolerance = 0.1;
-}
+  double goal_tolerance   = 1.0;
+  double replan_tolerance = 1.0;
+};
 
 class FiniteStateMachine {
  public:
@@ -56,24 +56,26 @@ class FiniteStateMachine {
 
   void run();
 
-  inline int getDroneID();
+  void FSMCallback(const ros::TimerEvent &event);
+  void TriggerCallback(const geometry_msgs::PoseStampedPtr &msg);
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
  private:
   void FSMPrintState(FSM_STATUS new_state);
   void FSMChangeState(FSM_STATUS new_state);
-  void FSMCallback(const ros::TimerEvent &event);
 
-  bool localReplan(PLAN_TYPE type);
-  bool globalPlan();
+  void publishTrajectory();
+
+  // bool localReplan(PLAN_TYPE type);
+  // bool globalPlan();
   bool setLocalGoal();
   bool executeTrajectory();
-  bool checkTimeLapse(double time);
   bool isTrajectorySafe();
 
   /********** HELPER FUNCTIONS **********/
-  inline bool isGoalReached(const Eigen::Vector3d &p, const Eigen::Vector3d &g);
+  inline int  getDroneID();
+  inline bool isGoalReached(const Eigen::Vector3d &p);
   inline bool isInputLost();
   inline bool checkTimeLapse(double time);
 
@@ -81,7 +83,7 @@ class FiniteStateMachine {
   FSMParameters _cfgs;
 
   int    _drone_id;
-  int    _traj_id;
+  int    _traj_idx;
   double _time;
 
   /********** BOOLEANS **********/
@@ -97,8 +99,12 @@ class FiniteStateMachine {
 
   /* ROS */
   ros::NodeHandle _nh;
-  ros::Timer      _manager_timer;
-  ros::Publisher  _traj_pub, _boardcast_traj_pub;
+  ros::Subscriber _trigger_sub;
+  ros::Timer      _fsm_timer;
+  ros::Publisher  _traj_pub, _broadcast_traj_pub;
+
+  ros::Time _traj_start_time;
+  ros::Time _prev_plan_time;
 
   /* planner */
   BaselinePlanner::Ptr _planner;
@@ -119,7 +125,7 @@ class FiniteStateMachine {
  * @return false
  */
 inline bool FiniteStateMachine ::isGoalReached(const Eigen::Vector3d &p) {
-  return ((p - _goal).norm() < _config.goal_reach_threshold) ? true : false;
+  return ((p - _goal).norm() < _cfgs.goal_tolerance) ? true : false;
 }
 
 /**
@@ -127,7 +133,11 @@ inline bool FiniteStateMachine ::isGoalReached(const Eigen::Vector3d &p) {
  * @return true   no update
  * @return false
  */
-inline bool FiniteStateMachine::isInputLost() { return !_is_map_updated || !_is_odom_received; }
+inline bool FiniteStateMachine::isInputLost() {
+  _is_map_updated = _planner->getMapStatus();
+  _is_odom_received = _planner->getOdomStatus();
+  return !_is_map_updated || !_is_odom_received;
+}
 
 /**
  * @brief read drone ID from the ros node handle
@@ -141,12 +151,8 @@ inline int FiniteStateMachine::getDroneID() {
 }
 
 inline bool FiniteStateMachine::checkTimeLapse(double time) {
-  double elapsed = ros::Time::now().toSec() - _last_plan_time.toSec();
-  if (elapsed > time) {
-    return true;
-  } else {
-    return false;
-  }
+  double elapsed = ros::Time::now().toSec() - _prev_plan_time.toSec();
+  return (elapsed > time);
 }
 
 #endif  // PLAN_MANAGER_H

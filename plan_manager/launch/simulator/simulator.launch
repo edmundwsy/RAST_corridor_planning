@@ -49,7 +49,7 @@
 			<param name="init_x" value="$(arg init_x)" />
 			<param name="init_y" value="$(arg init_y)" />
 			<param name="init_z" value="$(arg init_z)" />
-			<remap from="~command" to="planning/pos_cmd" />
+			<remap from="~command" to="controller/pos_cmd" />
 			<remap from="~odometry" to="$(arg odometry_topic)" />
 			<remap from="~pose" to="$(arg odom_pose_topic)" />
 		</node>

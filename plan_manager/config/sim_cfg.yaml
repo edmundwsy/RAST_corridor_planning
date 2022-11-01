@@ -2,7 +2,6 @@ planner:
   p_goal_x: 15
   p_goal_y: 0
   p_goal_z: 0
-  goal_reach_threshold: 2.0
   planning_time_step: 0.05
   trajectory_piece_max_size: 8
   risk_threshold_replan: 1.0
@@ -11,15 +10,23 @@ planner:
   max_acc: 5.0
   max_differentiated_current_a: 3.0
 
-astar:
-  use_height_limit: true
-  height_limit_max: 1.8
-  height_limit_min: 0.0
-  sample_z_acc: false
-  a_star_acc_sample_step: 1.0
-  a_star_search_time_step: 0.6
-  risk_threshold_motion_primitive: 0.3
-  expand_safety_distance: 0.2
+fsm:
+  goal_tolerance: 3.0
+  replan_tolerance: 1.0
+
+search:
+  max_tau: 0.6
+  init_max_tau: 0.8
+  max_vel: 2
+  max_acc: 1.5
+  w_time: 10.0
+  horizon: 7.0
+  lambda_heu: 5.0
+  resolution_astar: 1
+  time_resolution: 0.2
+  margin: 0.2
+  allocate_num: 100000
+  check_num: 5
 
 corridor:
   risk_threshold_single_voxel: 0.15
@@ -33,8 +40,8 @@ optimizer:
   snap_factor: 1.0  # minimum snap
   delta_corridor: 0.4
 
-  max_vel_optimization: 4 # Constraint in optimization. A little larger than max_vel
-  max_acc_optimization: 6 # Constraint in optimization. A little larger than max_acc
+  max_vel_optimization: 3 # Constraint in optimization. A little larger than max_vel
+  max_acc_optimization: 7 # Constraint in optimization. A little larger than max_acc
 
 map:
   observation_stddev: 0.1

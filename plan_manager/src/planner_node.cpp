@@ -14,8 +14,8 @@
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "planner_node");
-  ros::NodeHandle nh("~");
-  PlanManager     plan_manager(nh);
+  ros::NodeHandle    nh("~");
+  FiniteStateMachine plan_manager(nh);
   plan_manager.run();
   ros::AsyncSpinner spinner(3);  // use 3 threads
   spinner.start();

@@ -119,7 +119,11 @@ class BaselinePlanner {
   void showAstarPath();
 
   void setGoal(const Eigen::Vector3d &goal) { goal_pos_ = goal; }
-  Eigen::Vector3d getPos() const { return pos_; }
+
+  bool getMapStatus() { return is_map_updated_; }
+  bool getOdomStatus() { return is_odom_received_; }
+  Eigen::Vector3d getPos() const { return odom_pos_; }
+  Bernstein::Bezier getTrajectory() const { return traj_; }
 
   typedef std::shared_ptr<BaselinePlanner> Ptr;
 
@@ -154,6 +158,7 @@ class BaselinePlanner {
   bool is_state_locked_;      /** State lock */
   bool is_velocity_received_; /** Velocity received */
   bool is_odom_received_;     /** Odom received */
+  bool is_map_updated_;       /** Map updated */
 
   /* Visualization */
   visualizer::Visualizer::Ptr visualizer_;

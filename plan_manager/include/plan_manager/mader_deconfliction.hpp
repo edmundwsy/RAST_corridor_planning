@@ -51,6 +51,6 @@ class MADER {
   bool have_received_traj_while_optimizing_;
   bool is_traj_safe_;
   bool is_checking_;
-}
+};
 
 #endif  // MADER_DECONFLICTION_H

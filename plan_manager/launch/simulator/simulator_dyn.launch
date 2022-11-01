@@ -41,49 +41,4 @@
 		<param name="sensing/radius" value="5.0"/>        
 		<param name="sensing/rate"   value="10.0"/>   
 </node>
-
-
-	<!-- fake simulator -->
-	<group ns="uav$(arg drone_id)">
-
-		<node pkg="poscmd_2_odom" name="poscmd_2_odom" type="poscmd_2_odom" output="screen">
-			<param name="init_x" value="$(arg init_x)" />
-			<param name="init_y" value="$(arg init_y)" />
-			<param name="init_z" value="$(arg init_z)" />
-			<remap from="~command" to="planning/pos_cmd" />
-			<remap from="~odometry" to="$(arg odometry_topic)" />
-			<remap from="~pose" to="$(arg odom_pose_topic)" />
-		</node>
-
-		<!-- visualize drone odometry -->
-		<node pkg="odom_visualization" name="odom_visualization" type="odom_visualization" output="screen">
-			<remap from="~odom" to="$(arg odometry_topic)" />
-			<param name="color/a" value="1.0" />
-			<param name="color/r" value="0.0" />
-			<param name="color/g" value="0.0" />
-			<param name="color/b" value="0.0" />
-			<param name="covariance_scale" value="100.0" />
-			<param name="robot_scale" value="1.0" />
-			<param name="tf45" value="true" />
-			<param name="drone_id" value="drone_id" />
-		</node>
-
-		<!-- fake camera sensing -->
-		<node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
-			<rosparam command="load" file="$(find local_sensing_node)/params/camera.yaml" />
-			<param name="sensing_horizon" value="6.0" />
-			<param name="sensing_rate" value="30.0" />
-			<param name="estimation_rate" value="30.0" />
-			<param name="is_camera_frame" value="true" />
-			<param name="is_dynamic_map" value="true" />
-
-			<param name="map/x_size" value="$(arg map_size_x)" />
-			<param name="map/y_size" value="$(arg map_size_y)" />
-			<param name="map/z_size" value="$(arg map_size_z)" />
-
-			<remap from="~global_map" to="/map_generator/global_cloud" />
-			<remap from="~odometry" to="/$(arg odometry_topic)" />
-			<remap from="~pcl_render_node/cloud" to="~/cloud" />
-		</node>
-	</group>
 </launch>

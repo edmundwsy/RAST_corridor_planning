@@ -13,8 +13,8 @@
 
 void FiniteStateMachine::run() {
   _nh.param("drone_id", _drone_id, 0);
-  _nh.param("goal_tolerance", _cfgs.goal_tolerance, 0.1);
-  _nh.param("replan_tolerance", _cfgs.replan_tolerance, 0.1);
+  _nh.param("fsm/goal_tolerance", _cfgs.goal_tolerance, 1.0);
+  _nh.param("fsm/replan_tolerance", _cfgs.replan_tolerance, 1.0);
 
   /* Initialize planner */
   _planner.reset(new BaselinePlanner(_nh, BaselineParameters(_nh)));
@@ -23,7 +23,8 @@ void FiniteStateMachine::run() {
   /* ROS publishers */
   _traj_pub           = _nh.advertise<traj_utils::BezierTraj>("trajectory", 1);
   _broadcast_traj_pub = _nh.advertise<traj_utils::BezierTraj>("/broadcast_traj", 1);
-  ros::Timer timer    = _nh.createTimer(ros::Duration(0.1), &FiniteStateMachine::FSMCallback, this);
+  _trigger_sub =
+      _nh.subscribe("/traj_start_trigger", 1, &FiniteStateMachine::TriggerCallback, this);
 
   _is_goal_received       = false;
   _is_exec_triggered      = false;
@@ -31,11 +32,13 @@ void FiniteStateMachine::run() {
   _is_safety_mode_enabled = false;
   _is_map_updated         = false;
 
-  _traj_id = 0;
+  _traj_idx = 0;
 
   _time = ros::Time::now().toSec();
 
   _status = FSM_STATUS::INIT; /* Initialize state machine */
+  ROS_INFO("[FSM] Initialization complete");
+  _fsm_timer = _nh.createTimer(ros::Duration(0.1), &FiniteStateMachine::FSMCallback, this);
 }
 
 /** ***********************************************************************************************
@@ -65,10 +68,10 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
     /* wait for callback */
     case FSM_STATUS::WAIT_TARGET:
       if (!isInputLost() && _is_goal_received) {
-        globalPlan();
-        FSMChangeState(FSM_STATUS::NEW_PLAN);
+        // globalPlan();
+        FSMChangeState(FSM_STATUS::REPLAN);  // TODO(CHANGE TO NEW_PLAN)
       } else {
-        ROS_INFO_ONCE("[PLANNER] Waiting for odom[%d] and future risk[%d] ", _is_odom_received,
+        ROS_INFO_ONCE("[FSM] Waiting for odom[%d] and future risk[%d] ", _is_odom_received,
                       _is_map_updated);
       }
       break;
@@ -80,7 +83,7 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
       } else {
         bool is_success = false;
         if (checkTimeLapse(1.0)) {
-          is_success = localReplan(PLAN_TYPE::NEW);
+          // is_success = localReplan(PLAN_TYPE::NEW);
         }
         // bool is_safe    = isTrajectorySafe(_traj);
         bool is_safe = true;         /** TODO: time delay !!! */
@@ -102,14 +105,22 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
       } else {
         std::cout << termcolor::bright_red << "Target: " << _waypoints.front().transpose()
                   << " now " << _planner->getPos().transpose() << std::endl;
-        bool is_safe            = isTrajectorySafe();
-        bool is_replan_required = executeTrajectory();
-        if (is_replan_required) { /* replan */
-          FSMChangeState(FSM_STATUS::REPLAN);
-        } else if (!is_safe) {
-          FSMChangeState(FSM_STATUS::EMERGENCY_REPLAN);
+        bool is_safe = isTrajectorySafe();
+        // TODO(@siyuan): rewrite logic
+        // bool is_replan_required = executeTrajectory();
+        // if (is_replan_required) { /* replan */
+        //   FSMChangeState(FSM_STATUS::REPLAN);
+        // } else if (!is_safe) {
+        //   FSMChangeState(FSM_STATUS::EMERGENCY_REPLAN);
 
-        } else if (isGoalReached(_planner->getPos())) {
+        // } else if (isGoalReached(_planner->getPos())) {
+        //   FSMChangeState(FSM_STATUS::GOAL_REACHED);
+        // }
+        if (checkTimeLapse(1.0) ) {
+          FSMChangeState(FSM_STATUS::REPLAN);
+        }
+
+        if (isGoalReached(_planner->getPos())) {
           FSMChangeState(FSM_STATUS::GOAL_REACHED);
         }
       }
@@ -120,12 +131,16 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
       if (isInputLost()) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       } else {
+        _planner->setGoal(_goal);
         bool is_success = _planner->plan();
         // bool is_safe    = true;  // TODO: isTrajectorySafe(_traj);
         // bool is_safe    = isTrajectorySafe(_traj);
 
         bool is_finished = isGoalReached(_planner->getPos());
+        std::cout << termcolor::bright_red << "Target: " << _goal.transpose()
+                  << " now " << _planner->getPos().transpose() << std::endl;
         if (is_success && !is_finished) { /* publish trajectory */
+          _prev_plan_time = ros::Time::now();
           publishTrajectory();
           FSMChangeState(FSM_STATUS::EXEC_TRAJ);
         } else {
@@ -139,26 +154,26 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
       break;
 
     /* emergency replan */
-    case FSM_STATUS::EMERGENCY_REPLAN:
-      if (!_is_safety_mode_enabled) {
-        FSMChangeState(FSM_STATUS::NEW_PLAN);
-      } else {
-        bool is_success = localReplan(PLAN_TYPE::EMERGENCY);
-        if (is_success) {
-          publishTrajectory();
-          FSMChangeState(FSM_STATUS::EXEC_TRAJ);
-        } else {
-          ROS_WARN("Emergency replanning failed");
-        }
-      }
-      break;
+    // case FSM_STATUS::EMERGENCY_REPLAN:
+    //   if (!_is_safety_mode_enabled) {
+    //     FSMChangeState(FSM_STATUS::NEW_PLAN);
+    //   } else {
+    //     bool is_success = localReplan(PLAN_TYPE::EMERGENCY);
+    //     if (is_success) {
+    //       publishTrajectory();
+    //       FSMChangeState(FSM_STATUS::EXEC_TRAJ);
+    //     } else {
+    //       ROS_WARN("Emergency replanning failed");
+    //     }
+    //   }
+    //   break;
 
     /* reached the goal, clear the buffer and wait new goal */
     case FSM_STATUS::GOAL_REACHED:
       _is_goal_received  = false;  // reset goal
       _is_exec_triggered = false;
       _waypoints.pop();
-      _traj.clear();
+      // _traj.clear();
       FSMChangeState(FSM_STATUS::WAIT_TARGET);
       break;
 
@@ -187,7 +202,7 @@ void FiniteStateMachine::FSMChangeState(FSM_STATUS new_state) {
 void FiniteStateMachine::FSMPrintState(FSM_STATUS new_state) {
   static string state_str[8] = {"INIT",      "WAIT_TARGET", "NEW_PLAN",     "REPLAN",
                                 "EXEC_TRAJ", "EMERGENCY",   "GOAL_REACHED", "EXIT"};
-  std::cout << termcolor::dark << termcolor::on_bright_green << "[FSM] status "
+  std::cout << termcolor::dark << termcolor::on_bright_green << "[UAV" << _drone_id << " FSM] status "
             << termcolor::bright_cyan << termcolor::on_white << state_str[static_cast<int>(_status)]
             << " >> " << state_str[static_cast<int>(new_state)] << termcolor::reset << std::endl;
 }
@@ -199,17 +214,17 @@ void FiniteStateMachine::FSMPrintState(FSM_STATUS new_state) {
  */
 void FiniteStateMachine::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
   if (_is_exec_triggered) {
-    ROS_INFO("[PLANNER] Execution has already triggered");
+    ROS_INFO("[FSM] Execution has already triggered");
     return;
   }
-  ROS_WARN("[PLANNER] trigger received")
+  ROS_WARN("[FSM] trigger received");
   _is_exec_triggered = true;
 
   if (!_is_goal_received) {
     _goal.x() = msg->pose.position.x;
     _goal.y() = msg->pose.position.y;
     _goal.z() = msg->pose.position.z;
-    ROS_INFO("[PLANNER] New goal received: %f, %f, %f", _goal.x(), _goal.y(), _goal.z());
+    ROS_INFO("[FSM] New goal received: %f, %f, %f", _goal.x(), _goal.y(), _goal.z());
     _is_goal_received = true;
   }
 }
@@ -250,7 +265,4 @@ void FiniteStateMachine::publishTrajectory() {
   _broadcast_traj_pub.publish(msg);
 }
 
-
-bool FiniteStateMachine::isTrajectorySafe() {
-  return true;
-}
+bool FiniteStateMachine::isTrajectorySafe() { return true; }

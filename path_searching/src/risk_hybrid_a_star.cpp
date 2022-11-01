@@ -315,7 +315,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
               pro_node->time     = cur_node->time + tau;
               pro_node->time_idx = timeToIndex(pro_node->time);
             }
-            std::cout << "pro_node->state: " << pro_node->state.transpose() << std::endl;
+            // std::cout << "pro_node->state: " << pro_node->state.transpose() << std::endl;
             open_set_.push(pro_node);
 
             if (dynamic)
@@ -542,12 +542,13 @@ std::vector<Eigen::Vector3d> RiskHybridAstar::getPath(double delta_t) {
     Eigen::Vector3d ut       = node->input;
     double          duration = node->duration;
     x0                       = node->getParent()->state;
-    for (double t = duration; t >= -1e-5; t -= delta_t) {
+    for (double t = duration; t >= 1e-5; t -= delta_t) {
       stateTransit(x0, xt, ut, t);
       state_list.push_back(xt.head(3));
     }
     node = node->getParent();
   }
+  state_list.push_back(node->state.head(3));
   reverse(state_list.begin(), state_list.end());
   /* ---------- get traj of one shot ---------- */
   if (is_shot_succ_) {

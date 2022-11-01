@@ -2,7 +2,7 @@
   <env name="ROSCONSOLE_FORMAT" value="[${node}][${time:%H:%M:%S%F}][${severity}]:${message}"/>
   <arg name="drone_id" value="0" />
 
-  <arg name="init_x" value="-7.0" />
+  <arg name="init_x" value="-6.5" />
   <arg name="init_y" value="0.0" />
   <arg name="init_z" value="1.0" />
   <arg name="map_size_x" value="13" />
@@ -28,7 +28,7 @@
   </include>
 
 <group ns="uav0">
-  <node pkg="plan_manager" name="planner" type="test_baseline" output="screen">
+  <node pkg="plan_manager" name="planner" type="baseline" output="screen">
     <!-- Topics -->
     <remap from="~pose" to="$(arg pose_topic)" />
     <remap from="~map/odom" to="$(arg odom_topic)" />
@@ -81,20 +81,55 @@
     <param name="~map/show_occ_time" value="false" />
     <param name="~map/pose_type" value="1" />
     <param name="~map/frame_id" value="world" />
-
-    <param name="~search/max_tau" value="0.6" type="double"/>
-    <param name="~search/init_max_tau" value="0.8" type="double"/>
-    <param name="~search/max_vel" value="4" type="double"/>
-    <param name="~search/max_acc" value="5" type="double"/>
-    <param name="~search/w_time" value="10.0" type="double"/>
-    <param name="~search/horizon" value="7.0" type="double"/>
-    <param name="~search/lambda_heu" value="5.0" type="double"/>
-    <param name="~search/resolution_astar" value="1" type="double"/>
-    <param name="~search/time_resolution" value="0.8" type="double"/>
-    <param name="~search/margin" value="0.2" type="double"/>
-    <param name="~search/allocate_num" value="100000" type="int"/>
-    <param name="~search/check_num" value="5" type="int"/>
   </node>
+
+    <node pkg="traj_server" name="traj_server" type="bezier_traj_server" output="screen">
+      <remap from="~trajectory" to="planner/trajectory" />
+      <remap from="/position_cmd" to="controller/pos_cmd" />
+      <remap from="~odom" to="$(arg pose_topic)" />
+      <param name="tf" value="true" />
+      <param name="replan_time_threshold" value="1.2" />
+    </node>
+
+    <node pkg="poscmd_2_odom" name="poscmd_2_odom" type="poscmd_2_odom" output="screen">
+      <param name="init_x" value="$(arg init_x)" />
+      <param name="init_y" value="$(arg init_y)" />
+      <param name="init_z" value="$(arg init_z)" />
+      <remap from="~command" to="controller/pos_cmd" />
+      <remap from="~odometry" to="$(arg odom_topic)" />
+      <remap from="~pose" to="$(arg pose_topic)" />
+    </node>
+
+    <!-- visualize drone odometry -->
+    <node pkg="odom_visualization" name="odom_visualization" type="odom_visualization" output="screen">
+      <remap from="~odom" to="$(arg odom_topic)" />
+      <param name="color/a" value="1.0" />
+      <param name="color/r" value="0.0" />
+      <param name="color/g" value="0.0" />
+      <param name="color/b" value="0.0" />
+      <param name="covariance_scale" value="100.0" />
+      <param name="robot_scale" value="1.0" />
+      <param name="tf45" value="true" />
+      <param name="drone_id" value="drone_id" />
+    </node>
+
+    <!-- fake camera sensing -->
+    <node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
+      <rosparam command="load" file="$(find local_sensing_node)/params/camera.yaml" />
+      <param name="sensing_horizon" value="6.0" />
+      <param name="sensing_rate" value="30.0" />
+      <param name="estimation_rate" value="30.0" />
+      <param name="is_camera_frame" value="true" />
+      <param name="is_dynamic_map" value="true" />
+
+      <param name="map/x_size" value="$(arg map_size_x)" />
+      <param name="map/y_size" value="$(arg map_size_y)" />
+      <param name="map/z_size" value="$(arg map_size_z)" />
+
+      <remap from="~global_map" to="/map_generator/global_cloud" />
+      <remap from="~odometry" to="/$(arg odom_topic)" />
+      <remap from="~pcl_render_node/cloud" to="~/cloud" />
+    </node>
   </group>
 
   <node pkg="rviz" name="rviz" type="rviz" args="-d $(find plan_manager)/rviz/sim_multi.rviz" />
