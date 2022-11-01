@@ -7,8 +7,8 @@ planner:
   trajectory_piece_max_size: 8
   risk_threshold_replan: 1.0
   replan_time_threshold: 1.2 # make sure > 1.0 because planner replans every seconds
-  max_vel: 2.0
-  max_acc: 3.0
+  max_vel: 3.0
+  max_acc: 5.0
   max_differentiated_current_a: 3.0
 
 astar:
@@ -33,8 +33,8 @@ optimizer:
   snap_factor: 1.0  # minimum snap
   delta_corridor: 0.4
 
-  max_vel_optimization: 2.5 # Constraint in optimization. A little larger than max_vel
-  max_acc_optimization: 3.5 # Constraint in optimization. A little larger than max_acc
+  max_vel_optimization: 4 # Constraint in optimization. A little larger than max_vel
+  max_acc_optimization: 6 # Constraint in optimization. A little larger than max_acc
 
 map:
   observation_stddev: 0.1

@@ -21,7 +21,7 @@
 #include <traj_utils/bernstein.hpp>
 #include <traj_utils/corridor.hpp>
 #include <traj_utils/visualizer.hpp>
-
+#include <plan_manager/mader_deconfliction.hpp>
 #include <sfc_gen/sfc_gen.hpp>
 
 #include <ros/ros.h>
@@ -118,12 +118,15 @@ class BaselinePlanner {
 
   void showAstarPath();
 
+  void setGoal(const Eigen::Vector3d &goal) { goal_pos_ = goal; }
+  Eigen::Vector3d getPos() const { return pos_; }
+
   typedef std::shared_ptr<BaselinePlanner> Ptr;
 
  private:
   /* ROS */
   ros::NodeHandle    nh_;
-  ros::Subscriber    click_sub_, pose_sub_;
+  ros::Subscriber    click_sub_, pose_sub_, swarm_traj_sub_;
   BaselineParameters cfg_;
 
   Eigen::Vector3d    odom_pos_; /** quadrotor's current position */
@@ -140,7 +143,7 @@ class BaselinePlanner {
   RiskVoxel::Ptr           map_;
   RiskHybridAstar::Ptr     a_star_;
   traj_opt::BezierOpt::Ptr traj_optimizer_; /** Trajectory optimizer */
-
+  MADER::Ptr               collision_avoider_;  /* multi-agent collision avoidance policy*/
   /* Trajectory */
   Bernstein::Bezier traj_;     /** Trajectory */
   int               traj_idx_; /** Trajectory index */

@@ -115,7 +115,7 @@ void Visualizer::visualizePolytope(const std::vector<Eigen::MatrixX4d>& hPolys) 
   meshMarker.color.r            = 0.00;
   meshMarker.color.g            = 0.00;
   meshMarker.color.b            = 1.00;
-  meshMarker.color.a            = 0.15;
+  meshMarker.color.a            = 0.10;
   meshMarker.scale.x            = 1.0;
   meshMarker.scale.y            = 1.0;
   meshMarker.scale.z            = 1.0;

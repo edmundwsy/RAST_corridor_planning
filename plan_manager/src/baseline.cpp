@@ -34,6 +34,7 @@ void BaselinePlanner::init() {
   /*** INITIALIZE SUBSCRIBER ***/
   click_sub_ = nh_.subscribe("/traj_start_trigger", 1, &BaselinePlanner::clickCallback, this);
   pose_sub_  = nh_.subscribe("pose", 10, &BaselinePlanner::PoseCallback, this);
+
   /*** INITIALIZE AUXILIARY VARIABLES ***/
   prev_pt_ = ros::Time::now().toSec();
   prev_px_ = 0.0;
