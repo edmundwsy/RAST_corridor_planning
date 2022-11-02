@@ -27,6 +27,10 @@ void BaselinePlanner::init() {
   traj_optimizer_.reset(new traj_opt::BezierOpt());
   ROS_INFO("Trajectory optimizer initialized.");
 
+  /*** INITIALIZE MADER DECONFLICTION ***/
+  collision_avoider_.reset(new MADER(nh_));
+  collision_avoider_->init();
+
   /*** INITIALIZE VISUALIZATION ***/
   std::string ns = "world";
   visualizer_.reset(new visualizer::Visualizer(nh_, ns));
@@ -125,12 +129,12 @@ bool BaselinePlanner::plan() {
   auto t2 = ros::Time::now();
   ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
   ROS_INFO("A star search finished with return code %d", rst);
-  showAstarPath();
 
   if (rst == NO_PATH) {
     ROS_WARN("No path found!");
     return false;
   }
+  showAstarPath();
 
   /*----- Safety Corridor Generation -----*/
 
@@ -145,6 +149,9 @@ bool BaselinePlanner::plan() {
   t1 = ros::Time::now();
   pc.reserve(3000);
   map_->getObstaclePoints(cfg_.risk_threshold_single_voxel, pc);
+  ROS_INFO("Obstacle points before collision avoidance: %d", pc.size());
+  collision_avoider_->getObstaclePoints(pc);
+  ROS_INFO("Obstacle points after collision avoidance: %d", pc.size());
 
   Eigen::Vector3d lower_corner  = Eigen::Vector3d(-5, -5, -1) + odom_pos_;
   Eigen::Vector3d higher_corner = Eigen::Vector3d(5, 5, 3) + odom_pos_;
@@ -161,7 +168,7 @@ bool BaselinePlanner::plan() {
   std::cout << "route size: " << route.size() << std::endl;
 
   /* Goal position and time allocation */
-  Eigen::Vector3d local_goal = route[route.size() - 1];
+  Eigen::Vector3d     local_goal = route[route.size() - 1];
   std::vector<double> time_alloc;
   time_alloc.resize(hPolys.size(), cfg_.a_star_search_time_step);
   std::cout << "time_alloc size: " << time_alloc.size() << std::endl;
@@ -197,5 +204,8 @@ bool BaselinePlanner::plan() {
   Eigen::MatrixXd cpts;
   traj_.getCtrlPoints(cpts);
   visualizer_->visualizeControlPoints(cpts);
+
+  /* TODO: use current time as trajectory start time*/
+  traj_start_time_ = ros::Time::now();
   return true;
 }

@@ -13,14 +13,18 @@
 
 #include <ros/ros.h>
 #include <traj_utils/BezierTraj.h>
-#include <traj_utils/bernstein.hpp>
 #include <Eigen/Eigen>
+#include <map>
 #include <memory>
+#include <queue>
+#include <traj_utils/bernstein.hpp>
 #include <vector>
 
 struct SwarmTraj {
   int              id;
-  double           time_received;
+  ros::Time        time_received;
+  ros::Time        time_start;
+  ros::Time        time_end;
   double           duration;
   Eigen::MatrixX3d control_points;
 };
@@ -46,11 +50,17 @@ class MADER {
   ros::NodeHandle nh_;
   ros::Subscriber swarm_sub_;
   /* variables */
+  std::vector<std::queue<SwarmTraj>> swarm_trajs_;
+  std::map<int, int>                 traj_id_to_index_;
+
   bool is_planner_initialized_;
   bool have_received_traj_while_checking_;
   bool have_received_traj_while_optimizing_;
   bool is_traj_safe_;
   bool is_checking_;
+
+  int drone_id_;
+  int num_robots_;
 };
 
 #endif  // MADER_DECONFLICTION_H

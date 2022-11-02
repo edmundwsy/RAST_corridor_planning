@@ -13,8 +13,12 @@
 
 void FiniteStateMachine::run() {
   _nh.param("drone_id", _drone_id, 0);
+  _nh.param("goal_x", _goal[0], 0.0);
+  _nh.param("goal_y", _goal[1], 0.0);
+  _nh.param("goal_z", _goal[2], 0.0);
   _nh.param("fsm/goal_tolerance", _cfgs.goal_tolerance, 1.0);
   _nh.param("fsm/replan_tolerance", _cfgs.replan_tolerance, 1.0);
+  _nh.param("fsm/replan_duration", _cfgs.replan_duration, 0.1);
 
   /* Initialize planner */
   _planner.reset(new BaselinePlanner(_nh, BaselineParameters(_nh)));
@@ -34,11 +38,14 @@ void FiniteStateMachine::run() {
 
   _traj_idx = 0;
 
+  _waypoints.push(_goal);
+
   _time = ros::Time::now().toSec();
 
   _status = FSM_STATUS::INIT; /* Initialize state machine */
   ROS_INFO("[FSM] Initialization complete");
-  _fsm_timer = _nh.createTimer(ros::Duration(0.1), &FiniteStateMachine::FSMCallback, this);
+  _fsm_timer =
+      _nh.createTimer(ros::Duration(_cfgs.replan_duration), &FiniteStateMachine::FSMCallback, this);
 }
 
 /** ***********************************************************************************************
@@ -116,7 +123,7 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
         // } else if (isGoalReached(_planner->getPos())) {
         //   FSMChangeState(FSM_STATUS::GOAL_REACHED);
         // }
-        if (checkTimeLapse(1.0) ) {
+        if (checkTimeLapse(1.0)) {
           FSMChangeState(FSM_STATUS::REPLAN);
         }
 
@@ -137,10 +144,11 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
         // bool is_safe    = isTrajectorySafe(_traj);
 
         bool is_finished = isGoalReached(_planner->getPos());
-        std::cout << termcolor::bright_red << "Target: " << _goal.transpose()
-                  << " now " << _planner->getPos().transpose() << std::endl;
+        std::cout << termcolor::bright_red << "Target: " << _goal.transpose() << " now "
+                  << _planner->getPos().transpose() << std::endl;
         if (is_success && !is_finished) { /* publish trajectory */
           _prev_plan_time = ros::Time::now();
+          _planner->getTrajStartTime(_traj_start_time);
           publishTrajectory();
           FSMChangeState(FSM_STATUS::EXEC_TRAJ);
         } else {
@@ -202,9 +210,10 @@ void FiniteStateMachine::FSMChangeState(FSM_STATUS new_state) {
 void FiniteStateMachine::FSMPrintState(FSM_STATUS new_state) {
   static string state_str[8] = {"INIT",      "WAIT_TARGET", "NEW_PLAN",     "REPLAN",
                                 "EXEC_TRAJ", "EMERGENCY",   "GOAL_REACHED", "EXIT"};
-  std::cout << termcolor::dark << termcolor::on_bright_green << "[UAV" << _drone_id << " FSM] status "
-            << termcolor::bright_cyan << termcolor::on_white << state_str[static_cast<int>(_status)]
-            << " >> " << state_str[static_cast<int>(new_state)] << termcolor::reset << std::endl;
+  std::cout << termcolor::dark << termcolor::on_bright_green << "[UAV" << _drone_id
+            << " FSM] status " << termcolor::bright_cyan << termcolor::on_white
+            << state_str[static_cast<int>(_status)] << " >> "
+            << state_str[static_cast<int>(new_state)] << termcolor::reset << std::endl;
 }
 
 /**
@@ -221,11 +230,17 @@ void FiniteStateMachine::TriggerCallback(const geometry_msgs::PoseStampedPtr& ms
   _is_exec_triggered = true;
 
   if (!_is_goal_received) {
-    _goal.x() = msg->pose.position.x;
-    _goal.y() = msg->pose.position.y;
-    _goal.z() = msg->pose.position.z;
-    ROS_INFO("[FSM] New goal received: %f, %f, %f", _goal.x(), _goal.y(), _goal.z());
-    _is_goal_received = true;
+    if (_waypoints.empty()) {
+      _goal.x() = msg->pose.position.x;
+      _goal.y() = msg->pose.position.y;
+      _goal.z() = msg->pose.position.z;
+      ROS_INFO("[FSM] New goal received: %f, %f, %f", _goal.x(), _goal.y(), _goal.z());
+    } else {
+      _goal = _waypoints.front();
+      _waypoints.pop();
+      ROS_INFO("[FSM] Existing waypoints: %f, %f, %f", _goal.x(), _goal.y(), _goal.z());
+    }
+      _is_goal_received = true;
   }
 }
 

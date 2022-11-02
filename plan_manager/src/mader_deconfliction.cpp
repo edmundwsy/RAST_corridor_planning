@@ -12,10 +12,25 @@
 #include <plan_manager/mader_deconfliction.hpp>
 
 void MADER::init() {
-  swarm_sub_   = nh_.subscribe("/boardcast_traj", 1, &MADER::trajectoryCallback, this);
-  is_checking_ = false;
+  swarm_sub_ = nh_.subscribe("/broadcast_traj", 1, &MADER::trajectoryCallback, this);
+  nh_.param("drone_id", drone_id_, 0);
+  nh_.param("swarm/num_robots", num_robots_, 3);  // TODO(1): dynamic reconfigure
+
+  is_checking_                         = false;
   have_received_traj_while_checking_   = false;
   have_received_traj_while_optimizing_ = false;
+
+  swarm_trajs_.resize(num_robots_ - 1);
+  traj_id_to_index_.clear();
+
+  /* Assign traj_id to k in swarm_trajs_ */
+  int j = 0;
+  for (int i = 0; i < num_robots_ - 1; i++) {
+    if (i != drone_id_) {
+      traj_id_to_index_[i] = j;
+    }
+    j++;
+  }
 }
 
 void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg) {
@@ -24,10 +39,73 @@ void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg)
   } else {
     have_received_traj_while_optimizing_ = false;
   }
+  int id = traj_msg->drone_id;
+
+  /* filter out ego trajectories */
+  if (id == drone_id_) {
+    return;
+  }
+
+  int k = traj_id_to_index_[id];
+
+  /* remove old trajectories */
+  ros::Time now = ros::Time::now();
+  while (!swarm_trajs_[k].empty()) {
+    if (ros::Time::now() > swarm_trajs_[k].front().time_end) {
+      swarm_trajs_[k].pop();
+    } else {
+      break;
+    }
+  }
+  ROS_INFO("Traj size after remove: %d", (int)swarm_trajs_[k].size());
+
+  /* update swarm_trajs_ */
+  int n_seg = traj_msg->duration.size();
+  int order = traj_msg->order + 1;
+
+  SwarmTraj traj;
+  traj.id            = traj_msg->drone_id;
+  traj.time_received = ros::Time::now();
+  traj.time_start    = traj_msg->start_time;
+
+  for (int i = 0; i < n_seg; i++) {
+    traj.duration   = traj_msg->duration[i];
+    traj.time_start = traj_msg->start_time + ros::Duration(traj.duration) * i;
+    traj.time_end   = traj.time_start + ros::Duration(traj.duration);
+    traj.control_points.resize(order, 3);
+    for (int j = 0; j < order; j++) {
+      int k = j + order * i;
+      traj.control_points.row(j) << traj_msg->cpts[k].x, traj_msg->cpts[k].y, traj_msg->cpts[k].z;
+    }
+    swarm_trajs_[k].push(traj);
+  }
+
+  /* print intermediate results */
+  ROS_INFO("Drone %d has %d trajectories for drone %d", drone_id_, (int)swarm_trajs_[k].size(), k);
 }
 
-void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts) {}
+void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts) {
+  ros::Time now = ros::Time::now();
+  for (int i = 0; i < num_robots_ - 1; i++) { /* iterate all robots in the buffer */
+    SwarmTraj traj;
+    while (!swarm_trajs_[i].empty()) {
+      traj = swarm_trajs_[i].front();
 
+      if (now > traj.time_end) {
+        swarm_trajs_[i].pop();
+        continue;
+      }
+
+      if (now > traj.time_start) {
+        ROS_INFO("Drone %d : pushing %d obstacle points", traj.id, (int)traj.control_points.rows());
+        for (int j = 0; j < traj.control_points.rows(); j++) {
+          pts.push_back(traj.control_points.row(j));
+        }
+      }
+      break;
+    }
+  }
+}
 
 bool MADER::safetyCheckAfterOpt(const Bernstein::Bezier &traj) {
   is_checking_ = true;

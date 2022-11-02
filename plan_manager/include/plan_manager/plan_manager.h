@@ -47,6 +47,7 @@ enum PLAN_TYPE {
 struct FSMParameters {
   double goal_tolerance   = 1.0;
   double replan_tolerance = 1.0;
+  double replan_duration  = 0.1;
 };
 
 class FiniteStateMachine {
@@ -134,7 +135,7 @@ inline bool FiniteStateMachine ::isGoalReached(const Eigen::Vector3d &p) {
  * @return false
  */
 inline bool FiniteStateMachine::isInputLost() {
-  _is_map_updated = _planner->getMapStatus();
+  _is_map_updated   = _planner->getMapStatus();
   _is_odom_received = _planner->getOdomStatus();
   return !_is_map_updated || !_is_odom_received;
 }
