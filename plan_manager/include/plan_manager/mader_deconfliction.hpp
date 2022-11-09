@@ -39,11 +39,11 @@ class MADER {
   void init();
   void reset();
   void trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg);
-  bool safetyCheckAfterOpt(const Bernstein::Bezier &traj);
-  bool safetyCheckAfterChk() { return have_received_traj_while_checking_; }
+  bool isSafeAfterOpt(const Bernstein::Bezier &traj);
+  bool isSafeAfterChk() { return !have_received_traj_while_checking_; }
   bool updateTrajObstacles(/* arguments */);
+  void getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double t);
 
-  void                           getObstaclePoints(std::vector<Eigen::Vector3d> &pts);
   typedef std::shared_ptr<MADER> Ptr;
 
  private:

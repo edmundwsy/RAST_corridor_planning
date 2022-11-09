@@ -1,7 +1,4 @@
 planner:
-  p_goal_x: 15
-  p_goal_y: 0
-  p_goal_z: 0
   planning_time_step: 0.05
   trajectory_piece_max_size: 8
   risk_threshold_replan: 1.0
@@ -23,7 +20,7 @@ search:
   horizon: 5.0
   lambda_heu: 5.0
   resolution_astar: 1
-  time_resolution: 0.2
+  time_resolution: 0.3
   margin: 0.2
   allocate_num: 100000
   check_num: 5
@@ -71,6 +68,8 @@ map:
   obstacles_inflation: 0.3
   local_map_margin: 10
   ground_height: -0.01
+
+  clearance: 0.2
 
   virtual_ceil_height: 2.9
   visualization_truncate_height: 1.8

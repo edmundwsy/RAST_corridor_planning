@@ -234,11 +234,12 @@ void FiniteStateMachine::TriggerCallback(const geometry_msgs::PoseStampedPtr& ms
       _goal.x() = msg->pose.position.x;
       _goal.y() = msg->pose.position.y;
       _goal.z() = msg->pose.position.z;
+      _waypoints.push(_goal);
       ROS_INFO("[FSM] New goal received: %f, %f, %f", _goal.x(), _goal.y(), _goal.z());
     } else {
       _goal = _waypoints.front();
-      _waypoints.pop();
       ROS_INFO("[FSM] Existing waypoints: %f, %f, %f", _goal.x(), _goal.y(), _goal.z());
+      ROS_INFO("[FSM] remaining waypoints: %d", (int)_waypoints.size());
     }
       _is_goal_received = true;
   }

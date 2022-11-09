@@ -175,19 +175,19 @@ void RiskVoxel::getObstaclePoints(const float &threshold, std::vector<Eigen::Vec
   dsp_map_->getObstaclePoints(num_occupied, points, threshold, clearance_);
 
   /* Debug: publish these obstacle points */
-  pcl::PointCloud<pcl::PointXYZ> cloud;
-  for (int i = 0; i < points.size(); i++) {
-    pcl::PointXYZ p;
-    p.x = points[i](0);
-    p.y = points[i](1);
-    p.z = points[i](2);
-    cloud.push_back(p);
-  }
-  sensor_msgs::PointCloud2 cloud_msg;
-  pcl::toROSMsg(cloud, cloud_msg);
-  cloud_msg.header.stamp    = ros::Time::now();
-  cloud_msg.header.frame_id = "world";
-  obstacle_pub_.publish(cloud_msg);
+  // pcl::PointCloud<pcl::PointXYZ> cloud;
+  // for (int i = 0; i < points.size(); i++) {
+  //   pcl::PointXYZ p;
+  //   p.x = points[i](0);
+  //   p.y = points[i](1);
+  //   p.z = points[i](2);
+  //   cloud.push_back(p);
+  // }
+  // sensor_msgs::PointCloud2 cloud_msg;
+  // pcl::toROSMsg(cloud, cloud_msg);
+  // cloud_msg.header.stamp    = ros::Time::now();
+  // cloud_msg.header.frame_id = "world";
+  // obstacle_pub_.publish(cloud_msg);
 }
 
 int RiskVoxel::getInflateOccupancy(Eigen::Vector3d pos) {

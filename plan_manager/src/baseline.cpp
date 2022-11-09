@@ -149,9 +149,8 @@ bool BaselinePlanner::plan() {
   t1 = ros::Time::now();
   pc.reserve(3000);
   map_->getObstaclePoints(cfg_.risk_threshold_single_voxel, pc);
-  ROS_INFO("Obstacle points before collision avoidance: %d", pc.size());
-  collision_avoider_->getObstaclePoints(pc);
-  ROS_INFO("Obstacle points after collision avoidance: %d", pc.size());
+  collision_avoider_->getObstaclePoints(pc, cfg_.a_star_search_time_step * (route.size() - 1));
+  visualizer_->visualizeObstaclePoints(pc);
 
   Eigen::Vector3d lower_corner  = Eigen::Vector3d(-5, -5, -1) + odom_pos_;
   Eigen::Vector3d higher_corner = Eigen::Vector3d(5, 5, 3) + odom_pos_;
@@ -159,7 +158,7 @@ bool BaselinePlanner::plan() {
   sfc_gen::convexCover(route, pc, lower_corner, higher_corner, 7.0, 1.0, hPolys);
   // sfc_gen::shortCut(hPolys);  /* merge adjacent corridors */
   t2 = ros::Time::now();
-  ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
+  ROS_INFO("Decomps takes: %f ms", (t2 - t1).toSec() * 1000);
   visualizer_->visualizePolytope(hPolys);
 
   /*----- Trajectory Optimization -----*/
@@ -196,10 +195,22 @@ bool BaselinePlanner::plan() {
     return false;
   }
   t2 = ros::Time::now();
-  ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
+  ROS_INFO("TrajOpt takes: %f ms", (t2 - t1).toSec() * 1000);
 
   traj_optimizer_->getOptBezier(traj_);
 
+  /*----- Trajectory Deconfliction -----*/
+  if (!collision_avoider_->isSafeAfterOpt(traj_)) {
+    ROS_ERROR("Trajectory collides after optimization!");
+    return false;
+  }
+
+  if (!collision_avoider_->isSafeAfterChk()) {
+    ROS_ERROR("Trajectory commited while checking!");
+    return false;
+  }
+
+  /*----- Trajectory Visualization -----*/
   visualizer_->visualizeBezierCurve(Eigen::Vector3d::Zero(), traj_, 4.0);
   Eigen::MatrixXd cpts;
   traj_.getCtrlPoints(cpts);

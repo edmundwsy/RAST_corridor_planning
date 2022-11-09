@@ -84,19 +84,26 @@ void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg)
   ROS_INFO("Drone %d has %d trajectories for drone %d", drone_id_, (int)swarm_trajs_[k].size(), k);
 }
 
-void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts) {
-  ros::Time now = ros::Time::now();
+/**
+ * @brief obtains control points of other drones in the prediction horizon
+ *
+ * @param pts input obstacle points buffer
+ * @param t prediction horizon
+ */
+void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double horizon) {
+  ros::Time t_start = ros::Time::now();
+  ros::Time t_end   = t_start + ros::Duration(horizon);
   for (int i = 0; i < num_robots_ - 1; i++) { /* iterate all robots in the buffer */
     SwarmTraj traj;
     while (!swarm_trajs_[i].empty()) {
       traj = swarm_trajs_[i].front();
 
-      if (now > traj.time_end) {
+      if (t_start > traj.time_end) {
         swarm_trajs_[i].pop();
         continue;
       }
 
-      if (now > traj.time_start) {
+      if (t_end > traj.time_start || t_start < traj.time_end) {
         ROS_INFO("Drone %d : pushing %d obstacle points", traj.id, (int)traj.control_points.rows());
         for (int j = 0; j < traj.control_points.rows(); j++) {
           pts.push_back(traj.control_points.row(j));
@@ -107,8 +114,18 @@ void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts) {
   }
 }
 
-bool MADER::safetyCheckAfterOpt(const Bernstein::Bezier &traj) {
+/**
+ * @brief check if the trajectory is collision free
+ *
+ * @param traj_msg
+ * @return true    safe
+ * @return false   unsafe
+ */
+bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
   is_checking_ = true;
+  /* collision checking starts */
+
+  double          t = traj.getDuration();
   Eigen::MatrixXd cpts;
   traj.getCtrlPoints(cpts);
   /* checkin: check waypoints */

@@ -60,9 +60,6 @@ struct BaselineParameters {
   double max_differentiated_current_a = 4.0;
   bool   is_rviz_map_center_locked    = false;
 
-  double goal_x                = 60.0;
-  double goal_y                = 0.0;
-  double goal_z                = 1.5;
   double waypoint_distance     = 4.0;
   double goal_reach_threshold  = 1.0;
   double replan_time_threshold = 0.5;
@@ -70,9 +67,6 @@ struct BaselineParameters {
   /* New */
 
   BaselineParameters(const ros::NodeHandle &nh) {
-    nh.getParam("planner/p_goal_x", goal_x);
-    nh.getParam("planner/p_goal_y", goal_y);
-    nh.getParam("planner/p_goal_z", goal_z);
     nh.getParam("planner/max_vel", max_vel);
     nh.getParam("planner/max_acc", max_acc);
     nh.getParam("planner/goal_reach_threshold", goal_reach_threshold);
