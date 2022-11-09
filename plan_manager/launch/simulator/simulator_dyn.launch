@@ -2,7 +2,7 @@
 	<arg name="init_x" />
 	<arg name="init_y" />
 	<arg name="init_z" />
-	<arg name="obs_num" value="1" />
+	<arg name="obs_num" default="1" />
 	<arg name="map_size_x" />
 	<arg name="map_size_y" />
 	<arg name="map_size_z" />

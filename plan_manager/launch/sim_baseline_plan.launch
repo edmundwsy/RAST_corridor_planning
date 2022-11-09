@@ -8,14 +8,15 @@
   <arg name="map_size_x" value="13" />
   <arg name="map_size_y" value="13" />
   <arg name="map_size_z" value="7" />
-  <arg name="pool_size_x" value="120" />
-  <arg name="pool_size_y" value="120" />
-  <arg name="pool_size_z" value="50" />
+  <arg name="goal_x" value="8" />
+  <arg name="goal_y" value="0" />
+  <arg name="goal_z" value="2" />
   <arg name="is_pose_subscribed" value="false" />
   <arg name="odom_topic" value="/uav0/mavros/local_position/odom" />
   <arg name="pose_topic" value="/uav0/mavros/local_position/pose" />
+  <arg name="obs_num" value="8" />  <!-- Number of obstacles -->
 
-  <include file="$(find plan_manager)/launch/simulator/simulator_dyn.launch">
+  <include file="$(find plan_manager)/launch/simulator/simulator.launch">
     <arg name="drone_id" value="$(arg drone_id)" />
     <arg name="map_size_x" value="$(arg map_size_x)" />
     <arg name="map_size_y" value="$(arg map_size_y)" />
@@ -25,6 +26,7 @@
     <arg name="init_z" value="$(arg init_z)" />
     <arg name="odometry_topic" value="$(arg odom_topic)" />
     <arg name="odom_pose_topic" value="$(arg pose_topic)" />
+    <arg name="obs_num" value="$(arg obs_num)" />
   </include>
 
 <group ns="uav0">
@@ -39,6 +41,10 @@
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />
+    <param name="goal_x" value="$(arg goal_x)" />
+    <param name="goal_y" value="$(arg goal_y)" />
+    <param name="goal_z" value="$(arg goal_z)" />
+
     <param name="vel" value="1" />
     <param name="time_step" value="0.01" />
 
