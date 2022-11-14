@@ -13,16 +13,65 @@
 
 void RiskVoxel::init(ros::NodeHandle &nh) {
   nh_ = nh;
+
+  
+  dsp_map::MappingParameters mp;
+
+  /* read parameters */
+  nh_.param("map/n_risk_map", mp.n_risk_map_, 3);
+  nh_.param("map/n_prediction_per_risk", mp.n_prediction_per_risk_map_, 3);
+  nh_.param("map/n_particles_max", mp.n_particles_max_, 1000);
+  nh_.param("map/n_particles_max_per_voxel", mp.n_particles_max_per_voxel_, 18);
+  nh_.param("map/n_particles_max_per_pyramid", mp.n_particles_max_per_pyramid_, 100);
+
+  nh_.param("map/resolution", mp.resolution_, -1.0F);
+  nh_.param("map/map_size_x", mp.map_size_x_, -1.0F);
+  nh_.param("map/map_size_y", mp.map_size_y_, -1.0F);
+  nh_.param("map/map_size_z", mp.map_size_z_, -1.0F);
+  nh_.param("map/local_update_range_x", mp.local_update_range_(0), -1.0F);
+  nh_.param("map/local_update_range_y", mp.local_update_range_(1), -1.0F);
+  nh_.param("map/local_update_range_z", mp.local_update_range_(2), -1.0F);
+  nh_.param("map/obstacles_inflation", mp.obstacles_inflation_, -1.0F);
+
+  nh_.param("map/angle_resolution", mp.angle_resolution_, 3);
+  nh_.param("map/half_fov_horizontal", mp.half_fov_h_, -1);
+  nh_.param("map/half_fov_vertical", mp.half_fov_v_, -1);
+
+  nh_.param("map/visualization_truncate_height", mp.visualization_truncate_height_, -0.1F);
+  nh_.param("map/virtual_ceil_height", mp.virtual_ceil_height_, -0.1F);
+  nh_.param("map/virtual_ceil_yp", mp.virtual_ceil_yp_, -0.1F);
+  nh_.param("map/virtual_ceil_yn", mp.virtual_ceil_yn_, -0.1F);
+
+  nh_.param("map/show_occ_time", mp.show_occ_time_, false);
+
+  nh_.param("map/newborn/particles_number", mp.newborn_particles_per_point_, 20);
+  nh_.param("map/newborn/particles_weight", mp.newborn_particles_weight_, 0.0001F);
+  nh_.param("map/newborn/objects_weight", mp.newborn_objects_weight_, 0.04F);
+
+  /* standard derivations */
+  nh_.param("map/stddev_pos", mp.stddev_pos_predict_, 0.05F); /* prediction variance */
+  nh_.param("map/stddev_vel", mp.stddev_vel_predict_, 0.05F); /* prediction variance */
+  nh_.param("map/sigma_update", mp.sigma_update_, -1.0F);
+  nh_.param("map/sigma_observation", mp.sigma_obsrv_, -1.0F);
+  nh_.param("map/sigma_localization", mp.sigma_loc_, -1.0F);
+
+  nh_.param("map/frame_id", mp.frame_id_, string("world"));
+  nh_.param("map/local_map_margin", mp.local_map_margin_, 1);
+  nh_.param("map/ground_height", mp.ground_height_, 1.0F);
+
+  nh_.param("map/odom_depth_timeout", mp.odom_depth_timeout_, 1.0F);
+  nh_.param("map/is_output_csv", mp.is_csv_output_, false);
+
   nh_.param("map/is_pose_sub", is_pose_sub_, false);
   nh_.param("map/local_update_range_x", local_update_range_x_, 5.0F);
   nh_.param("map/local_update_range_y", local_update_range_y_, 5.0F);
   nh_.param("map/local_update_range_z", local_update_range_z_, 4.0F);
-  nh_.param("map/risk_threshold", risk_threshold_, 0.15F);
+  nh_.param("map/risk_threshold", risk_threshold_, 0.6F);
   nh_.param("map/static_clearance", clearance_, 0.3F);
 
   ROS_INFO("Init risk voxel map");
   dsp_map_.reset(new dsp_map::DSPMapStaticV2());
-  dsp_map_->initMap(nh_);
+  dsp_map_->initMap(mp);
   dsp_map::DSPMapStaticV2::setOriginalVoxelFilterResolution(0.15);
 
   /* subscribers */
@@ -159,7 +208,7 @@ void RiskVoxel::publishOccMap() {
   int                            num_occupied = 0;
   clock_t                        t1           = clock();
   pcl::PointCloud<pcl::PointXYZ> cloud;
-  dsp_map_->getOccupancyMapWithRiskMaps(num_occupied, cloud, &risk_maps_[0][0], 0.2);
+  dsp_map_->getOccupancyMapWithRiskMaps(num_occupied, cloud, &risk_maps_[0][0], risk_threshold_);
   sensor_msgs::PointCloud2 cloud_msg;
   pcl::toROSMsg(cloud, cloud_msg);
   cloud_msg.header.stamp    = ros::Time::now();
