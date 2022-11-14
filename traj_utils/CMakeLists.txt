@@ -1,6 +1,5 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.0.0)
 project(traj_utils)
-
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "-std=c++14")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
@@ -45,7 +44,7 @@ generate_messages(
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES traj_utils 
- CATKIN_DEPENDS message_runtime decomp_ros_utils
+ CATKIN_DEPENDS decomp_ros_utils roscpp sensor_msgs
 #  DEPENDS system_lib
 )
 

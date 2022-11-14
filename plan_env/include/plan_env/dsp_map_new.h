@@ -34,12 +34,12 @@
 #include <message_filters/time_synchronizer.h>
 
 /* -------------- Parameters for the map ------------------ */
-#define MAP_LENGTH_VOXEL_NUM   50  // 33//29  //odd
-#define MAP_WIDTH_VOXEL_NUM    50  // 33//29   //odd
-#define MAP_HEIGHT_VOXEL_NUM   30  // 9 //21, 9 //odd
+#define MAP_LENGTH_VOXEL_NUM   65  // 33//29  //odd
+#define MAP_WIDTH_VOXEL_NUM    65  // 33//29   //odd
+#define MAP_HEIGHT_VOXEL_NUM   35  // 9 //21, 9 //odd
 #define ANGLE_RESOLUTION       3
 #define MAX_PARTICLE_NUM_VOXEL 18  // 18 //80
-#define VOXEL_RESOLUTION       0.2
+#define VOXEL_RESOLUTION       0.15
 
 /// Note: RISK_MAP_NUMBER * RISK_MAP_PREDICTION_TIME = PREDICTION_TIMES. RISK_MAP_PREDICTION_TIMES
 /// items in _prediction_future_time should be within time a_star_search_time_step
@@ -56,11 +56,7 @@ const int half_fov_h = 48;  // can be divided by ANGLE_RESOLUTION. If not, modif
 const int half_fov_v = 36;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
                             // or make half_fov_h a smaller value than the real FOV angle
 
-// const int half_fov_h = 30;  // Real world can be divided by ANGLE_RESOLUTION. If not, modify
-// ANGLE_RESOLUTION or make half_fov_h a smaller value than the real FOV angle const int half_fov_v
-// = 21;
-
-/** END **/
+/*--------------- END ---------------*/
 
 static const int VOXEL_NUM   = MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM * MAP_HEIGHT_VOXEL_NUM;
 static const int PYRAMID_NUM = 360 * 180 / ANGLE_RESOLUTION / ANGLE_RESOLUTION;
@@ -322,7 +318,10 @@ class DSPMapStaticV2 {
   void setParticleRecordFlag(bool record_particle_flag, float record_csv_time = 1.f);
 
   static void setOriginalVoxelFilterResolution(float res) { _voxel_filtered_resolution = res; }
-
+  inline void getMapCenter(Eigen::Vector3f &center) { center = md_.camera_pos_; }
+  inline void getMapSize(Eigen::Vector3f &size) {
+    size << mp_.voxel_size_x_, mp_.voxel_size_y_, mp_.voxel_size_z_;
+  }
   void getOccupancyMap(int &                           obstacles_num,
                        pcl::PointCloud<pcl::PointXYZ> &cloud,
                        const float                     threshold = 0.7);

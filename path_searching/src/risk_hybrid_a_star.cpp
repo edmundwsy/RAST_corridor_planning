@@ -60,8 +60,8 @@ void RiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::Vecto
 void RiskHybridAstar::setEnvironment(const RiskVoxel::Ptr& grid_map) { grid_map_ = grid_map; }
 
 void RiskHybridAstar::setParam(ros::NodeHandle& nh) {
-  nh.param("search/max_tau", max_tau_, -1.0);
-  nh.param("search/init_max_tau", init_max_tau_, -1.0);
+  nh.param("search/max_tau", max_tau_, -1.0);           /* 每次前向积分的时间 */
+  nh.param("search/init_max_tau", init_max_tau_, -1.0); /* 按照之前的输入前向积分的时间 */
   nh.param("search/max_vel", max_vel_, -1.0);
   nh.param("search/max_acc", max_acc_, -1.0);
   nh.param("search/w_time", w_time_, -1.0);
@@ -106,8 +106,11 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
                                   bool            init,
                                   bool            dynamic,
                                   double          time_start) {
-  start_vel_ = start_v;
-  start_acc_ = start_a;
+  Eigen::Vector3f map_center_f;
+  grid_map_->getMapCenter(map_center_f);
+  map_center_ = map_center_f.cast<double>();
+  start_vel_  = start_v;
+  start_acc_  = start_a;
 
   PathNodePtr cur_node = path_node_pool_[0];
   cur_node->setParent(NULL);
@@ -302,6 +305,9 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
         // This node end up in a voxel different from others
         if (!prune) {
           if (pro_node == NULL) {
+            /** @details
+             * expanded_nodes_对于已经扩展过的节点,不需重复分配内存,直接在哈希表中查找即可.
+             */
             pro_node = path_node_pool_[use_node_num_];
             pro_node->setIndex(pro_id);
             pro_node->state = pro_state;
@@ -322,7 +328,10 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
               expanded_nodes_.insert(pro_id, pro_node->time, pro_node);
             else
               expanded_nodes_.insert(pro_id, pro_node);
-
+            /**
+             * @details 在hash table中的节点只能插入和查找,无法遍历,所以这里定义一个 vector
+             * 来存储所有扩展过的节点,方便剪枝的时候遍历所有节点
+             */
             tmp_expand_nodes.push_back(pro_node);
 
             use_node_num_ += 1;

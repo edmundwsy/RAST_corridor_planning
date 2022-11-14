@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
   BaselinePlanner   baseline_planner(nh, BaselineParameters(nh));
   baseline_planner.init();
   // baseline_planner.plan();
-  ros::AsyncSpinner spinner(3);  // use 3 threads
+  ros::AsyncSpinner spinner(8);  // use 3 threads
   spinner.start();
   ros::waitForShutdown();
   return 0;

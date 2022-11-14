@@ -21,7 +21,7 @@ void BaselinePlanner::init() {
   a_star_.reset(new RiskHybridAstar());
   a_star_->setParam(nh_);
   a_star_->setEnvironment(map_);
-  a_star_->init(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(10, 10, 4));
+  a_star_->init(odom_pos_, Eigen::Vector3d(10, 10, 4));
 
   /*** INITIALIZE BEZIER OPT ***/
   traj_optimizer_.reset(new traj_opt::BezierOpt());
@@ -116,7 +116,7 @@ bool BaselinePlanner::plan() {
 
   /*----- Path Searching on DSP Static -----*/
   a_star_->reset();
-  a_star_->setMapCenter(odom_pos_);
+  // a_star_->setMapCenter(odom_pos_);
   auto      t1 = ros::Time::now();
   ASTAR_RET rst =
       a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_, Eigen::Vector3d(0, 0, 0), true);

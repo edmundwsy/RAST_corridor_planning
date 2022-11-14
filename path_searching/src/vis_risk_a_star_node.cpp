@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
   a_star_.reset(new RiskHybridAstar());
   a_star_->setParam(nh);
   a_star_->setEnvironment(grid_map_);
-  a_star_->init(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(10, 10, 4));
+  a_star_->init(start_pos_, Eigen::Vector3d(10, 10, 4));
 
   start_pos_ = Eigen::Vector3d(0, 0, 0);
   nh.getParam("init_x", start_pos_(0));

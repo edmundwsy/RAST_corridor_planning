@@ -37,7 +37,7 @@ class RiskVoxel {
   ros::Subscriber click_sub_;
   ros::Publisher  cloud_pub_;
   ros::Publisher  risk_pub_;
-  ros::Publisher  obstacle_pub_;  /* Debug */
+  ros::Publisher  obstacle_pub_; /* Debug */
   ros::Timer      pub_timer_;
 
   /* Data */
@@ -79,6 +79,8 @@ class RiskVoxel {
 
   void init(ros::NodeHandle &nh);
   void publishOccMap();
+
+  inline void getMapCenter(Eigen::Vector3f &center) { dsp_map_->getMapCenter(center); }
 
   void pubCallback(const ros::TimerEvent &event);
   void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cloud_msg,
