@@ -13,56 +13,20 @@
 
 namespace dsp_map {
 
-void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
-  nh_ = nh;
+void DSPMapStaticV2::initMap(MappingParameters mp) {
+  mp_ = mp;
 
-  /* read parameters */
-  nh_.param("map/n_risk_map", mp_.n_risk_map_, 3);
-  nh_.param("map/n_prediction_per_risk", mp_.n_prediction_per_risk_map_, 3);
-  nh_.param("map/n_particles_max", mp_.n_particles_max_, 1000);
-  nh_.param("map/n_particles_max_per_voxel", mp_.n_particles_max_per_voxel_, 18);
-  nh_.param("map/n_particles_max_per_pyramid", mp_.n_particles_max_per_pyramid_, 100);
-
-  nh_.param("map/resolution", mp_.resolution_, -1.0F);
-  nh_.param("map/map_size_x", mp_.map_size_x_, -1.0F);
-  nh_.param("map/map_size_y", mp_.map_size_y_, -1.0F);
-  nh_.param("map/map_size_z", mp_.map_size_z_, -1.0F);
-  nh_.param("map/voxel_size_x", mp_.voxel_size_x_, -1);
-  nh_.param("map/voxel_size_y", mp_.voxel_size_y_, -1);
-  nh_.param("map/voxel_size_z", mp_.voxel_size_z_, -1);
-  nh_.param("map/local_update_range_x", mp_.local_update_range_(0), -1.0F);
-  nh_.param("map/local_update_range_y", mp_.local_update_range_(1), -1.0F);
-  nh_.param("map/local_update_range_z", mp_.local_update_range_(2), -1.0F);
-  nh_.param("map/obstacles_inflation", mp_.obstacles_inflation_, -1.0F);
-
-  nh_.param("map/angle_resolution", mp_.angle_resolution_, 3);
-  nh_.param("map/half_fov_horizontal", mp_.half_fov_h_, -1);
-  nh_.param("map/half_fov_vertical", mp_.half_fov_v_, -1);
-
-  nh_.param("map/visualization_truncate_height", mp_.visualization_truncate_height_, -0.1F);
-  nh_.param("map/virtual_ceil_height", mp_.virtual_ceil_height_, -0.1F);
-  nh_.param("map/virtual_ceil_yp", mp_.virtual_ceil_yp_, -0.1F);
-  nh_.param("map/virtual_ceil_yn", mp_.virtual_ceil_yn_, -0.1F);
-
-  nh_.param("map/show_occ_time", mp_.show_occ_time_, false);
-
-  nh_.param("map/newborn/particles_number", mp_.newborn_particles_per_point_, 20);
-  nh_.param("map/newborn/particles_weight", mp_.newborn_particles_weight_, 0.0001F);
-  nh_.param("map/newborn/objects_weight", mp_.newborn_objects_weight_, 0.04F);
-
-  /* standard derivations */
-  nh_.param("map/stddev_pos", mp_.stddev_pos_predict_, 0.05F); /* prediction variance */
-  nh_.param("map/stddev_vel", mp_.stddev_vel_predict_, 0.05F); /* prediction variance */
-  nh_.param("map/sigma_update", mp_.sigma_update_, -1.0F);
-  nh_.param("map/sigma_observation", mp_.sigma_obsrv_, -1.0F);
-  nh_.param("map/sigma_localization", mp_.sigma_loc_, -1.0F);
-
-  nh_.param("map/frame_id", mp_.frame_id_, string("world"));
-  nh_.param("map/local_map_margin", mp_.local_map_margin_, 1);
-  nh_.param("map/ground_height", mp_.ground_height_, 1.0F);
-
-  nh_.param("map/odom_depth_timeout", mp_.odom_depth_timeout_, 1.0F);
-  nh_.param("map/is_output_csv", mp_.is_csv_output_, false);
+  /** @brief Force to use pre-defined parameters
+   * Dynamic memory allocation is not possible since required memory exceed maximum size of a single array
+   */
+  mp_.voxel_size_x_     = MAP_LENGTH_VOXEL_NUM;
+  mp_.voxel_size_y_     = MAP_WIDTH_VOXEL_NUM;
+  mp_.voxel_size_z_     = MAP_HEIGHT_VOXEL_NUM;
+  mp_.n_voxel_          = VOXEL_NUM;
+  mp_.resolution_       = VOXEL_RESOLUTION;
+  mp_.angle_resolution_ = ANGLE_RESOLUTION;
+  mp_.half_fov_h_       = half_fov_h;
+  mp_.half_fov_v_       = half_fov_v;
 
   if (mp_.virtual_ceil_height_ - mp_.ground_height_ > mp_.map_size_z_) {
     mp_.virtual_ceil_height_ = mp_.ground_height_ + mp_.map_size_z_;
@@ -71,15 +35,19 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   mp_.resolution_inv_ = 1 / mp_.resolution_;
 
   /* use map size when voxel size is unknown */
-  if (mp_.voxel_size_x_ < 0 || mp_.voxel_size_y_ < 0 || mp_.voxel_size_z_ < 0) {
-    mp_.voxel_size_x_ = static_cast<int>(mp_.map_size_x_ * mp_.resolution_inv_);
-    mp_.voxel_size_y_ = static_cast<int>(mp_.map_size_y_ * mp_.resolution_inv_);
-    mp_.voxel_size_z_ = static_cast<int>(mp_.map_size_z_ * mp_.resolution_inv_);
-  } else {
-    mp_.map_size_x_ = mp_.voxel_size_x_ * mp_.resolution_;
-    mp_.map_size_y_ = mp_.voxel_size_y_ * mp_.resolution_;
-    mp_.map_size_z_ = mp_.voxel_size_z_ * mp_.resolution_;
-  }
+  // if (mp_.voxel_size_x_ < 0 || mp_.voxel_size_y_ < 0 || mp_.voxel_size_z_ < 0) {
+  //   mp_.voxel_size_x_ = static_cast<int>(mp_.map_size_x_ * mp_.resolution_inv_);
+  //   mp_.voxel_size_y_ = static_cast<int>(mp_.map_size_y_ * mp_.resolution_inv_);
+  //   mp_.voxel_size_z_ = static_cast<int>(mp_.map_size_z_ * mp_.resolution_inv_);
+  // } else {
+  //   mp_.map_size_x_ = mp_.voxel_size_x_ * mp_.resolution_;
+  //   mp_.map_size_y_ = mp_.voxel_size_y_ * mp_.resolution_;
+  //   mp_.map_size_z_ = mp_.voxel_size_z_ * mp_.resolution_;
+  // }
+
+  mp_.map_size_x_ = mp_.voxel_size_x_ * mp_.resolution_;
+  mp_.map_size_y_ = mp_.voxel_size_y_ * mp_.resolution_;
+  mp_.map_size_z_ = mp_.voxel_size_z_ * mp_.resolution_;
 
   mp_.half_map_size_x_ = mp_.map_size_x_ * 0.5F;
   mp_.half_map_size_y_ = mp_.map_size_y_ * 0.5F;
@@ -89,13 +57,11 @@ void DSPMapStaticV2::initMap(ros::NodeHandle &nh) {
   mp_.angle_resolution_rad_ = static_cast<float>(mp_.angle_resolution_) / 180.F * M_PIf32;
 
   ROS_INFO("voxel size: %i %i %i", mp_.voxel_size_x_, mp_.voxel_size_y_, mp_.voxel_size_z_);
-  mp_.n_voxel_           = mp_.voxel_size_x_ * mp_.voxel_size_y_ * mp_.voxel_size_z_;
+  // mp_.n_voxel_           = mp_.voxel_size_x_ * mp_.voxel_size_y_ * mp_.voxel_size_z_;
   mp_.n_pyramid_         = 360 * 180 / mp_.angle_resolution_ / mp_.angle_resolution_;
   mp_.n_pyramid_obsrv_h_ = static_cast<int>(mp_.half_fov_h_ * 2 / mp_.angle_resolution_);
   mp_.n_pyramid_obsrv_v_ = static_cast<int>(mp_.half_fov_v_ * 2 / mp_.angle_resolution_);
   mp_.n_pyramid_obsrv_   = mp_.n_pyramid_obsrv_h_ * mp_.n_pyramid_obsrv_v_;
-
-  mp_.n_voxel_ = VOXEL_NUM;
 
   /* initialize index */
   md_.vel_gaussian_idx_ = 0;

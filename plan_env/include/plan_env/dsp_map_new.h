@@ -33,12 +33,13 @@
 #include <message_filters/sync_policies/exact_time.h>
 #include <message_filters/time_synchronizer.h>
 
-/** Parameters for the map **/
-#define MAP_LENGTH_VOXEL_NUM   65  // 33//29  //odd
-#define MAP_WIDTH_VOXEL_NUM    65  // 33//29   //odd
-#define MAP_HEIGHT_VOXEL_NUM   35  // 9 //21, 9 //odd
+/* -------------- Parameters for the map ------------------ */
+#define MAP_LENGTH_VOXEL_NUM   50  // 33//29  //odd
+#define MAP_WIDTH_VOXEL_NUM    50  // 33//29   //odd
+#define MAP_HEIGHT_VOXEL_NUM   30  // 9 //21, 9 //odd
 #define ANGLE_RESOLUTION       3
 #define MAX_PARTICLE_NUM_VOXEL 18  // 18 //80
+#define VOXEL_RESOLUTION       0.2
 
 /// Note: RISK_MAP_NUMBER * RISK_MAP_PREDICTION_TIME = PREDICTION_TIMES. RISK_MAP_PREDICTION_TIMES
 /// items in _prediction_future_time should be within time a_star_search_time_step
@@ -298,7 +299,7 @@ class DSPMapStaticV2 {
 
   ~DSPMapStaticV2() { std::cout << "\n See you ;)" << endl; }
 
-  void initMap(ros::NodeHandle &nh);
+  void initMap(MappingParameters mp);
 
   int update(int                      point_cloud_num,
              int                      size_of_one_point,
@@ -343,7 +344,7 @@ class DSPMapStaticV2 {
   void getObstaclePoints(int &                         obstacles_num,
                          std::vector<Eigen::Vector3d> &points,
                          const float                   threshold,
-                         const float clearance = 0.5);
+                         const float                   clearance = 0.5);
   /// NOTE: If you don't want to use any visualization functions like "getOccupancyMap"
   ///      or "getOccupancyMapWithVelocity", you must call this function after update process.
   void clearOccupancyMapPrediction();
