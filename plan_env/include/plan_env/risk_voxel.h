@@ -11,7 +11,7 @@
 #ifndef RISK_VOXEL_H
 #define RISK_VOXEL_H
 
-#include <plan_env/dsp_map_new.h>
+#include <plan_env/dsp_dynamic.h>
 
 #include <ros/ros.h>
 #include <Eigen/Dense>
@@ -41,10 +41,13 @@ class RiskVoxel {
   ros::Timer      pub_timer_;
 
   /* Data */
-  dsp_map::DSPMapStaticV2::Ptr dsp_map_;
+  dsp_map::DSPMap::Ptr        dsp_map_;
+  Eigen::Vector3f    pose_;
+  Eigen::Quaternionf q_;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_;
 
   /* Parameters */
-  float risk_maps_[VOXEL_NUM][3];
+  float risk_maps_[VOXEL_NUM][PREDICTION_TIMES];
   float valid_clouds_[5000 * 3];
   float local_update_range_x_;
   float local_update_range_y_;
@@ -80,7 +83,7 @@ class RiskVoxel {
   void init(ros::NodeHandle &nh);
   void publishOccMap();
 
-  inline void getMapCenter(Eigen::Vector3f &center) { dsp_map_->getMapCenter(center); }
+  inline void getMapCenter(Eigen::Vector3f &center) { center = pose_; }
 
   void pubCallback(const ros::TimerEvent &event);
   void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cloud_msg,
@@ -92,7 +95,7 @@ class RiskVoxel {
                         pcl::PointCloud<pcl::PointXYZ>::Ptr &      cloud_out,
                         float *                                    valid_clouds,
                         int &                                      valid_clouds_num);
-  void getObstaclePoints(const float &threshold, std::vector<Eigen::Vector3d> &points);
+  void getObstaclePoints(std::vector<Eigen::Vector3d> &points);
   int  getInflateOccupancy(Eigen::Vector3d pos);
 
   typedef std::shared_ptr<RiskVoxel> Ptr;

@@ -148,7 +148,7 @@ bool BaselinePlanner::plan() {
 
   t1 = ros::Time::now();
   pc.reserve(3000);
-  map_->getObstaclePoints(cfg_.risk_threshold_single_voxel, pc);
+  map_->getObstaclePoints(pc);
   collision_avoider_->getObstaclePoints(pc, cfg_.a_star_search_time_step * (route.size() - 1));
   visualizer_->visualizeObstaclePoints(pc);
 

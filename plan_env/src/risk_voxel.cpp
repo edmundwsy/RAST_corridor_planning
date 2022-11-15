@@ -14,65 +14,32 @@
 void RiskVoxel::init(ros::NodeHandle &nh) {
   nh_ = nh;
 
-  
-  dsp_map::MappingParameters mp;
-
-  /* read parameters */
-  nh_.param("map/n_risk_map", mp.n_risk_map_, 3);
-  nh_.param("map/n_prediction_per_risk", mp.n_prediction_per_risk_map_, 3);
-  nh_.param("map/n_particles_max", mp.n_particles_max_, 1000);
-  nh_.param("map/n_particles_max_per_voxel", mp.n_particles_max_per_voxel_, 18);
-  nh_.param("map/n_particles_max_per_pyramid", mp.n_particles_max_per_pyramid_, 100);
-
-  nh_.param("map/resolution", mp.resolution_, -1.0F);
-  nh_.param("map/map_size_x", mp.map_size_x_, -1.0F);
-  nh_.param("map/map_size_y", mp.map_size_y_, -1.0F);
-  nh_.param("map/map_size_z", mp.map_size_z_, -1.0F);
-  nh_.param("map/local_update_range_x", mp.local_update_range_(0), -1.0F);
-  nh_.param("map/local_update_range_y", mp.local_update_range_(1), -1.0F);
-  nh_.param("map/local_update_range_z", mp.local_update_range_(2), -1.0F);
-  nh_.param("map/obstacles_inflation", mp.obstacles_inflation_, -1.0F);
-
-  nh_.param("map/angle_resolution", mp.angle_resolution_, 3);
-  nh_.param("map/half_fov_horizontal", mp.half_fov_h_, -1);
-  nh_.param("map/half_fov_vertical", mp.half_fov_v_, -1);
-
-  nh_.param("map/visualization_truncate_height", mp.visualization_truncate_height_, -0.1F);
-  nh_.param("map/virtual_ceil_height", mp.virtual_ceil_height_, -0.1F);
-  nh_.param("map/virtual_ceil_yp", mp.virtual_ceil_yp_, -0.1F);
-  nh_.param("map/virtual_ceil_yn", mp.virtual_ceil_yn_, -0.1F);
-
-  nh_.param("map/show_occ_time", mp.show_occ_time_, false);
-
-  nh_.param("map/newborn/particles_number", mp.newborn_particles_per_point_, 20);
-  nh_.param("map/newborn/particles_weight", mp.newborn_particles_weight_, 0.0001F);
-  nh_.param("map/newborn/objects_weight", mp.newborn_objects_weight_, 0.04F);
-
-  /* standard derivations */
-  nh_.param("map/stddev_pos", mp.stddev_pos_predict_, 0.05F); /* prediction variance */
-  nh_.param("map/stddev_vel", mp.stddev_vel_predict_, 0.05F); /* prediction variance */
-  nh_.param("map/sigma_update", mp.sigma_update_, -1.0F);
-  nh_.param("map/sigma_observation", mp.sigma_obsrv_, -1.0F);
-  nh_.param("map/sigma_localization", mp.sigma_loc_, -1.0F);
-
-  nh_.param("map/frame_id", mp.frame_id_, string("world"));
-  nh_.param("map/local_map_margin", mp.local_map_margin_, 1);
-  nh_.param("map/ground_height", mp.ground_height_, 1.0F);
-
-  nh_.param("map/odom_depth_timeout", mp.odom_depth_timeout_, 1.0F);
-  nh_.param("map/is_output_csv", mp.is_csv_output_, false);
-
+  /* Parameters */
+  float resolution;
+  nh_.param("map/resolution", resolution, 0.1F);
   nh_.param("map/is_pose_sub", is_pose_sub_, false);
   nh_.param("map/local_update_range_x", local_update_range_x_, 5.0F);
   nh_.param("map/local_update_range_y", local_update_range_y_, 5.0F);
   nh_.param("map/local_update_range_z", local_update_range_z_, 4.0F);
-  nh_.param("map/risk_threshold", risk_threshold_, 0.6F);
+  nh_.param("map/risk_threshold", risk_threshold_, 0.2F);
   nh_.param("map/static_clearance", clearance_, 0.3F);
 
   ROS_INFO("Init risk voxel map");
-  dsp_map_.reset(new dsp_map::DSPMapStaticV2());
-  dsp_map_->initMap(mp);
-  dsp_map::DSPMapStaticV2::setOriginalVoxelFilterResolution(0.15);
+  dsp_map_.reset(new dsp_map::DSPMap());
+  dsp_map_->setPredictionVariance(
+      0.05, 0.05);  // StdDev for prediction. velocity StdDev, position StdDev, respectively.
+  dsp_map_->setObservationStdDev(0.1);  // StdDev for update. position StdDev.
+  dsp_map_->setNewBornParticleNumberofEachPoint(
+      20);  // Number of new particles generated from one measurement point.
+  dsp_map_->setNewBornParticleWeight(0.0001);  // Initial weight of particles.
+  dsp_map::DSPMap::setOriginalVoxelFilterResolution(
+      resolution);  // Resolution of the voxel filter used for point cloud pre-process.
+  dsp_map_->setParticleRecordFlag(
+      0, 19.0);  // Set the first parameter to 1 to save particles at a time: e.g. 19.0s. Saving
+                 // will take a long time. Don't use it in realtime applications.
+
+  cloud_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+  cloud_->points.reserve(80000);
 
   /* subscribers */
   cloud_sub_.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "map/cloud", 30));
@@ -92,10 +59,10 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
   }
 
   /* publishers */
-  cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("map/occupancy_inflated", 1, true);
+  cloud_pub_    = nh.advertise<sensor_msgs::PointCloud2>("map/occupancy_inflated", 1, true);
   obstacle_pub_ = nh.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 1, true);
   /* publish point clouds in 20 Hz */
-  pub_timer_ = nh.createTimer(ros::Duration(0.05), &RiskVoxel::pubCallback, this);
+  pub_timer_ = nh.createTimer(ros::Duration(0.10), &RiskVoxel::pubCallback, this);
 }
 
 /**
@@ -141,12 +108,12 @@ void RiskVoxel::filterPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr &clou
  */
 void RiskVoxel::cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cloud_msg,
                                   const geometry_msgs::PoseStamped::ConstPtr &pose_msg) {
-  Eigen::Vector3f    pos(pose_msg->pose.position.x, pose_msg->pose.position.y,
-                      pose_msg->pose.position.z);
-  Eigen::Quaternionf q(pose_msg->pose.orientation.w, pose_msg->pose.orientation.x,
-                       pose_msg->pose.orientation.y, pose_msg->pose.orientation.z);
-  Eigen::Matrix3f    R = q.toRotationMatrix();
-  double             t = cloud_msg->header.stamp.toSec();
+  pose_             = Eigen::Vector3f(pose_msg->pose.position.x, pose_msg->pose.position.y,
+                          pose_msg->pose.position.z);
+  q_                = Eigen::Quaternionf(pose_msg->pose.orientation.w, pose_msg->pose.orientation.x,
+                          pose_msg->pose.orientation.y, pose_msg->pose.orientation.z);
+  // Eigen::Matrix3f R = q_.toRotationMatrix();
+  double          t = cloud_msg->header.stamp.toSec();
 
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in(new pcl::PointCloud<pcl::PointXYZ>());
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>());
@@ -157,7 +124,8 @@ void RiskVoxel::cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cl
 
   clock_t t_update_0 = clock();
   // std::cout << "number of valid points: " << n_valid << std::endl;
-  if (!dsp_map_->update(n_valid, 3, valid_clouds_, pos, q, t)) {
+  if (!dsp_map_->update(n_valid, 3, valid_clouds_, pose_.x(), pose_.y(), pose_.z(), t, q_.w(),
+                        q_.x(), q_.y(), q_.z())) {
     return;
   }
   clock_t t_update_1 = clock();
@@ -173,12 +141,12 @@ void RiskVoxel::cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cl
  */
 void RiskVoxel::cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
                                   const nav_msgs::Odometry::ConstPtr &      odom_msg) {
-  Eigen::Vector3f    p(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y,
-                    odom_msg->pose.pose.position.z);
-  Eigen::Quaternionf q(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x,
-                       odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z);
-  Eigen::Matrix3f    R = q.toRotationMatrix();
-  double             t = cloud_msg->header.stamp.toSec();
+  pose_ = Eigen::Vector3f(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y,
+                          odom_msg->pose.pose.position.z);
+  q_    = Eigen::Quaternionf(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x,
+                          odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z);
+  // Eigen::Matrix3f R = q_.toRotationMatrix();
+  double          t = cloud_msg->header.stamp.toSec();
 
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in(new pcl::PointCloud<pcl::PointXYZ>());
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>());
@@ -189,7 +157,8 @@ void RiskVoxel::cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &clou
 
   clock_t t_update_0 = clock();
   // std::cout << "number of valid points: " << n_valid << std::endl;
-  if (!dsp_map_->update(n_valid, 3, valid_clouds_, p, q, t)) {
+  if (!dsp_map_->update(n_valid, 3, valid_clouds_, pose_.x(), pose_.y(), pose_.z(), t, q_.w(),
+                        q_.x(), q_.y(), q_.z())) {
     return;
   }
   clock_t t_update_1 = clock();
@@ -207,10 +176,17 @@ void RiskVoxel::pubCallback(const ros::TimerEvent &event) { publishOccMap(); }
 void RiskVoxel::publishOccMap() {
   int                            num_occupied = 0;
   clock_t                        t1           = clock();
-  pcl::PointCloud<pcl::PointXYZ> cloud;
-  dsp_map_->getOccupancyMapWithRiskMaps(num_occupied, cloud, &risk_maps_[0][0], risk_threshold_);
+  cloud_->points.clear();
+  cloud_->width  = 0;
+  cloud_->height = 0;
+  dsp_map_->getOccupancyMapWithFutureStatus(num_occupied, *cloud_, &risk_maps_[0][0],
+                                            risk_threshold_);
+
+  Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+  transform.translate(pose_);
+  pcl::transformPointCloud(*cloud_, *cloud_, transform);
   sensor_msgs::PointCloud2 cloud_msg;
-  pcl::toROSMsg(cloud, cloud_msg);
+  pcl::toROSMsg(*cloud_, cloud_msg);
   cloud_msg.header.stamp    = ros::Time::now();
   cloud_msg.header.frame_id = "world";
   cloud_pub_.publish(cloud_msg);
@@ -219,9 +195,20 @@ void RiskVoxel::publishOccMap() {
   // std::cout << "publish time (ms): " << (t2 - t1) * 1000 / (double)CLOCKS_PER_SEC << std::endl;
 }
 
-void RiskVoxel::getObstaclePoints(const float &threshold, std::vector<Eigen::Vector3d> &points) {
+void RiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points) {
   int num_occupied = 0;
-  dsp_map_->getObstaclePoints(num_occupied, points, threshold, clearance_);
+
+  // convert cloud to Eigen::Vector3d
+  if (cloud_->points.size() > 0) {
+    for (int i = 0; i < cloud_->points.size(); i++) {
+      Eigen::Vector3d p;
+      p.x() = cloud_->points[i].x;
+      p.y() = cloud_->points[i].y;
+      p.z() = cloud_->points[i].z;
+      points.push_back(p);
+    }
+  }
+  // dsp_map_->getObstaclePoints(num_occupied, points, threshold, clearance_);
 
   /* Debug: publish these obstacle points */
   // pcl::PointCloud<pcl::PointXYZ> cloud;
@@ -249,8 +236,7 @@ int RiskVoxel::getInflateOccupancy(Eigen::Vector3d pos) {
     return -1;
   }
   float risk = risk_maps_[index][0];
-  if (risk > 0.5) {
-    std::cout << "risk: " << risk << std::endl;
+  if (risk > risk_threshold_) {
     return 1;
   }
   return 0;

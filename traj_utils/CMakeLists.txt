@@ -44,7 +44,7 @@ generate_messages(
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES traj_utils 
- CATKIN_DEPENDS decomp_ros_utils roscpp sensor_msgs
+ CATKIN_DEPENDS decomp_ros_utils roscpp
 #  DEPENDS system_lib
 )
 

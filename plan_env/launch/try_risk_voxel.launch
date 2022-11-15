@@ -62,6 +62,7 @@
     <param name="map/show_occ_time" value="false" />
     <param name="map/pose_type" value="1" />
     <param name="map/frame_id" value="world" />
+    <param name="map/risk_threshold" value="0.2" />
   </node>
 
   <node pkg="map_generator" name="map_generator" type="dynamic_forest">

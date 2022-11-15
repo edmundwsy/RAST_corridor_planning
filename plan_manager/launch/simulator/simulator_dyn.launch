@@ -25,8 +25,8 @@
 
 		<param name="ObstacleShape/seed" value="-1"/>
 		<param name="map/obs_num"    value="$(arg obs_num)"/>
-		<param name="ObstacleShape/lower_rad" value="0.1"/>
-		<param name="ObstacleShape/upper_rad" value="0.5"/>
+		<param name="ObstacleShape/lower_rad" value="0.5"/>
+		<param name="ObstacleShape/upper_rad" value="1.0"/>
 		<param name="ObstacleShape/lower_hei" value="4.0"/>
 		<param name="ObstacleShape/upper_hei" value="4.0"/>        
 		<param name="ObstacleShape/set_cylinder" value="true"/>     
