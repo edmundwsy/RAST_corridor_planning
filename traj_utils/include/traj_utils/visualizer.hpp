@@ -11,7 +11,6 @@
 #ifndef VISUALIZER_HPP
 #define VISUALIZER_HPP
 
-#include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
@@ -21,8 +20,6 @@
 #include <std_msgs/UInt8.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
-#include <pcl/point_cloud.h>
-#include <pcl_conversions/pcl_conversions.h>
 
 #include <Eigen/Eigen>
 #include <Eigen/Sparse>
@@ -228,7 +225,6 @@ class Visualizer {
     _text_pub          = _nh.advertise<visualization_msgs::Marker>("vis_text", 1);
     _mesh_pub          = _nh.advertise<visualization_msgs::Marker>("vis_mesh", 100);
     _edge_pub          = _nh.advertise<visualization_msgs::Marker>("vis_edge", 100);
-    _obstacle_pub      = _nh.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 100);
   }
   typedef std::shared_ptr<Visualizer> Ptr;
   void                                visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
@@ -245,7 +241,6 @@ class Visualizer {
   void visualizeAstarPath(const std::vector<Eigen::Vector3d>& points);
   void visualizeStartGoal(const Eigen::Vector3d& center, int sg = 1);
   void visualizeControlPoints(const Eigen::MatrixX3d& cpts);
-  void visualizeObstaclePoints(const std::vector<Eigen::Vector3d>& points);
   void displayOptimizationInfo(const double& comp_time,
                                const double& max_velocity,
                                const double& max_acceleration,

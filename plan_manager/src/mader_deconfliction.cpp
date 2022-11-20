@@ -37,7 +37,7 @@ void MADER::init() {
 
 /**
  * @brief Save boardcasted trajectory to swarm_trajs_
- * @param traj_msg 
+ * @param traj_msg
  */
 void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg) {
   if (is_checking_) {
@@ -155,6 +155,14 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
     if (swarm_trajs_[k].empty()) {
       continue;
     }
+    for (int i = 0; i < swarm_trajs_.size(); i++) {
+      if (swarm_trajs_[k].front().time_end < ros::Time::now()) {
+        swarm_trajs_[k].pop();
+      } else {
+        break;
+      }
+    }
+
     Eigen::MatrixXd cpts = swarm_trajs_[k].front().control_points;
     for (int i = 0; i < cpts.rows(); i++) {
       pointsB.push_back(cpts.row(i));

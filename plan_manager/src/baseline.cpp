@@ -38,6 +38,7 @@ void BaselinePlanner::init() {
   /*** INITIALIZE SUBSCRIBER ***/
   // click_sub_ = nh_.subscribe("/traj_start_trigger", 1, &BaselinePlanner::clickCallback, this);
   pose_sub_ = nh_.subscribe("pose", 10, &BaselinePlanner::PoseCallback, this);
+  obstacle_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 100);
 
   /*** INITIALIZE AUXILIARY VARIABLES ***/
   prev_pt_ = ros::Time::now().toSec();
@@ -111,6 +112,22 @@ void BaselinePlanner::showAstarPath() {
   visualizer_->visualizeAstarPath(path);
 }
 
+void BaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d> &points) {
+  pcl::PointCloud<pcl::PointXYZ> cloud;
+  for (int i = 0; i < points.size(); i++) {
+    pcl::PointXYZ p;
+    p.x = points[i](0);
+    p.y = points[i](1);
+    p.z = points[i](2);
+    cloud.push_back(p);
+  }
+  sensor_msgs::PointCloud2 cloud_msg;
+  pcl::toROSMsg(cloud, cloud_msg);
+  cloud_msg.header.stamp    = ros::Time::now();
+  cloud_msg.header.frame_id = "world";
+  obstacle_pub_.publish(cloud_msg);  
+}
+
 bool BaselinePlanner::plan() {
   ROS_INFO("Planning...");
 
@@ -149,8 +166,8 @@ bool BaselinePlanner::plan() {
   t1 = ros::Time::now();
   pc.reserve(3000);
   map_->getObstaclePoints(pc);
-  collision_avoider_->getObstaclePoints(pc, cfg_.a_star_search_time_step * (route.size() - 1));
-  visualizer_->visualizeObstaclePoints(pc);
+  collision_avoider_->getObstaclePoints(pc, 1.0);
+  this->showObstaclePoints(pc);
 
   Eigen::Vector3d lower_corner  = Eigen::Vector3d(-5, -5, -1) + odom_pos_;
   Eigen::Vector3d higher_corner = Eigen::Vector3d(5, 5, 3) + odom_pos_;

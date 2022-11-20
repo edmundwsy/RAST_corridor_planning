@@ -11,7 +11,6 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   message_generation
   decomp_ros_utils
-  sensor_msgs
 )
 
 find_package(Eigen3 REQUIRED)

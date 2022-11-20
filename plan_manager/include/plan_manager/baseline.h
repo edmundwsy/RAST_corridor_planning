@@ -23,6 +23,9 @@
 #include <traj_utils/visualizer.hpp>
 #include <plan_manager/mader_deconfliction.hpp>
 #include <sfc_gen/sfc_gen.hpp>
+#include <pcl/point_cloud.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <sensor_msgs/PointCloud2.h>
 
 #include <ros/ros.h>
 #include <Eigen/Eigen>
@@ -122,12 +125,16 @@ class BaselinePlanner {
   void getTrajStartTime(ros::Time &start_time) const { start_time = traj_start_time_; }
 
   typedef std::shared_ptr<BaselinePlanner> Ptr;
+ private:
+  /* Helper function */
+  void showObstaclePoints(const std::vector<Eigen::Vector3d> &points);
 
  private:
   /* ROS */
   ros::NodeHandle    nh_;
   ros::Subscriber    click_sub_, pose_sub_, swarm_traj_sub_;
-  ros::Time  traj_start_time_;
+  ros::Publisher     obstacle_pub_;
+  ros::Time          traj_start_time_;
   BaselineParameters cfg_;
 
   Eigen::Vector3d    odom_pos_; /** quadrotor's current position */

@@ -470,20 +470,4 @@ void Visualizer::displayOptimizationInfo(const double& comp_time,
   _text_pub.publish(textMarker);
 }
 
-void Visualizer::visualizeObstaclePoints(const std::vector<Eigen::Vector3d> &points) {
-  pcl::PointCloud<pcl::PointXYZ> cloud;
-  for (int i = 0; i < points.size(); i++) {
-    pcl::PointXYZ p;
-    p.x = points[i](0);
-    p.y = points[i](1);
-    p.z = points[i](2);
-    cloud.push_back(p);
-  }
-  sensor_msgs::PointCloud2 cloud_msg;
-  pcl::toROSMsg(cloud, cloud_msg);
-  cloud_msg.header.stamp    = ros::Time::now();
-  cloud_msg.header.frame_id = "world";
-  _obstacle_pub.publish(cloud_msg);
-}
-
 }  // namespace visualizer

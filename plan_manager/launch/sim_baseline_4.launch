@@ -3,9 +3,9 @@
   <arg name="map_size_x" value="13" />
   <arg name="map_size_y" value="13" />
   <arg name="map_size_z" value="7" />
-  <arg name="obs_num" value="2" />  <!-- Number of obstacles -->
+  <arg name="obs_num" value="10" />  <!-- Number of obstacles -->
 
-  <include file="$(find plan_manager)/launch/simulator/simulator_dyn.launch">
+  <include file="$(find plan_manager)/launch/simulator/simulator.launch">
     <arg name="map_size_x" value="$(arg map_size_x)" />
     <arg name="map_size_y" value="$(arg map_size_y)" />
     <arg name="map_size_z" value="$(arg map_size_z)" />

@@ -8,22 +8,16 @@ Panels:
         - /Status1
         - /Grid1
         - /simulation_map1/Autocompute Value Bounds1
-        - /drone01/Planning1
+        - /drone01
         - /drone01/Planning1/drone_path1/Offset1
-        - /drone01/Mapping1
         - /drone01/Mapping1/map inflate1
         - /drone01/Simulation1/robot1
-        - /drone11/Planning1
+        - /drone11
         - /drone11/Simulation1
-        - /drone21/Planning1
-        - /drone21/Mapping1
+        - /drone21
         - /drone21/Mapping1/map inflate1
-        - /drone21/Simulation1
         - /drone31
-        - /drone31/Planning1
-        - /drone31/Mapping1
         - /drone31/Mapping1/map inflate1
-        - /drone31/Simulation1
         - /drone31/Simulation1/TrajQueue1
         - /PointCloud21
       Splitter Ratio: 0.43611112236976624
@@ -907,20 +901,26 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: -0.004999400116503239
-      Class: rviz/TopDownOrtho
+      Class: rviz/Orbit
+      Distance: 21.696582794189453
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
+      Field of View: 0.7853981852531433
+      Focal Point:
+        X: -0.21827614307403564
+        Y: 1.07301664352417
+        Z: -0.00030317166238091886
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 50.76581954956055
+      Pitch: 1.5697963237762451
       Target Frame: <Fixed Frame>
-      X: 0.8518401384353638
-      Y: -0.8091625571250916
+      Yaw: 0
     Saved:
       - Angle: 0
         Class: rviz/TopDownOrtho
