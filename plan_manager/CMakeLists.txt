@@ -22,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   decomp_ros_msgs
   plan_env
   path_searching
+  separator   # MADER linear separator
 )
 
 catkin_package(

@@ -14,7 +14,8 @@
   <arg name="odom_topic" value="/uav$(arg drone_id)/mavros/local_position/pose"/>
   <arg name="is_pose_subscribed" value="false" />
 
-  <node pkg="plan_manager" name="planner" type="baseline" output="screen">
+  <!-- <node pkg="plan_manager" name="planner" type="baseline" output="screen"> -->
+  <node pkg="plan_manager" name="planner" type="baseline">
     <!-- Topics -->
     <remap from="~pose" to="$(arg pose_topic)" />
     <remap from="~map/odom" to="$(arg odom_topic)" />

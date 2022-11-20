@@ -163,8 +163,8 @@ bool BaselinePlanner::plan() {
 
   /*----- Trajectory Optimization -----*/
 
-  std::cout << "hPolys size: " << hPolys.size() << std::endl;
-  std::cout << "route size: " << route.size() << std::endl;
+  // std::cout << "hPolys size: " << hPolys.size() << std::endl;
+  // std::cout << "route size: " << route.size() << std::endl;
 
   /* Goal position and time allocation */
   Eigen::Vector3d     local_goal = route[route.size() - 1];
@@ -200,15 +200,17 @@ bool BaselinePlanner::plan() {
   traj_optimizer_->getOptBezier(traj_);
 
   /*----- Trajectory Deconfliction -----*/
+  t1 = ros::Time::now();
   if (!collision_avoider_->isSafeAfterOpt(traj_)) {
     ROS_ERROR("Trajectory collides after optimization!");
     return false;
   }
-
   if (!collision_avoider_->isSafeAfterChk()) {
     ROS_ERROR("Trajectory commited while checking!");
     return false;
   }
+  t2 = ros::Time::now();
+  ROS_INFO("MADER takes: %f ms", (t2 - t1).toSec() * 1000);
 
   /*----- Trajectory Visualization -----*/
   visualizer_->visualizeBezierCurve(Eigen::Vector3d::Zero(), traj_, 4.0);

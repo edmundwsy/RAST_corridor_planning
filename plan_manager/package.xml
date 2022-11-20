@@ -54,6 +54,7 @@
   <build_depend>std_msgs</build_depend>
   <build_depend>traj_utils</build_depend>
   <build_depend>traj_opt</build_depend>
+  <build_depend>separator</build_depend>
   <build_depend>decomp_ros_msgs</build_depend>
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>rospy</build_export_depend>

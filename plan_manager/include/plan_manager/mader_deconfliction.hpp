@@ -19,6 +19,7 @@
 #include <queue>
 #include <traj_utils/bernstein.hpp>
 #include <vector>
+#include "separator.hpp"
 
 struct SwarmTraj {
   int              id;
@@ -61,6 +62,8 @@ class MADER {
 
   int drone_id_;
   int num_robots_;
+
+  separator::Separator *separator_solver_;
 };
 
 #endif  // MADER_DECONFLICTION_H
