@@ -31,7 +31,7 @@
 #include <nav_msgs/Odometry.h>
 
 class RiskVoxel {
- private:
+ protected:
   /* ROS Utilities */
   ros::NodeHandle nh_;
   ros::Subscriber click_sub_;

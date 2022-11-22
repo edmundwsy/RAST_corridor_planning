@@ -53,6 +53,7 @@ add_library(plan_env
     src/obj_predictor.cpp
     src/dsp_map_new.cpp
     src/risk_voxel.cpp
+    src/fake_dsp_map.cpp
 )
 target_link_libraries(plan_env
     ${catkin_LIBRARIES}

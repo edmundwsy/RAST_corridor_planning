@@ -9,15 +9,16 @@
  *
  */
 
-#include <plan_env/risk_voxel.h>
+// #include <plan_env/risk_voxel.h>
+#include <plan_env/fake_dsp_map.h>
 #include <ros/ros.h>
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "risk_voxel_node");
   ros::NodeHandle nh("~");
 
-  RiskVoxel::Ptr risk_voxel;
-  risk_voxel.reset(new RiskVoxel());
+  FakeRiskVoxel::Ptr risk_voxel;
+  risk_voxel.reset(new FakeRiskVoxel());
   risk_voxel->init(nh);
   ros::AsyncSpinner spinner(4);
   spinner.start();
