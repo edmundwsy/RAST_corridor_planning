@@ -58,6 +58,7 @@ class FakeRiskVoxel : public RiskVoxel {
 
  private:
   float resolution_;
+  float time_resolution_;
   /* ROS Utilities */
   ros::Subscriber       gt_map_sub_;    // ground truth local map
   ros::Subscriber       gt_state_sub_;  // ground truth velocity

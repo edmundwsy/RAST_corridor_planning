@@ -27,6 +27,8 @@ void FakeRiskVoxel::init(ros::NodeHandle &nh) {
   nh_.param("map/local_update_range_z", local_update_range_z_, 4.0F);
   nh_.param("map/risk_threshold", risk_threshold_, 0.2F);
   nh_.param("map/static_clearance", clearance_, 0.3F);
+  nh_.param("map/time_resolution", time_resolution_, 0.2F);
+
   resolution_           = 0.1F;
   local_update_range_x_ = MAP_LENGTH_VOXEL_NUM / 2 * resolution_;
   local_update_range_y_ = MAP_WIDTH_VOXEL_NUM / 2 * resolution_;
@@ -122,15 +124,15 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
     }
 
     for (auto &cyl : gt_cylinders_) {
-      Eigen::Vector3f pt_cyl       = Eigen::Vector3f(cyl.x, cyl.y, pt.z());
-      Eigen::Vector3f pt_cyl_to_pt = pt - pt_cyl;
+      Eigen::Vector3f pt_cyl       = Eigen::Vector3f(cyl.x, cyl.y, pt.z() + pose_.z());
+      Eigen::Vector3f pt_cyl_to_pt = pt + pose_ - pt_cyl;
       Eigen::Vector3f vel          = Eigen::Vector3f(cyl.vx, cyl.vy, 0.0F);
       float           dist         = pt_cyl_to_pt.norm();
       if (dist < cyl.w) { /* point is assigned to cylinder */
         for (int k = 1; k < PREDICTION_TIMES; k++) {
-          Eigen::Vector3f pt_pred = pt + vel * 0.2F * k;
-          if (isInRange(pt_pred - pose_)) {
-            int idx            = getVoxelIndex(pt_pred - pose_);
+          Eigen::Vector3f pt_pred = pt + vel * time_resolution_ * k;
+          if (isInRange(pt_pred)) {
+            int idx            = getVoxelIndex(pt_pred);
             risk_maps_[idx][k] = 1.0F;
           }
         }
@@ -167,10 +169,10 @@ void FakeRiskVoxel::groundTruthStateCallback(
  * @return -1: out of range, 0: not in obstacle, 1: in obstacle
  */
 int FakeRiskVoxel::getInflateOccupancy(Eigen::Vector3d pos) {
-  Eigen::Vector3f pf  = pos.cast<float>(); // point in the local frame
+  Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
   int             idx = getVoxelIndex(pf);
-  std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange" << this->isInRange(pf)
-            << "\trisk:" << risk_maps_[idx][0] << std::endl;
+  std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
+            << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
   if (!this->isInRange(pf)) return -1;
   if (risk_maps_[idx][0] > risk_threshold_) return 1;
   return 0;
@@ -180,14 +182,22 @@ void FakeRiskVoxel::pubCallback(const ros::TimerEvent &event) {
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
   cloud->points.reserve(VOXEL_NUM);
   for (int i = 0; i < VOXEL_NUM; i++) {
-    if (risk_maps_[i][0] > risk_threshold_) {
-      Eigen::Vector3f pt = getVoxelPosition(i);
-      pcl::PointXYZ   p;
-      p.x = pt[0];
-      p.y = pt[1];
-      p.z = pt[2];
-      cloud->points.push_back(p);
+    Eigen::Vector3f pt = getVoxelPosition(i);
+    pcl::PointXYZ   p;
+    for (int j = 0; j < PREDICTION_TIMES; j++) {
+      if (risk_maps_[i][j] > risk_threshold_) {
+        p.x = pt[0];
+        p.y = pt[1];
+        p.z = j * time_resolution_;
+        cloud->points.push_back(p);
+      }
     }
+    // if (risk_maps_[i][3] > risk_threshold_) {
+    //   p.x = pt[0];
+    //   p.y = pt[1];
+    //   p.z = pt[2];
+    //   cloud->points.push_back(p);
+    // }
   }
 
   sensor_msgs::PointCloud2 cloud_msg;
