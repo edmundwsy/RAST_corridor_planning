@@ -19,9 +19,9 @@
     <!-- Topics -->
     <remap from="~pose" to="$(arg pose_topic)" />
     <remap from="~map/odom" to="$(arg odom_topic)" />
-    <remap from="~map/cloud" to="/uav$(arg drone_id)/pcl_render_node/cloud" />
+    <remap from="~map/cloud" to="/map_generator/global_cloud" />
     <remap from="~map/pose" to="$(arg pose_topic)" />
-    
+    <remap from="~map/state" to="/ground_truth_state" /> <!-- Map ground truth statet --> 
     <rosparam file="$(find plan_manager)/config/sim_cfg.yaml" command="load" />
     <param name="drone_id" value="$(arg drone_id)" />
     <param name="init_x" value="$(arg init_x)" />
@@ -35,13 +35,13 @@
     <param name="is_pose_sub" value="$(arg is_pose_subscribed)" />
   </node>
 
-    <node pkg="traj_server" name="traj_server" type="bezier_traj_server" output="screen">
-      <remap from="~trajectory" to="planner/trajectory" />
-      <remap from="/position_cmd" to="controller/pos_cmd" />
-      <remap from="~odom" to="$(arg pose_topic)" />
-      <param name="tf" value="true" />
-      <param name="replan_time_threshold" value="1.2" />
-    </node>
+  <node pkg="traj_server" name="traj_server" type="bezier_traj_server" output="screen">
+    <remap from="~trajectory" to="planner/trajectory" />
+    <remap from="/position_cmd" to="controller/pos_cmd" />
+    <remap from="~odom" to="$(arg pose_topic)" />
+    <param name="tf" value="true" />
+    <param name="replan_time_threshold" value="1.2" />
+  </node>
 
 
   <node pkg="poscmd_2_odom" name="poscmd_2_odom" type="poscmd_2_odom" output="screen">
@@ -65,24 +65,5 @@
     <param name="tf45" value="true" />
     <param name="drone_id" value="drone_id" />
   </node>
-
-  <!-- fake camera sensing -->
-  <node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
-    <rosparam command="load" file="$(find local_sensing_node)/params/camera.yaml" />
-    <param name="sensing_horizon" value="6.0" />
-    <param name="sensing_rate" value="30.0" />
-    <param name="estimation_rate" value="30.0" />
-    <param name="is_camera_frame" value="true" />
-    <param name="is_dynamic_map" value="true" />
-
-    <param name="map/x_size" value="$(arg map_size_x)" />
-    <param name="map/y_size" value="$(arg map_size_y)" />
-    <param name="map/z_size" value="$(arg map_size_z)" />
-
-    <remap from="~global_map" to="/map_generator/global_cloud" />
-    <remap from="~odometry" to="/$(arg odom_topic)" />
-    <remap from="~pcl_render_node/cloud" to="~/cloud" />
-  </node>
-
 
 </launch>

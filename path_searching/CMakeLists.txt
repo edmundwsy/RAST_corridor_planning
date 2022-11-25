@@ -40,6 +40,7 @@ add_library(path_searching
 )
 target_link_libraries(path_searching
     ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
 )
 
 add_executable(a_star_node src/vis_a_star_node.cpp)

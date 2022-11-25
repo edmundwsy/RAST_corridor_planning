@@ -84,6 +84,9 @@ class RiskVoxel {
   void publishOccMap();
 
   inline void getMapCenter(Eigen::Vector3f &center) { center = pose_; }
+  inline void getQuaternion(Eigen::Quaternionf &q) { q = q_; }
+  inline void setMapCenter(const Eigen::Vector3f &center) { pose_ = center; }
+  inline void setQuaternion(const Eigen::Quaternionf &q) { q_ = q; }
 
   void pubCallback(const ros::TimerEvent &event);
   void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cloud_msg,

@@ -9,12 +9,12 @@
  *
  */
 
-#include <plan_manager/baseline.h>
+#include <plan_manager/baseline_fake.h>
 #include <ros/ros.h>
 
-void BaselinePlanner::init() {
+void FakeBaselinePlanner::init() {
   /*** INITIALIZE MAP ***/
-  map_.reset(new RiskVoxel());
+  map_.reset(new FakeRiskVoxel());
   map_->init(nh_);
 
   /*** INITIALIZE A STAR ***/
@@ -36,8 +36,8 @@ void BaselinePlanner::init() {
   visualizer_.reset(new visualizer::Visualizer(nh_, ns));
 
   /*** INITIALIZE SUBSCRIBER ***/
-  // click_sub_ = nh_.subscribe("/traj_start_trigger", 1, &BaselinePlanner::clickCallback, this);
-  pose_sub_     = nh_.subscribe("pose", 10, &BaselinePlanner::PoseCallback, this);
+  // click_sub_ = nh_.subscribe("/traj_start_trigger", 1, &FakeBaselinePlanner::clickCallback, this);
+  pose_sub_     = nh_.subscribe("pose", 10, &FakeBaselinePlanner::PoseCallback, this);
   obstacle_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 100);
 
   /*** INITIALIZE AUXILIARY VARIABLES ***/
@@ -64,7 +64,7 @@ void BaselinePlanner::init() {
  * @brief get current position and attitude from odometry
  * @param msg
  */
-void BaselinePlanner::PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
+void FakeBaselinePlanner::PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
   if (!is_state_locked_) {
     is_state_locked_ = true;
 
@@ -94,7 +94,7 @@ void BaselinePlanner::PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& m
   }
 }
 
-void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
+void FakeBaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
   goal_pos_(0) = msg->pose.position.x;
   goal_pos_(1) = msg->pose.position.y;
   goal_pos_(2) = 1;
@@ -107,12 +107,12 @@ void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& 
  * @brief show A star results
  *
  */
-void BaselinePlanner::showAstarPath() {
+void FakeBaselinePlanner::showAstarPath() {
   std::vector<Eigen::Vector3d> path = a_star_->getPath(0.1);
   visualizer_->visualizeAstarPath(path);
 }
 
-void BaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>& points) {
+void FakeBaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>& points) {
   pcl::PointCloud<pcl::PointXYZ> cloud;
   for (int i = 0; i < points.size(); i++) {
     pcl::PointXYZ p;
@@ -128,7 +128,7 @@ void BaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>& poi
   obstacle_pub_.publish(cloud_msg);
 }
 
-bool BaselinePlanner::plan() {
+bool FakeBaselinePlanner::plan() {
   ROS_INFO("Planning...");
 
   /*----- Path Searching on DSP Static -----*/
@@ -228,3 +228,4 @@ bool BaselinePlanner::plan() {
   }
   t2 = ros::Time::now();
   ROS_INFO("MADER takes: %f ms", (t2 - t1).toSec() * 1000);
+}

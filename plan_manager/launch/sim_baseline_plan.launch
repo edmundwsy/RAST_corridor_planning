@@ -16,7 +16,7 @@
   <arg name="pose_topic" value="/uav0/mavros/local_position/pose" />
   <arg name="obs_num" value="8" />  <!-- Number of obstacles -->
 
-  <include file="$(find plan_manager)/launch/simulator/simulator.launch">
+  <include file="$(find plan_manager)/launch/simulator/simulator_fake.launch">
     <arg name="drone_id" value="$(arg drone_id)" />
     <arg name="map_size_x" value="$(arg map_size_x)" />
     <arg name="map_size_y" value="$(arg map_size_y)" />
@@ -34,7 +34,8 @@
     <!-- Topics -->
     <remap from="~pose" to="$(arg pose_topic)" />
     <remap from="~map/odom" to="$(arg odom_topic)" />
-    <remap from="~map/cloud" to="/uav$(arg drone_id)/pcl_render_node/cloud" />
+    <remap from="~map/cloud" to="/map_generator/global_cloud" />
+    <remap from="~map/state" to="/ground_truth_state" /> <!-- Map ground truth statet --> 
     <remap from="~map/pose" to="$(arg pose_topic)" />
     
     <rosparam file="$(find plan_manager)/config/sim_cfg.yaml" command="load" />
@@ -120,7 +121,7 @@
     </node>
 
     <!-- fake camera sensing -->
-    <node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
+    <!-- <node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
       <rosparam command="load" file="$(find local_sensing_node)/params/camera.yaml" />
       <param name="sensing_horizon" value="6.0" />
       <param name="sensing_rate" value="30.0" />
@@ -135,7 +136,7 @@
       <remap from="~global_map" to="/map_generator/global_cloud" />
       <remap from="~odometry" to="/$(arg odom_topic)" />
       <remap from="~pcl_render_node/cloud" to="~/cloud" />
-    </node>
+    </node> -->
   </group>
 
   <node pkg="rviz" name="rviz" type="rviz" args="-d $(find plan_manager)/rviz/sim_multi.rviz" />

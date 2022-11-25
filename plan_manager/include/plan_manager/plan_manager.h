@@ -11,7 +11,7 @@
 
 #ifndef PLAN_MANAGER_H
 #define PLAN_MANAGER_H
-#include <plan_manager/baseline.h>
+#include <plan_manager/baseline_fake.h>
 #include <ros/ros.h>
 #include <Eigen/Eigen>
 #include <memory>
@@ -108,7 +108,7 @@ class FiniteStateMachine {
   ros::Time _prev_plan_time;
 
   /* planner */
-  BaselinePlanner::Ptr _planner;
+  FakeBaselinePlanner::Ptr _planner;
 
   /* trajectory */
   Eigen::Vector3d             _goal;

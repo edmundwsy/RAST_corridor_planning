@@ -21,7 +21,7 @@ void FiniteStateMachine::run() {
   _nh.param("fsm/replan_duration", _cfgs.replan_duration, 0.1);
 
   /* Initialize planner */
-  _planner.reset(new BaselinePlanner(_nh, BaselineParameters(_nh)));
+  _planner.reset(new FakeBaselinePlanner(_nh, BaselineParameters(_nh)));
   _planner->init();
 
   /* ROS publishers */

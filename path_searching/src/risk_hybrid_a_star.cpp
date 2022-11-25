@@ -57,7 +57,7 @@ void RiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::Vecto
   iter_num_     = 0;
 }
 
-void RiskHybridAstar::setEnvironment(const RiskVoxel::Ptr& grid_map) { grid_map_ = grid_map; }
+void RiskHybridAstar::setEnvironment(const FakeRiskVoxel::Ptr& grid_map) { grid_map_ = grid_map; }
 
 void RiskHybridAstar::setParam(ros::NodeHandle& nh) {
   nh.param("search/max_tau", max_tau_, -1.0);           /* 每次前向积分的时间 */

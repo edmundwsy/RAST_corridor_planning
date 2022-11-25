@@ -43,9 +43,12 @@ class FakeRiskVoxel : public RiskVoxel {
   void poseCallback(const geometry_msgs::PoseStamped::ConstPtr &pose_msg);
   void pubCallback(const ros::TimerEvent &event);
   typedef std::shared_ptr<FakeRiskVoxel> Ptr;
-
-  void getObstaclePoints(std::vector<Eigen::Vector3d> &points);
-  int  getInflateOccupancy(Eigen::Vector3d pos);
+  void                                   getObstaclePoints(std::vector<Eigen::Vector3d> &points);
+  int                                    getInflateOccupancy(Eigen::Vector3d pos);
+  inline void                            getMapCenter(Eigen::Vector3f &center) { center = pose_; }
+  inline void                            getQuaternion(Eigen::Quaternionf &q) { q = q_; }
+  inline void setMapCenter(const Eigen::Vector3f &center) { pose_ = center; }
+  inline void setQuaternion(const Eigen::Quaternionf &q) { q_ = q; }
 
  private:
   /* Inline helper functions */
@@ -63,26 +66,40 @@ class FakeRiskVoxel : public RiskVoxel {
   std::vector<Cylinder> gt_cylinders_;
 };
 
+/**
+ * @brief if the point is in the map range
+ * @param p point in the map frame
+ * @return true: in range
+ */
 inline bool FakeRiskVoxel::isInRange(const Eigen::Vector3f &p) {
-  return p.x() - pose_.x() < local_update_range_x_ && p.x() - pose_.x() > -local_update_range_x_ &&
-         p.y() - pose_.y() < local_update_range_y_ && p.y() - pose_.y() > -local_update_range_y_ &&
-         p.z() - pose_.z() < local_update_range_z_ && p.z() - pose_.z() > -local_update_range_z_;
+  return (fabs(p.x()) < local_update_range_x_ && fabs(p.y()) < local_update_range_y_ &&
+          fabs(p.z()) < local_update_range_z_);
 }
-
+/**
+ * @brief get the index of the voxel in the world frame
+ * @param pos point in map frame
+ * @return index
+ */
 inline int FakeRiskVoxel::getVoxelIndex(const Eigen::Vector3f &pos) {
-  int x = (pos[0] - pose_[0] + local_update_range_x_) / resolution_;
-  int y = (pos[1] - pose_[1] + local_update_range_y_) / resolution_;
-  int z = (pos[2] - pose_[2] + local_update_range_z_) / resolution_;
+  int x = (pos[0] + local_update_range_x_) / resolution_;
+  int y = (pos[1] + local_update_range_y_) / resolution_;
+  int z = (pos[2] + local_update_range_z_) / resolution_;
   return z * MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM + y * MAP_LENGTH_VOXEL_NUM + x;
 }
 
+/**
+ * @brief
+ * @param index
+ * @return position of the voxel in the world frame
+ */
 inline Eigen::Vector3f FakeRiskVoxel::getVoxelPosition(int index) {
   int x = index % MAP_LENGTH_VOXEL_NUM;
   int y = (index / MAP_LENGTH_VOXEL_NUM) % MAP_WIDTH_VOXEL_NUM;
   int z = index / (MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM);
-  return Eigen::Vector3f(x * resolution_ + pose_[0] - local_update_range_x_,
-                         y * resolution_ + pose_[1] - local_update_range_y_,
-                         z * resolution_ + pose_[2] - local_update_range_z_);
+  return Eigen::Vector3f(x * resolution_ - local_update_range_x_,
+                         y * resolution_ - local_update_range_y_,
+                         z * resolution_ - local_update_range_z_) +
+         pose_;
 }
 
 #endif  // FAKE_DSP_MAP_H

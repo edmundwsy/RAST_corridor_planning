@@ -40,7 +40,7 @@ ${Eigen3_INCLUDE_DIRS}
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
-  src/baseline.cpp
+  src/baseline_fake.cpp
   src/plan_manager.cpp
   src/mader_deconfliction.cpp
 )
@@ -48,8 +48,8 @@ target_link_libraries(${PROJECT_NAME}
     ${catkin_LIBRARIES}
 )
 
-add_executable(test_baseline src/test_baseline_node.cpp)
-target_link_libraries(test_baseline ${catkin_LIBRARIES} ${PROJECT_NAME})
+# add_executable(test_baseline src/test_baseline_node.cpp)
+# target_link_libraries(test_baseline ${catkin_LIBRARIES} ${PROJECT_NAME})
 
 add_executable(baseline src/planner_node.cpp)
 target_link_libraries(baseline ${catkin_LIBRARIES} ${PROJECT_NAME})

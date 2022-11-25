@@ -14,9 +14,9 @@
 	<arg name="drone_id" />
 
 	<!-- map -->
-	<node pkg ="map_generator" name ="map_generator" type ="dynamic_forest" output = "screen">
-		<param name="init_state_x"   value="0.0"/>
-		<param name="init_state_y"   value="0.0"/>
+	<node pkg ="map_generator" name ="map_generator" type ="dynamic_forest_seq" output = "screen">
+    <remap from="~global_cloud" to="/map_generator/global_cloud" />
+    <remap from="~global_cylinder_state" to="/ground_truth_state" />
 		<param name="map/x_size"     value="$(arg map_size_x)" />
 		<param name="map/y_size"     value="$(arg map_size_y)" />
 		<param name="map/z_size"     value="$(arg map_size_z)" />
@@ -24,21 +24,14 @@
 		<param name="map/frame_id"   value="world" />
 
 		<param name="ObstacleShape/seed" value="-1"/>
-		<param name="map/obs_num"    value="$(arg obs_num)"//>
+		<param name="map/obs_num"    value="$(arg obs_num)"/>
 		<param name="ObstacleShape/lower_rad" value="0.5"/>
 		<param name="ObstacleShape/upper_rad" value="1.0"/>
 		<param name="ObstacleShape/lower_hei" value="4.0"/>
 		<param name="ObstacleShape/upper_hei" value="4.0"/>        
 		<param name="ObstacleShape/set_cylinder" value="true"/>     
 
-		<param name="map/circle_num" value="0"/>        
-		<param name="ObstacleShape/radius_l" value="0.7"/>        
-		<param name="ObstacleShape/radius_h" value="0.5"/>        
-		<param name="ObstacleShape/z_l" value="0.7"/>        
-		<param name="ObstacleShape/z_h" value="0.8"/>        
-		<param name="ObstacleShape/theta" value="0.5"/>        
-
 		<param name="sensing/radius" value="5.0"/>        
 		<param name="sensing/rate"   value="10.0"/>   
-</node>
+	</node>
 </launch>
