@@ -154,13 +154,13 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
   while (!open_set_.empty()) {
     cur_node = this->open_set_.top();
 
-    // Terminate?
     std::cout << "cur_node->state: " << cur_node->state.transpose() << std::endl;
     bool reach_horizon = (cur_node->state.head(3) - start_pt).norm() >= horizon_;
     bool near_end      = abs(cur_node->getIndex(0) - end_index(0)) <= tolerance_ &&
                     abs(cur_node->getIndex(1) - end_index(1)) <= tolerance_ &&
                     abs(cur_node->getIndex(2) - end_index(2)) <= tolerance_;
 
+    /* If ReachGoal(n_c) or AnalyticExpand(n_c_) */
     if (reach_horizon || near_end) {
       terminate_node = cur_node;
       retrievePath(terminate_node);
@@ -173,6 +173,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
         }
       }
     }
+
     if (reach_horizon) {
       if (is_shot_succ_) {
         std::cout << "reach end" << std::endl;
@@ -199,6 +200,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     cur_node->setNodeState(IN_CLOSE_SET);
     iter_num_ += 1;
 
+    /* primitives <- Expand(n_c) */
     double res = 1 / 2.0, time_res = 1 / 1.0, time_res_init = 1 / 20.0;
 
     Eigen::Matrix<double, 6, 1>  cur_state = cur_node->state;
@@ -208,13 +210,13 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     double                       pro_t;
     std::vector<Eigen::Vector3d> inputs;
     std::vector<double>          durations;
-    if (init_search) {
+    if (init_search) { /* init: use start acceleration */
       inputs.push_back(start_acc_);
       for (double tau = time_res_init * init_max_tau_; tau <= init_max_tau_ + 1e-3;
            tau += time_res_init * init_max_tau_)
         durations.push_back(tau);
       init_search = false;
-    } else {
+    } else { /* otherwise: sample acceleration to generate motion primitives */
       for (double ax = -max_acc_; ax <= max_acc_ + 1e-3; ax += max_acc_ * res)
         for (double ay = -max_acc_; ay <= max_acc_ + 1e-3; ay += max_acc_ * res)
           for (double az = -max_acc_; az <= max_acc_ + 1e-3; az += max_acc_ * res) {
@@ -226,6 +228,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     }
 
     // cout << "cur state:" << cur_state.head(3).transpose() << endl;
+    /* traverse all accelerations and trajectory durations */
     for (unsigned int i = 0; i < inputs.size(); ++i)
       for (unsigned int j = 0; j < durations.size(); ++j) {
         um         = inputs[i];
@@ -693,6 +696,7 @@ void RiskHybridAstar::stateTransit(Eigen::Matrix<double, 6, 1>& state0,
                                    Eigen::Matrix<double, 6, 1>& state1,
                                    Eigen::Vector3d              um,
                                    double                       tau) {
+  /* phi_ = [ O | I ]*tau */
   for (int i = 0; i < 3; ++i) phi_(i, i + 3) = tau;
 
   Eigen::Matrix<double, 6, 1> integral;

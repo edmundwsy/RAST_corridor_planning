@@ -29,9 +29,9 @@
     <!-- Resolutions -->
     <param name="map/resolution" value="0.10" />
     <param name="map/risk_threshold" value="0.10" />
-    <param name="map/local_update_range_x" value="o6.5" />
-    <param name="map/local_update_range_y" value="16.5" />
-    <param name="map/local_update_range_z" value="13.5" />
+    <param name="map/local_update_range_x" value="6.5" />
+    <param name="map/local_update_range_y" value="6.5" />
+    <param name="map/local_update_range_z" value="3.5" />
 
     <param name="search/max_tau" value="0.6" type="double"/>
     <param name="search/init_max_tau" value="0.8" type="double"/>
@@ -58,12 +58,12 @@
     <param name="map/resolution" value="0.10" />
     <param name="map/frame_id" value="world" />
     <param name="ObstacleShape/seed" value="-1" />
-    <param name="map/obs_num" value="20" />
+    <param name="map/obs_num" value="10" />
     <param name="ObstacleShape/lower_rad" value="0.5" />
-    <param name="ObstacleShape/upper_rad" value="1.5" />
+    <param name="ObstacleShape/upper_rad" value="0.8" />
     <param name="ObstacleShape/lower_hei" value="4.0" />
     <param name="ObstacleShape/upper_hei" value="4.0" />
-    <param name="ObstacleShape/upper_vel" value="0.01" />
+    <param name="ObstacleShape/upper_vel" value="0.1" />
     <param name="ObstacleShape/set_cylinder" value="true" />
     <param name="sensing/radius" value="5.0" />
     <param name="sensing/rate" value="10.0" />

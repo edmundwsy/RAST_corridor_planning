@@ -163,12 +163,14 @@ void FakeRiskVoxel::groundTruthStateCallback(
     gt_cylinders_[mk.id].vy = mk.points[1].y - mk.points[0].y;
   }
 }
+
+
 /**
  * @brief check if the point is in obstacle
  * @param pos: point position in world frame
  * @return -1: out of range, 0: not in obstacle, 1: in obstacle
  */
-int FakeRiskVoxel::getInflateOccupancy(Eigen::Vector3d pos) {
+int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos) {
   Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
   int             idx = getVoxelIndex(pf);
   std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
@@ -178,6 +180,42 @@ int FakeRiskVoxel::getInflateOccupancy(Eigen::Vector3d pos) {
   return 0;
 }
 
+
+/**
+ * @brief 
+ * @param pos 
+ * @param t : int
+ * @return 
+ */
+int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, int t) {
+  Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
+  int             idx = getVoxelIndex(pf);
+  std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
+            << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
+  if (!this->isInRange(pf)) return -1;
+  if (t > PREDICTION_TIMES) return -1;
+  if (risk_maps_[idx][t] > risk_threshold_) return 1;
+  return 0;
+}
+
+
+/**
+ * @brief 
+ * @param pos 
+ * @param t : double 
+ * @return 
+ */
+int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, double t) {
+  int ti = t / time_resolution_;
+  Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
+  int             idx = getVoxelIndex(pf);
+  std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
+            << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
+  if (!this->isInRange(pf)) return -1;
+  if (t > PREDICTION_TIMES) return -1;
+  if (risk_maps_[idx][ti] > risk_threshold_) return 1;
+  return 0;
+}
 void FakeRiskVoxel::pubCallback(const ros::TimerEvent &event) {
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
   cloud->points.reserve(VOXEL_NUM);

@@ -43,10 +43,11 @@ class FakeRiskVoxel : public RiskVoxel {
   void poseCallback(const geometry_msgs::PoseStamped::ConstPtr &pose_msg);
   void pubCallback(const ros::TimerEvent &event);
   typedef std::shared_ptr<FakeRiskVoxel> Ptr;
-  void                                   getObstaclePoints(std::vector<Eigen::Vector3d> &points);
-  int                                    getInflateOccupancy(Eigen::Vector3d pos);
-  inline void                            getMapCenter(Eigen::Vector3f &center) { center = pose_; }
-  inline void                            getQuaternion(Eigen::Quaternionf &q) { q = q_; }
+
+  void        getObstaclePoints(std::vector<Eigen::Vector3d> &points);
+  int         getInflateOccupancy(const Eigen::Vector3d pos);
+  int         getInflateOccupancy(const Eigen::Vector3d pos, int t);
+  int         getInflateOccupancy(const Eigen::Vector3d pos, double t);
   inline void setMapCenter(const Eigen::Vector3f &center) { pose_ = center; }
   inline void setQuaternion(const Eigen::Quaternionf &q) { q_ = q; }
 

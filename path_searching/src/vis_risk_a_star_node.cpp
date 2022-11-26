@@ -1,12 +1,12 @@
 /**
  * @file vis_risk_a_star_node.cpp
  * @author Siyuan Wu (siyuanwu99@gmail.com)
- * @brief 
+ * @brief
  * @version 1.0
  * @date 2022-10-04
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 
 #include <geometry_msgs/PointStamped.h>
@@ -22,8 +22,9 @@
 
 ros::Subscriber click_sub_;
 ros::Publisher  path_pub_;
+ros::Publisher  t_path_pub_;
 
-FakeRiskVoxel::Ptr grid_map_;
+FakeRiskVoxel::Ptr   grid_map_;
 RiskHybridAstar::Ptr a_star_;
 
 Eigen::Vector3d              end_pos_, start_pos_;
@@ -71,6 +72,46 @@ void visualizePath(const std::vector<Eigen::Vector3d> &path) {
   path_pub_.publish(marker);
 }
 
+void visualizeTemporalPath(const std::vector<Eigen::Vector3d> &path, double dt) {
+  visualization_msgs::Marker marker;
+  marker.header.frame_id    = "world";
+  marker.header.stamp       = ros::Time::now();
+  marker.ns                 = "path";
+  marker.id                 = 0;
+  marker.type               = visualization_msgs::Marker::LINE_STRIP;
+  marker.action             = visualization_msgs::Marker::ADD;
+  marker.pose.orientation.w = 1.0;
+  marker.scale.x            = 0.02;
+  marker.color.r            = 0.0;
+  marker.color.g            = 1.0;
+  marker.color.b            = 0.0;
+  marker.color.a            = 1.0;
+
+  Eigen::Vector3d last;
+  bool            first = true;
+  double          t     = 0;
+  for (const auto &p : path) {
+    geometry_msgs::Point pt;
+
+    if (first) {
+      first = false;
+      last  = p;
+    } else {
+      pt.x = last.x();
+      pt.y = last.y();
+      pt.z = t;
+      marker.points.push_back(pt);
+      last = p;
+      pt.x = last.x();
+      pt.y = last.y();
+      pt.z = t + dt;
+      marker.points.push_back(pt);
+    }
+    t += dt;
+  }
+  t_path_pub_.publish(marker);
+}
+
 void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   end_pos_(0) = msg->pose.position.x;
   end_pos_(1) = msg->pose.position.y;
@@ -87,18 +128,19 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
     rst = a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, false);
   }
 
-if (rst > 2) {
-  path_ = a_star_->getPath(0.1);
-  visualizePath(path_);
-} else {
-  ROS_WARN("Failed to find path!");
-}
+  if (rst > 2) {
+    path_ = a_star_->getPath(0.1);
+    visualizePath(path_);
+    visualizeTemporalPath(path_, 0.1);
+  } else {
+    ROS_WARN("Failed to find path!");
+  }
 }
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "vis_kinodyn_a_star_node");
   ros::NodeHandle nh("~");
-  int pool_size_x = 100, pool_size_y = 100, pool_size_z = 60;
+  int             pool_size_x = 100, pool_size_y = 100, pool_size_z = 60;
   nh.getParam("pool_size_x", pool_size_x);
   nh.getParam("pool_size_y", pool_size_y);
   nh.getParam("pool_size_z", pool_size_z);
@@ -120,8 +162,9 @@ int main(int argc, char **argv) {
   a_star_->setEnvironment(grid_map_);
   a_star_->init(start_pos_, Eigen::Vector3d(10, 10, 4));
 
-  click_sub_ = nh.subscribe("/move_base_simple/goal", 1, clickCallback);
-  path_pub_  = nh.advertise<visualization_msgs::Marker>("/path", 1);
+  click_sub_  = nh.subscribe("/move_base_simple/goal", 1, clickCallback);
+  path_pub_   = nh.advertise<visualization_msgs::Marker>("/path", 1);
+  t_path_pub_ = nh.advertise<visualization_msgs::Marker>("/t_path", 1);
 
   ros::AsyncSpinner spinner(4);
   spinner.start();
