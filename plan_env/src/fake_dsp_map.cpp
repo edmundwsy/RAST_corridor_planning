@@ -164,7 +164,6 @@ void FakeRiskVoxel::groundTruthStateCallback(
   }
 }
 
-
 /**
  * @brief check if the point is in obstacle
  * @param pos: point position in world frame
@@ -173,44 +172,42 @@ void FakeRiskVoxel::groundTruthStateCallback(
 int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos) {
   Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
   int             idx = getVoxelIndex(pf);
-  std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
-            << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
+  // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
+  //           << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
   if (!this->isInRange(pf)) return -1;
   if (risk_maps_[idx][0] > risk_threshold_) return 1;
   return 0;
 }
 
-
 /**
- * @brief 
- * @param pos 
+ * @brief
+ * @param pos
  * @param t : int
- * @return 
+ * @return
  */
 int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, int t) {
   Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
   int             idx = getVoxelIndex(pf);
-  std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
-            << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
+  // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
+  // //           << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
   if (!this->isInRange(pf)) return -1;
   if (t > PREDICTION_TIMES) return -1;
   if (risk_maps_[idx][t] > risk_threshold_) return 1;
   return 0;
 }
 
-
 /**
- * @brief 
- * @param pos 
- * @param t : double 
- * @return 
+ * @brief
+ * @param pos
+ * @param t : double
+ * @return
  */
 int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, double t) {
-  int ti = t / time_resolution_;
+  int             ti  = t / time_resolution_;
   Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
   int             idx = getVoxelIndex(pf);
-  std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
-            << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
+  // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
+  //           << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
   if (!this->isInRange(pf)) return -1;
   if (t > PREDICTION_TIMES) return -1;
   if (risk_maps_[idx][ti] > risk_threshold_) return 1;
@@ -251,6 +248,23 @@ void FakeRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points) {
     if (risk_maps_[i][0] > risk_threshold_) {
       Eigen::Vector3f pt = getVoxelPosition(i);
       points.push_back(pt.cast<double>());
+    }
+  }
+}
+
+void FakeRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
+                                      double                        t_start,
+                                      double                        t_end) {
+  points.clear();
+  int idx_start = t_start / time_resolution_;
+  int idx_end   = t_end / time_resolution_;
+  for (int i = 0; i < VOXEL_NUM; i++) {
+    for (int j = idx_start; j < idx_end; j++) {
+      if (risk_maps_[i][j] > risk_threshold_) {
+        Eigen::Vector3f pt = getVoxelPosition(i);
+        points.push_back(pt.cast<double>());
+        break;
+      }
     }
   }
 }

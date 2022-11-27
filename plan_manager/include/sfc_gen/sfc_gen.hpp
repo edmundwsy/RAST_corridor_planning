@@ -33,6 +33,51 @@
 
 namespace sfc_gen {
 
+inline void genSingleCvxCover(const Eigen::Vector3d &             start_pos,
+                              const Eigen::Vector3d &             end_pos,
+                              const std::vector<Eigen::Vector3d> &points,
+                              const Eigen::Vector3d &             lowCorner,
+                              const Eigen::Vector3d &             highCorner,
+                              const double &                      progress,
+                              const double &                      range,
+                              Eigen::MatrixX4d &                  hp,
+                              const double                        eps = 1.0e-6) {
+  Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();
+
+  /* initialize bounding box */
+  bd(0, 0) = 1.0;
+  bd(1, 0) = -1.0;
+  bd(2, 1) = 1.0;
+  bd(3, 1) = -1.0;
+  bd(4, 2) = 1.0;
+  bd(5, 2) = -1.0;
+
+  bd(0, 3) = -std::min(std::max(start_pos(0), end_pos(0)) + range, highCorner(0));
+  bd(1, 3) = +std::max(std::min(start_pos(0), end_pos(0)) - range, lowCorner(0));
+  bd(2, 3) = -std::min(std::max(start_pos(1), end_pos(1)) + range, highCorner(1));
+  bd(3, 3) = +std::max(std::min(start_pos(1), end_pos(1)) - range, lowCorner(1));
+  bd(4, 3) = -std::min(std::max(start_pos(2), end_pos(2)) + range, highCorner(2));
+  bd(5, 3) = +std::max(std::min(start_pos(2), end_pos(2)) - range, lowCorner(2));
+
+  std::vector<Eigen::Vector3d> valid_pc;
+  valid_pc.reserve(points.size());
+  valid_pc.clear();
+  for (const Eigen::Vector3d &p : points) {  // TODO: can be merged with obstacle points extraction
+    if ((bd.leftCols<3>() * p + bd.rightCols<1>()).maxCoeff() < 0.0) {
+      valid_pc.emplace_back(p);
+    }
+  }
+  Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> pc(valid_pc[0].data(), 3,
+                                                                     valid_pc.size());
+  // std::cout << "[SFC] bounding box: " << std::endl << bd << std::endl;
+  // std::cout << "[SFC] valid_pc size: " << valid_pc.size() << std::endl;
+  // std::cout << "[SFC] a: " << a.transpose() << std::endl;
+  // std::cout << "[SFC] b: " << b.transpose() << std::endl;
+  firi::firi(bd, pc, start_pos, end_pos, hp);
+
+  // std::cout << "[SFC] hp size: " << hp.rows() << std::endl;
+  // std::cout << hp << std::endl;
+}
 /**
  * @brief
  * generate SFC from a given path and point clouds
@@ -73,7 +118,7 @@ inline void convexCover(const std::vector<Eigen::Vector3d> &path,
   bd(5, 2) = -1.0;
 
   /* Debug */
-  for (auto &pt:path) {
+  for (auto &pt : path) {
     // std::cout << "path: " << pt[1] << std::endl;
   }
 

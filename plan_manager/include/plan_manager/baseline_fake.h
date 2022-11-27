@@ -49,7 +49,7 @@ struct BaselineParameters {
   bool  sample_z_acc     = true;
 
   float a_star_acc_sample_step  = 2.f;
-  float a_star_search_time_step = 0.6f;  /* TODO */
+  float corridor_tau = 0.4f;  /* time span for corridor generation */
   float expand_safety_distance  = 0.2f;
 
   float risk_threshold_motion_primitive = 0.15;
@@ -73,6 +73,7 @@ struct BaselineParameters {
   BaselineParameters(const ros::NodeHandle &nh) {
     nh.getParam("planner/max_vel", max_vel);
     nh.getParam("planner/max_acc", max_acc);
+    nh.getParam("planner/corridor_tau", corridor_tau);
     nh.getParam("planner/goal_reach_threshold", goal_reach_threshold);
     nh.getParam("planner/risk_threshold_replan", risk_threshold_replan);
     nh.getParam("planner/replan_time_threshold", replan_time_threshold);
@@ -89,7 +90,6 @@ struct BaselineParameters {
     nh.getParam("astar/height_limit_min", height_limit_min);
     nh.getParam("astar/sample_z_acc", sample_z_acc);
     nh.getParam("astar/a_star_acc_sample_step", a_star_acc_sample_step);
-    nh.getParam("astar/a_star_search_time_step", a_star_search_time_step);
     nh.getParam("astar/risk_threshold_motion_primitive", risk_threshold_motion_primitive);
     nh.getParam("astar/expand_safety_distance", expand_safety_distance);
     nh.getParam("astar/nmpc_receive_points_num", nmpc_receive_points_num);
