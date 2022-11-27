@@ -143,13 +143,13 @@ TEST_F(BezierOptTest2, TestOpt) {
   // Ablb << A, lb, b;
   std::cout << "Ablb: " << std::endl << Ablb << std::endl;
   EXPECT_EQ(b.rows(), A.rows());
-  EXPECT_EQ(A.cols(), 5 * 3 * 2);
+  EXPECT_EQ(A.cols(), 5 * 3 * 3);
   bool flag = _optimizer->optimize();
   EXPECT_TRUE(flag);
   std::cout << "x_:" << std::endl << _optimizer->getOptCtrlPts() << std::endl;
   Eigen::MatrixXd X = _optimizer->getOptCtrlPtsMat();
   std::cout << "X: " << std::endl << X << std::endl;
-  EXPECT_EQ(X.rows(), 10);
+  EXPECT_EQ(X.rows(), 15);
   EXPECT_EQ(X.cols(), 3);
 }
 
@@ -190,7 +190,13 @@ TEST_F(BezierOptTest2, TestWaypoints) {
   // EXPECT_LT((V0.row(3) - V1.row(0)).norm(), 1e-3);
   // EXPECT_LT((A0.row(2) - A1.row(0)).norm(), 1e-3);
   EXPECT_LT((traj.getVel(1.99) - traj.getVel(2.01)).norm(), 1e-3);
+  EXPECT_LT((traj.getVel(1.99) - traj.getVel(2.01)).x(), 1e-3);
+  EXPECT_LT((traj.getVel(1.99) - traj.getVel(2.01)).y(), 1e-3);
+  EXPECT_LT((traj.getVel(1.99) - traj.getVel(2.01)).z(), 1e-3);
   EXPECT_LT((traj.getAcc(1.99) - traj.getAcc(2.01)).norm(), 1e-3);
+  EXPECT_LT((traj.getAcc(1.99) - traj.getAcc(2.01)).x(), 1e-3);
+  EXPECT_LT((traj.getAcc(1.99) - traj.getAcc(2.01)).y(), 1e-3);
+  EXPECT_LT((traj.getAcc(1.99) - traj.getAcc(2.01)).z(), 1e-3);
 }
 
 TEST_F(BezierOptTest2, TestContinuity) {

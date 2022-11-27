@@ -27,11 +27,13 @@
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <traj_utils/bernstein.hpp>
 #include <traj_utils/corridor.hpp>
 #include <traj_utils/poly_traj.hpp>
-
+#include <vector>
 #include "decomp_ros_utils/data_ros_utils.h"
+
 using namespace std;
 namespace visualizer {
 /**
@@ -174,9 +176,9 @@ inline void displayBezierCurve(const Eigen::Vector3d&   start_pos,
 }
 
 inline void displayCorridors(const traj_utils::Corridors& corridors,
-                             const Eigen::Vector3d&    map_pose,
-                             const ros::Publisher&     crd_pub,
-                             const std::string         frame_id = "world") {
+                             const Eigen::Vector3d&       map_pose,
+                             const ros::Publisher&        crd_pub,
+                             const std::string            frame_id = "world") {
   vec_E<Polyhedron3D> polyhedra;
   polyhedra.reserve(corridors.size());
   for (const auto& crd : corridors) {
@@ -201,6 +203,9 @@ class Visualizer {
   ros::Publisher  _astar_path_pub;
   ros::Publisher  _start_goal_pub;
   ros::Publisher  _text_pub;
+  ros::Publisher  _mesh_pub;
+  ros::Publisher  _edge_pub;
+  ros::Publisher  _obstacle_pub;
   std::string     _frame_id;
 
  public:
@@ -218,15 +223,17 @@ class Visualizer {
     _start_goal_pub    = _nh.advertise<visualization_msgs::Marker>("vis_start_goal", 1);
     _ctrl_pts_pub      = _nh.advertise<visualization_msgs::Marker>("vis_ctrl_pts", 1);
     _text_pub          = _nh.advertise<visualization_msgs::Marker>("vis_text", 1);
+    _mesh_pub          = _nh.advertise<visualization_msgs::Marker>("vis_mesh", 100);
+    _edge_pub          = _nh.advertise<visualization_msgs::Marker>("vis_edge", 100);
   }
   typedef std::shared_ptr<Visualizer> Ptr;
-
-  void visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
-                            const Bernstein::Bezier& traj,
-                            double                   max_vel);
-  void visualizePolyTraj(const Eigen::Vector3d&        start_pos,
-                         const polynomial::Trajectory& traj,
-                         double                        max_vel);
+  void                                visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
+                                                           const Bernstein::Bezier& traj,
+                                                           double                   max_vel);
+  void                                visualizePolyTraj(const Eigen::Vector3d&        start_pos,
+                                                        const polynomial::Trajectory& traj,
+                                                        double                        max_vel);
+  void visualizePolytope(const std::vector<Eigen::MatrixX4d>& hPolys);
   void visualizeCorridors(const traj_utils::Corridors& corridors, const Eigen::Vector3d& map_pose);
   void visualizeCorridors(const std::vector<Eigen::MatrixX4d>& corridors,
                           const Eigen::Vector3d&               map_pose);

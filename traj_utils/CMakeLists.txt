@@ -1,8 +1,7 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.0.0)
 project(traj_utils)
-
 set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_FLAGS "-std=c++11")
+set(CMAKE_CXX_FLAGS "-std=c++14")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 # set(ENABLE_PRECOMPILED_HEADERS "OFF")
 
@@ -16,6 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(Eigen3 REQUIRED)
 set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
+
+find_package(PCL 1.7 REQUIRED)
 
 
 # Generate messages in the 'msg' folder
@@ -42,7 +43,7 @@ generate_messages(
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES traj_utils 
- CATKIN_DEPENDS message_runtime decomp_ros_utils
+ CATKIN_DEPENDS decomp_ros_utils roscpp
 #  DEPENDS system_lib
 )
 
@@ -51,9 +52,10 @@ include_directories(
     include 
     ${catkin_INCLUDE_DIRS}
     ${Eigen3_INCLUDE_DIRS} 
+    ${PCL_INCLUDE_DIRS}
 )
 
-# link_directories(${PCL_LIBRARY_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
 
 add_library( traj_utils
     # src/planning_visualization.cpp 
@@ -65,6 +67,7 @@ add_library( traj_utils
 target_link_libraries( traj_utils
     ${catkin_LIBRARIES} 
     ${Eigen3_LIBRARIES} 
+    ${PCL_LIBRARIES}
     )  
 
 if (CATKIN_ENABLE_TESTING)

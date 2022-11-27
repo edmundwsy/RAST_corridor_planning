@@ -42,7 +42,7 @@ void BezierPlanner::init() {
   _pose_sub = _nh.subscribe("/mavros/local_position/pose", 10, &BezierPlanner::PoseCallback, this);
   _vel_sub =
       _nh.subscribe("/mavros/local_position/velocity_local", 10, &BezierPlanner::VelCallback, this);
-  _trigger_sub = _nh.subscribe("/traj_start_trigger", 1, &BezierPlanner::TriggerCallback, this);
+  // _trigger_sub = _nh.subscribe("/traj_start_trigger", 1, &BezierPlanner::TriggerCallback, this);
   _broadcast_traj_sub =
       _nh.subscribe("/broadcast_traj", 1, &BezierPlanner::BroadcastTrajCallback, this);
 

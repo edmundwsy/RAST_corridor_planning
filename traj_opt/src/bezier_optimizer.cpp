@@ -53,6 +53,14 @@ void BezierOpt::setup(const Eigen::Matrix3d&          start,
   addConstraints();
 }
 
+void BezierOpt::reset() {
+  idx_ = 0;
+  M_   = 0;
+  t_.clear();
+  constraints_.clear();
+  bc_->clear();
+}
+
 void BezierOpt::calcCtrlPtsCvtMat() {
   p2v_.resize(DIM * N_, DIM * (N_ + 1));
   v2a_.resize(DIM * (N_ - 1), DIM * N_);

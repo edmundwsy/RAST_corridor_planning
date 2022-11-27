@@ -97,10 +97,10 @@ static float localization_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
 
 static float standard_gaussian_pdf[20000];
 
-class DSPMapStatic{
+class DSPMap{
 public:
 
-    DSPMapStatic(int init_particle_num = 0, float init_weight=0.01f)
+    DSPMap(int init_particle_num = 0, float init_weight=0.01f)
             : voxel_num_x(MAP_LENGTH_VOXEL_NUM),  /// Must be odd. voxel_resolution_set*voxel_num_x_set = map length
               voxel_num_y(MAP_WIDTH_VOXEL_NUM),  /// Must be odd. voxel_resolution_set*voxel_num_y_set = map width
               voxel_num_z(MAP_HEIGHT_VOXEL_NUM),  /// Must be odd. voxel_resolution_set*voxel_num_z_set = map height
@@ -134,7 +134,7 @@ public:
         cout << "Map is ready to update!" << endl;
     }
 
-    ~DSPMapStatic(){
+    ~DSPMap(){
         cout << "\n See you ;)" <<endl;
     }
 

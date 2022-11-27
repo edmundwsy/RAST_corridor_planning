@@ -33,12 +33,15 @@
 #include <message_filters/time_synchronizer.h>
 #include <nav_msgs/Odometry.h>
 
+using namespace dsp_map;
+
 /* ROS Utilities */
 ros::Subscriber click_sub_;
 ros::Publisher  cmd_pub_;
 ros::Publisher  cloud_pub_;
 
 DSPMapStaticV2::Ptr dsp_map_;
+MappingParameters   mp_;
 float               risk_maps_[VOXEL_NUM][3];
 float               valid_clouds_[5000 * 3];
 
@@ -259,11 +262,57 @@ int main(int argc, char **argv) {
   nh.getParam("pool_size_y", pool_size_y);
   nh.getParam("pool_size_z", pool_size_z);
   nh.getParam("is_pose_sub", is_pose_sub_);
+  nh.param("map/n_risk_map", mp_.n_risk_map_, 3);
+  nh.param("map/n_prediction_per_risk", mp_.n_prediction_per_risk_map_, 3);
+  nh.param("map/n_particles_max", mp_.n_particles_max_, 1000);
+  nh.param("map/n_particles_max_per_voxel", mp_.n_particles_max_per_voxel_, 18);
+  nh.param("map/n_particles_max_per_pyramid", mp_.n_particles_max_per_pyramid_, 100);
+
+  nh.param("map/resolution", mp_.resolution_, -1.0F);
+  nh.param("map/map_size_x", mp_.map_size_x_, -1.0F);
+  nh.param("map/map_size_y", mp_.map_size_y_, -1.0F);
+  nh.param("map/map_size_z", mp_.map_size_z_, -1.0F);
+  nh.param("map/voxel_size_x", mp_.voxel_size_x_, -1);
+  nh.param("map/voxel_size_y", mp_.voxel_size_y_, -1);
+  nh.param("map/voxel_size_z", mp_.voxel_size_z_, -1);
+  nh.param("map/local_update_range_x", mp_.local_update_range_(0), -1.0F);
+  nh.param("map/local_update_range_y", mp_.local_update_range_(1), -1.0F);
+  nh.param("map/local_update_range_z", mp_.local_update_range_(2), -1.0F);
+  nh.param("map/obstacles_inflation", mp_.obstacles_inflation_, -1.0F);
+
+  nh.param("map/angle_resolution", mp_.angle_resolution_, 3);
+  nh.param("map/half_fov_horizontal", mp_.half_fov_h_, -1);
+  nh.param("map/half_fov_vertical", mp_.half_fov_v_, -1);
+
+  nh.param("map/visualization_truncate_height", mp_.visualization_truncate_height_, -0.1F);
+  nh.param("map/virtual_ceil_height", mp_.virtual_ceil_height_, -0.1F);
+  nh.param("map/virtual_ceil_yp", mp_.virtual_ceil_yp_, -0.1F);
+  nh.param("map/virtual_ceil_yn", mp_.virtual_ceil_yn_, -0.1F);
+
+  nh.param("map/show_occ_time", mp_.show_occ_time_, false);
+
+  nh.param("map/newborn/particles_number", mp_.newborn_particles_per_point_, 20);
+  nh.param("map/newborn/particles_weight", mp_.newborn_particles_weight_, 0.0001F);
+  nh.param("map/newborn/objects_weight", mp_.newborn_objects_weight_, 0.04F);
+
+  /* standard derivations */
+  nh.param("map/stddev_pos", mp_.stddev_pos_predict_, 0.05F); /* prediction variance */
+  nh.param("map/stddev_vel", mp_.stddev_vel_predict_, 0.05F); /* prediction variance */
+  nh.param("map/sigma_update", mp_.sigma_update_, -1.0F);
+  nh.param("map/sigma_observation", mp_.sigma_obsrv_, -1.0F);
+  nh.param("map/sigma_localization", mp_.sigma_loc_, -1.0F);
+
+  nh.param("map/frame_id", mp_.frame_id_, string("world"));
+  nh.param("map/local_map_margin", mp_.local_map_margin_, 1);
+  nh.param("map/ground_height", mp_.ground_height_, 1.0F);
+
+  nh.param("map/odom_depth_timeout", mp_.odom_depth_timeout_, 1.0F);
+  nh.param("map/is_output_csv", mp_.is_csv_output_, false);
 
   /* initialize map */
   ROS_INFO("init map");
   dsp_map_.reset(new DSPMapStaticV2);
-  dsp_map_->initMap(nh);
+  dsp_map_->initMap(mp_);
   // dsp_map_->setPredictionVariance(0.05, 0.05);
   // dsp_map_->setObservationStdDev(0.05f);
   // dsp_map_->setLocalizationStdDev(0.0f);

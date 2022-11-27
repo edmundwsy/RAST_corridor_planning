@@ -33,12 +33,13 @@
 #include <message_filters/sync_policies/exact_time.h>
 #include <message_filters/time_synchronizer.h>
 
-/** Parameters for the map **/
+/* -------------- Parameters for the map ------------------ */
 #define MAP_LENGTH_VOXEL_NUM   65  // 33//29  //odd
 #define MAP_WIDTH_VOXEL_NUM    65  // 33//29   //odd
 #define MAP_HEIGHT_VOXEL_NUM   35  // 9 //21, 9 //odd
 #define ANGLE_RESOLUTION       3
 #define MAX_PARTICLE_NUM_VOXEL 18  // 18 //80
+#define VOXEL_RESOLUTION       0.15
 
 /// Note: RISK_MAP_NUMBER * RISK_MAP_PREDICTION_TIME = PREDICTION_TIMES. RISK_MAP_PREDICTION_TIMES
 /// items in _prediction_future_time should be within time a_star_search_time_step
@@ -55,11 +56,7 @@ const int half_fov_h = 48;  // can be divided by ANGLE_RESOLUTION. If not, modif
 const int half_fov_v = 36;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
                             // or make half_fov_h a smaller value than the real FOV angle
 
-// const int half_fov_h = 30;  // Real world can be divided by ANGLE_RESOLUTION. If not, modify
-// ANGLE_RESOLUTION or make half_fov_h a smaller value than the real FOV angle const int half_fov_v
-// = 21;
-
-/** END **/
+/*--------------- END ---------------*/
 
 static const int VOXEL_NUM   = MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM * MAP_HEIGHT_VOXEL_NUM;
 static const int PYRAMID_NUM = 360 * 180 / ANGLE_RESOLUTION / ANGLE_RESOLUTION;
@@ -87,6 +84,8 @@ static const float obstacle_thickness_for_occlusion       = 0.3;
 
 using namespace std;
 
+namespace dsp_map {
+
 // flag value 0: invalid, value 1: valid but not newborn, value 3: valid newborn 7: Recently
 // predicted
 /// Container for voxels h particles
@@ -106,15 +105,15 @@ static int _pyramids_in_fov[observation_pyramid_num][SAFE_PARTICLE_NUM_PYRAMID][
 static int _observation_pyramid_neighbors[observation_pyramid_num][10]{};
 
 /// Variables for velocity estimation
-pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud_in_current_view_rotated(
-    new pcl::PointCloud<pcl::PointXYZ>());
+// pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud_in_current_view_rotated(
+//     new pcl::PointCloud<pcl::PointXYZ>());
 
 static float _current_position[3]          = {0.f, 0.f, 0.f};
 static float _voxel_filtered_resolution    = 0.15;
 static float _delt_t_from_last_observation = 0.f;
 
-pcl::PointCloud<pcl::PointXYZINormal>::Ptr _input_cloud_with_velocity(
-    new pcl::PointCloud<pcl::PointXYZINormal>());
+// pcl::PointCloud<pcl::PointXYZINormal>::Ptr _input_cloud_with_velocity(
+//     new pcl::PointCloud<pcl::PointXYZINormal>());
 
 /** Storage for Gaussian randoms and Gaussian PDF**/
 static float _standard_gaussian_pdf[20000];
@@ -259,6 +258,10 @@ class DSPMapStaticV2 {
   MappingParameters mp_; /** Map Parameters */
   MappingData       md_; /** Map Data */
 
+  /* TODO: merge to md_ */
+  pcl::PointCloud<pcl::PointXYZ>::Ptr        _cloud_in_current_view_rotated;
+  pcl::PointCloud<pcl::PointXYZINormal>::Ptr _input_cloud_with_velocity;
+
   /** Parameters **/
   float record_time;
 
@@ -292,7 +295,7 @@ class DSPMapStaticV2 {
 
   ~DSPMapStaticV2() { std::cout << "\n See you ;)" << endl; }
 
-  void initMap(ros::NodeHandle &nh);
+  void initMap(MappingParameters mp);
 
   int update(int                      point_cloud_num,
              int                      size_of_one_point,
@@ -315,7 +318,10 @@ class DSPMapStaticV2 {
   void setParticleRecordFlag(bool record_particle_flag, float record_csv_time = 1.f);
 
   static void setOriginalVoxelFilterResolution(float res) { _voxel_filtered_resolution = res; }
-
+  inline void getMapCenter(Eigen::Vector3f &center) { center = md_.camera_pos_; }
+  inline void getMapSize(Eigen::Vector3f &size) {
+    size << mp_.voxel_size_x_, mp_.voxel_size_y_, mp_.voxel_size_z_;
+  }
   void getOccupancyMap(int &                           obstacles_num,
                        pcl::PointCloud<pcl::PointXYZ> &cloud,
                        const float                     threshold = 0.7);
@@ -334,7 +340,10 @@ class DSPMapStaticV2 {
                                    pcl::PointCloud<pcl::PointXYZ> &cloud,
                                    float *                         risk_maps,
                                    const float                     threshold = 0.7);
-
+  void getObstaclePoints(int &                         obstacles_num,
+                         std::vector<Eigen::Vector3d> &points,
+                         const float                   threshold,
+                         const float                   clearance = 0.5);
   /// NOTE: If you don't want to use any visualization functions like "getOccupancyMap"
   ///      or "getOccupancyMapWithVelocity", you must call this function after update process.
   void clearOccupancyMapPrediction();
@@ -342,6 +351,10 @@ class DSPMapStaticV2 {
   /// Get clustered result for visualization
   void getKMClusterResult(pcl::PointCloud<pcl::PointXYZINormal> &cluster_cloud);
   void mapAddNewBornParticlesByObservation();
+
+  inline bool isInMap(const Particle &p) const;
+  inline bool isInMap(const float &px, const float &py, const float &pz) const;
+  inline bool ifInPyramidsArea(float &x, float &y, float &z);
 
  private:
   void setInitParameters();
@@ -359,9 +372,6 @@ class DSPMapStaticV2 {
 
   void getVoxelPositionFromIndex(const int &index, float &px, float &py, float &pz) const;
 
-  inline bool isInMap(const Particle &p) const;
-  inline bool isInMap(const float &px, const float &py, const float &pz) const;
-  inline bool ifInPyramidsArea(float &x, float &y, float &z);
   inline void rotateVectorByQuaternion(const float *             ori_vector,
                                        const Eigen::Quaternionf &q,
                                        float *                   rotated_vector);
@@ -443,7 +453,7 @@ class DSPMapStaticV2 {
     return sqrtf(square_distance);
   }
 
-  static void velocityEstimationThread();
+  void velocityEstimationThread();
 
   /*** For test ***/
  public:
@@ -453,7 +463,7 @@ class DSPMapStaticV2 {
 
   void getVoxelPositionFromIndexPublic(const int &index, float &px, float &py, float &pz) const;
 
-  int getPointVoxelsIndexPublic(const float &px, const float &py, const float &pz, int &index);
+  bool getPointVoxelsIndexPublic(const float &px, const float &py, const float &pz, int &index);
 };
 
 /* ----- Definition of Inline Functions ----- */
@@ -461,12 +471,16 @@ class DSPMapStaticV2 {
 inline bool DSPMapStaticV2::isInMap(const Particle &p) const {
   return (p.px >= mp_.half_map_size_x_ || p.px <= -mp_.half_map_size_x_ ||
           p.py >= mp_.half_map_size_y_ || p.py <= -mp_.half_map_size_y_ ||
-          p.pz >= mp_.half_map_size_z_ || p.pz <= -mp_.half_map_size_z_);
+          p.pz >= mp_.half_map_size_z_ || p.pz <= -mp_.half_map_size_z_)
+             ? false
+             : true;
 }
 
 inline bool DSPMapStaticV2::isInMap(const float &px, const float &py, const float &pz) const {
   return (px >= mp_.half_map_size_x_ || px <= -mp_.half_map_size_x_ || py >= mp_.half_map_size_y_ ||
-          py <= -mp_.half_map_size_y_ || pz >= mp_.half_map_size_z_ || pz <= -mp_.half_map_size_z_);
+          py <= -mp_.half_map_size_y_ || pz >= mp_.half_map_size_z_ || pz <= -mp_.half_map_size_z_)
+             ? false
+             : true;
 }
 
 inline float DSPMapStaticV2::vectorMultiply(
@@ -503,5 +517,7 @@ inline void DSPMapStaticV2::rotateVectorByQuaternion(const float *             o
   *(rotated_vector + 1) = vector_quaternion.y();
   *(rotated_vector + 2) = vector_quaternion.z();
 }
+
+}  // namespace dsp_map
 
 #endif  // _DSP_MAP_H_

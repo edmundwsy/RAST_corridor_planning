@@ -56,7 +56,7 @@ class BezierOpt {
   void calcCtrlPtsCvtMat();
   void calcMinJerkCost();
   void calcBezierCurve();
-
+  void reset();
   void setup(const Eigen::Matrix3d&          start,
              const Eigen::Matrix3d&          end,
              const std::vector<double>&      time_allocation,

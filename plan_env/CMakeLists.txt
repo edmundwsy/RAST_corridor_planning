@@ -15,19 +15,25 @@ find_package(catkin REQUIRED COMPONENTS
     visualization_msgs
     cv_bridge
     message_filters
-    quadrotor_msgs  # only for examples
+    quadrotor_msgs # only for examples
 )
 
 find_package(Eigen3 REQUIRED)
 find_package(PCL 1.7 REQUIRED)
 
+set(Munkres_INCLUDE_DIRS
+    /usr/local/include/munkres
+)
+include_directories(${Munkres_INCLUDE_DIRS})
+set(Munkres_LIBS
+    /usr/local/lib/libmunkres.a
+)
+
 catkin_package(
     INCLUDE_DIRS include
-    LIBRARIES plan_env
+    LIBRARIES ${PROJECT_NAME}
     CATKIN_DEPENDS roscpp std_msgs
-    DEPENDS OpenCV
-
-    # DEPENDS system_lib
+    DEPENDS OpenCV Munkres
 )
 
 include_directories(
@@ -40,53 +46,55 @@ include_directories(
 )
 
 link_directories(${PCL_LIBRARY_DIRS})
-include_directories(/usr/local/include/munkres)
-set(MunkresLIB
-  /usr/local/lib/libmunkres.a
-)
-
 
 add_library(plan_env
     src/grid_map.cpp
     src/raycast.cpp
     src/obj_predictor.cpp
     src/dsp_map_new.cpp
+    src/risk_voxel.cpp
+    src/fake_dsp_map.cpp
 )
 target_link_libraries(plan_env
     ${catkin_LIBRARIES}
     ${PCL_LIBRARIES}
     ${OpenCV_LIBS}
-    ${MunkresLIB}
+    ${Munkres_LIBS}
 )
 
-add_executable(obj_generator
-    src/obj_generator.cpp
-)
-target_link_libraries(obj_generator
-    ${catkin_LIBRARIES}
-)
+# add_executable(obj_generator
+#     src/obj_generator.cpp
+# )
+# target_link_libraries(obj_generator
+#     ${catkin_LIBRARIES}
+# )
 
+# add_executable(test_grid_map_node
+#     src/test_grid_map_node.cpp
+# )
+# target_link_libraries(test_grid_map_node
+#     plan_env
+#     ${catkin_LIBRARIES}
+# )
 
-add_executable(test_grid_map_node
-    src/test_grid_map_node.cpp
-)
-target_link_libraries(test_grid_map_node
-    plan_env
-    ${catkin_LIBRARIES}
-)
+# add_executable(test_dsp_map_node
+#     src/test_dsp_map_node.cpp
+# )
+# target_link_libraries(test_dsp_map_node
+#     plan_env
+#     ${catkin_LIBRARIES}
+# )
 
-add_executable(test_dsp_map_node
-    src/test_dsp_map_node.cpp
-)
-target_link_libraries(test_dsp_map_node
-    plan_env
-    ${catkin_LIBRARIES}
-)
+# add_executable(dsp_map_node
+#     src/dsp_map_node.cpp
+# )
+# target_link_libraries(dsp_map_node
+#     plan_env
+#     ${catkin_LIBRARIES}
+# )
 
-add_executable(dsp_map_node
-    src/dsp_map_node.cpp
-)
-target_link_libraries(dsp_map_node
+add_executable(risk_voxel_node src/risk_voxel_node.cpp)
+target_link_libraries(risk_voxel_node
     plan_env
     ${catkin_LIBRARIES}
 )
