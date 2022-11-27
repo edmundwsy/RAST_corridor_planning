@@ -45,6 +45,7 @@ class FakeRiskVoxel : public RiskVoxel {
   typedef std::shared_ptr<FakeRiskVoxel> Ptr;
 
   void        getObstaclePoints(std::vector<Eigen::Vector3d> &points);
+  void        getObstaclePoints(std::vector<Eigen::Vector3d> &points, double t_start, double t_end);
   int         getInflateOccupancy(const Eigen::Vector3d pos);
   int         getInflateOccupancy(const Eigen::Vector3d pos, int t);
   int         getInflateOccupancy(const Eigen::Vector3d pos, double t);

@@ -60,7 +60,7 @@ void RiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::Vecto
 void RiskHybridAstar::setEnvironment(const FakeRiskVoxel::Ptr& grid_map) { grid_map_ = grid_map; }
 
 void RiskHybridAstar::setParam(ros::NodeHandle& nh) {
-  nh.param("search/max_tau", max_tau_, -1.0);           /* 每次前向积分的时间 */
+  nh.param("search/max_tau", max_tau_, -1.0);           /* 每次前向积分的时间，设为地图的时间长度 */ 
   nh.param("search/init_max_tau", init_max_tau_, -1.0); /* 按照之前的输入前向积分的时间 */
   nh.param("search/max_vel", max_vel_, -1.0);
   nh.param("search/max_acc", max_acc_, -1.0);
@@ -98,6 +98,18 @@ void RiskHybridAstar::reset() {
   has_path_     = false;
 }
 
+/**
+ * @brief 
+ * @param start_pt : start position
+ * @param start_v  : start velocity
+ * @param start_a  : start acceleration
+ * @param end_pt  : end position
+ * @param end_v  : end velocity
+ * @param init : true if this is the first time to search path
+ * @param dynamic : true if the trajectory time is considered
+ * @param time_start : start time of the trajectory 
+ * @return 
+ */
 ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
                                   Eigen::Vector3d start_v,
                                   Eigen::Vector3d start_a,
@@ -159,9 +171,10 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     bool near_end      = abs(cur_node->getIndex(0) - end_index(0)) <= tolerance_ &&
                     abs(cur_node->getIndex(1) - end_index(1)) <= tolerance_ &&
                     abs(cur_node->getIndex(2) - end_index(2)) <= tolerance_;
+    bool exceed_time = cur_node->time >= 1.2; // TODO
 
     /* If ReachGoal(n_c) or AnalyticExpand(n_c_) */
-    if (reach_horizon || near_end) {
+    if (reach_horizon || near_end || exceed_time) {
       terminate_node = cur_node;
       retrievePath(terminate_node);
       if (near_end) {
@@ -196,6 +209,12 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
         return ASTAR_RET::NO_PATH;
       }
     }
+
+    if (exceed_time) {
+      std::cout << "exceed time" << std::endl;
+      return ASTAR_RET::REACH_HORIZON;
+    }
+
     open_set_.pop();
     cur_node->setNodeState(IN_CLOSE_SET);
     iter_num_ += 1;
@@ -212,9 +231,10 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     std::vector<double>          durations;
     if (init_search) { /* init: use start acceleration */
       inputs.push_back(start_acc_);
-      for (double tau = time_res_init * init_max_tau_; tau <= init_max_tau_ + 1e-3;
-           tau += time_res_init * init_max_tau_)
-        durations.push_back(tau);
+      // for (double tau = time_res_init * init_max_tau_; tau <= init_max_tau_ + 1e-3;
+      //      tau += time_res_init * init_max_tau_)
+      //   durations.push_back(tau);
+      durations.push_back(0.2);
       init_search = false;
     } else { /* otherwise: sample acceleration to generate motion primitives */
       for (double ax = -max_acc_; ax <= max_acc_ + 1e-3; ax += max_acc_ * res)
@@ -223,19 +243,21 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
             um << ax, ay, az;
             inputs.push_back(um);
           }
-      for (double tau = time_res * max_tau_; tau <= max_tau_; tau += time_res * max_tau_)
-        durations.push_back(tau);
+      durations.push_back(0.2);
+      // for (double tau = time_res * max_tau_; tau <= max_tau_; tau += time_res * max_tau_)
+      //   durations.push_back(tau);
     }
 
     // cout << "cur state:" << cur_state.head(3).transpose() << endl;
     /* traverse all accelerations and trajectory durations */
     for (unsigned int i = 0; i < inputs.size(); ++i)
       for (unsigned int j = 0; j < durations.size(); ++j) {
+        // get the state after applying the primitive
         um         = inputs[i];
         double tau = durations[j];
         stateTransit(cur_state, pro_state, um, tau);
         pro_t = cur_node->time + tau;
-
+        // std::cout << "pro_state: " << pro_state.transpose() << std::endl;
         Eigen::Vector3d pro_pos = pro_state.head(3);
         // Check if in close set
         Eigen::Vector3i pro_id   = posToIndex(pro_pos);
@@ -270,8 +292,9 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
           double dt = tau * double(k) / double(check_num_);
           stateTransit(cur_state, xt, um, dt);
           pos = xt.head(3);
-          // std::cout << "pos:" << pos.transpose() << std::endl;
-          if (grid_map_->getInflateOccupancy(pos - map_center_) == 1) {
+          double t = cur_node->time + dt;
+          // std::cout << "pos:" << pos.transpose() << " t: " << t << std::endl;
+          if (grid_map_->getInflateOccupancy(pos - map_center_, t) == 1) {
             is_occ = true;
             break;
           }
@@ -290,6 +313,8 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
         bool prune = false;
         for (int j = 0; j < tmp_expand_nodes.size(); ++j) {
           PathNodePtr expand_node = tmp_expand_nodes[j];
+          // std::cout << " expand_node: " << expand_node->state.transpose();
+          // std::cout << " t: " << pro_t_id << " | " << expand_node->time;
           if ((pro_id - expand_node->getIndex()).norm() == 0 &&
               ((!dynamic) || pro_t_id == expand_node->time_idx)) {
             prune = true;
@@ -304,7 +329,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
             break;
           }
         }
-
+        // std::cout << " | prune: " << prune << std::endl;
         // This node end up in a voxel different from others
         if (!prune) {
           if (pro_node == NULL) {
@@ -692,6 +717,13 @@ int RiskHybridAstar::timeToIndex(double time) {
   return idx;
 }
 
+/**
+ * @brief 
+ * @param state0: current state 
+ * @param state1: propagated state (next state)
+ * @param um    : control input
+ * @param tau   : time duration
+ */
 void RiskHybridAstar::stateTransit(Eigen::Matrix<double, 6, 1>& state0,
                                    Eigen::Matrix<double, 6, 1>& state1,
                                    Eigen::Vector3d              um,

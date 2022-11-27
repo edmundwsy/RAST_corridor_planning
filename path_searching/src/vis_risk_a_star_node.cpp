@@ -27,8 +27,7 @@ ros::Publisher  t_path_pub_;
 FakeRiskVoxel::Ptr   grid_map_;
 RiskHybridAstar::Ptr a_star_;
 
-Eigen::Vector3d              end_pos_, start_pos_;
-Eigen::Vector3d              start_vel_ = Eigen::Vector3d(0, 0.1, 0);
+Eigen::Vector3d              end_pos_, start_pos_, start_vel_;
 Eigen::Vector3d              end_vel_   = Eigen::Vector3d::Zero();
 Eigen::Vector3d              start_acc_ = Eigen::Vector3d::Zero();
 Eigen::Vector3d              end_acc_   = Eigen::Vector3d::Zero();
@@ -119,17 +118,18 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   ROS_INFO("End position: (%f, %f, %f)", end_pos_(0), end_pos_(1), end_pos_(2));
   a_star_->reset();
   auto      t1  = ros::Time::now();
-  ASTAR_RET rst = a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, true);
+  ASTAR_RET rst = a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, true, true, 0);
   auto      t2  = ros::Time::now();
   ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
 
   if (rst == 0) {
     a_star_->reset();
-    rst = a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, false);
+    rst = a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, false, true, 0);
   }
 
   if (rst > 2) {
     path_ = a_star_->getPath(0.1);
+    std::cout << "Path size: " << path_.size() << std::endl;
     visualizePath(path_);
     visualizeTemporalPath(path_, 0.1);
   } else {
@@ -150,6 +150,13 @@ int main(int argc, char **argv) {
   nh.getParam("init_y", start_pos_(1));
   nh.getParam("init_z", start_pos_(2));
   ROS_INFO("Start position: (%f, %f, %f)", start_pos_(0), start_pos_(1), start_pos_(2));
+
+  start_vel_ = Eigen::Vector3d(0, 0, 0);
+  nh.getParam("vel_x", start_vel_(0));
+  nh.getParam("vel_y", start_vel_(1));
+  nh.getParam("vel_z", start_vel_(2));
+  ROS_INFO("Start velocity: (%f, %f, %f)", start_vel_(0), start_vel_(1), start_vel_(2));
+
 
   grid_map_.reset(new FakeRiskVoxel());
   grid_map_->init(nh);

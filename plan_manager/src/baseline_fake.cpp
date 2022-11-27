@@ -36,7 +36,8 @@ void FakeBaselinePlanner::init() {
   visualizer_.reset(new visualizer::Visualizer(nh_, ns));
 
   /*** INITIALIZE SUBSCRIBER ***/
-  // click_sub_ = nh_.subscribe("/traj_start_trigger", 1, &FakeBaselinePlanner::clickCallback, this);
+  // click_sub_ = nh_.subscribe("/traj_start_trigger", 1, &FakeBaselinePlanner::clickCallback,
+  // this);
   pose_sub_     = nh_.subscribe("pose", 10, &FakeBaselinePlanner::PoseCallback, this);
   obstacle_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 100);
 
@@ -134,13 +135,13 @@ bool FakeBaselinePlanner::plan() {
   /*----- Path Searching on DSP Static -----*/
   a_star_->reset();
   // a_star_->setMapCenter(odom_pos_);
-  auto      t1 = ros::Time::now();
-  ASTAR_RET rst =
-      a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_, Eigen::Vector3d(0, 0, 0), true);
+  auto      t1  = ros::Time::now();
+  ASTAR_RET rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_,
+                                  Eigen::Vector3d(0, 0, 0), true, true, 0);
   if (rst == 0) {
     a_star_->reset();
     rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_, Eigen::Vector3d(0, 0, 0),
-                          false);
+                          false, true, 0);
   }
 
   auto t2 = ros::Time::now();
@@ -155,38 +156,46 @@ bool FakeBaselinePlanner::plan() {
 
   /*----- Safety Corridor Generation -----*/
 
-  std::vector<Eigen::Vector3d>  route = a_star_->getPath(cfg_.a_star_search_time_step);
+  std::vector<Eigen::Vector3d>  route = a_star_->getPath(cfg_.corridor_tau);  // 0.4
   std::vector<Eigen::MatrixX4d> hPolys;
   std::vector<Eigen::Vector3d>  pc;
-
-  if (route.size() > 4) {
-    route.erase(route.begin() + 4, route.end());
-  }
+  printf("route size: %d \n", route.size());
+  // if (route.size() > 4) {
+  //   route.erase(route.begin() + 4, route.end());
+  // }
 
   t1 = ros::Time::now();
-  pc.reserve(3000);
-  map_->getObstaclePoints(pc);
-  collision_avoider_->getObstaclePoints(pc, 1.0);
-  this->showObstaclePoints(pc);
+  // pc.reserve(3000);
+  pc.reserve(1000);
 
-  Eigen::Vector3d lower_corner  = Eigen::Vector3d(-5, -5, -1) + odom_pos_;
-  Eigen::Vector3d higher_corner = Eigen::Vector3d(5, 5, 3) + odom_pos_;
+  Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, 0) + odom_pos_;
+  Eigen::Vector3d higher_corner = Eigen::Vector3d(5, 4, 3) + odom_pos_;
 
-  sfc_gen::convexCover(route, pc, lower_corner, higher_corner, 7.0, 1.0, hPolys);
+  for (int i = 0; i < route.size() - 1; i++) {
+    Eigen::MatrixX4d hPoly;
+    map_->getObstaclePoints(pc, i * cfg_.corridor_tau, (i + 1) * cfg_.corridor_tau);
+    // collision_avoider_->getObstaclePoints(pc, 1.0);  // TODO:
+    sfc_gen::genSingleCvxCover(route[i], route[i + 1], pc, lower_corner, higher_corner, 7.0, 1.0,
+                               hPoly);
+    hPolys.push_back(hPoly);
+  }
+
+  // sfc_gen::convexCover(route, pc, lower_corner, higher_corner, 7.0, 1.0, hPolys);
   // sfc_gen::shortCut(hPolys);  /* merge adjacent corridors */
   t2 = ros::Time::now();
   ROS_INFO("Decomps takes: %f ms", (t2 - t1).toSec() * 1000);
+  this->showObstaclePoints(pc);
   visualizer_->visualizePolytope(hPolys);
 
   /*----- Trajectory Optimization -----*/
 
-  // std::cout << "hPolys size: " << hPolys.size() << std::endl;
+  std::cout << "hPolys size: " << hPolys.size() << std::endl;
   // std::cout << "route size: " << route.size() << std::endl;
 
   /* Goal position and time allocation */
   Eigen::Vector3d     local_goal = route[route.size() - 1];
   std::vector<double> time_alloc;
-  time_alloc.resize(hPolys.size(), cfg_.a_star_search_time_step);
+  time_alloc.resize(hPolys.size(), cfg_.corridor_tau);
   std::cout << "time_alloc size: " << time_alloc.size() << std::endl;
   traj_optimizer_.reset(new traj_opt::BezierOpt());
   Eigen::Matrix3d init_state, final_state;
