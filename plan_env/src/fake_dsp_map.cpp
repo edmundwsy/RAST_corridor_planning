@@ -256,14 +256,61 @@ void FakeRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
                                       double                        t_start,
                                       double                        t_end) {
   points.clear();
-  int idx_start = t_start / time_resolution_;
-  int idx_end   = t_end / time_resolution_;
+  int idx_start = floor(t_start / time_resolution_);
+  int idx_end   = ceil(t_end / time_resolution_);
   for (int i = 0; i < VOXEL_NUM; i++) {
     for (int j = idx_start; j < idx_end; j++) {
       if (risk_maps_[i][j] > risk_threshold_) {
         Eigen::Vector3f pt = getVoxelPosition(i);
         points.push_back(pt.cast<double>());
         break;
+      }
+    }
+  }
+}
+
+/**
+ * @brief get the obstacle points in the time interval and the cube
+ * @param points : output
+ * @param t_start : start time
+ * @param t_end: end time
+ * @param t_step: time step
+ */
+void FakeRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
+                                      double                        t_start,
+                                      double                        t_end,
+                                      const Eigen::Vector3d &       lower_corner,
+                                      const Eigen::Vector3d &       higher_corner) {
+  points.clear();
+  int idx_start = floor(t_start / time_resolution_);
+  int idx_end   = ceil(t_end / time_resolution_);
+  int lx        = (lower_corner[0] + local_update_range_x_) / resolution_;
+  int ly        = (lower_corner[1] + local_update_range_y_) / resolution_;
+  int lz        = (lower_corner[2] + local_update_range_z_) / resolution_;
+  int hx        = (higher_corner[0] + local_update_range_x_) / resolution_;
+  int hy        = (higher_corner[1] + local_update_range_y_) / resolution_;
+  int hz        = (higher_corner[2] + local_update_range_z_) / resolution_;
+
+  hx                 = std::min(hx, MAP_LENGTH_VOXEL_NUM - 1);
+  hy                 = std::min(hy, MAP_WIDTH_VOXEL_NUM - 1);
+  hz                 = std::min(hz, MAP_HEIGHT_VOXEL_NUM - 1);
+  Eigen::Vector3i hi = getVoxelRelIndex(higher_corner.cast<float>());
+
+  for (int j = idx_start; j < idx_end; j++) {
+    for (int z = lz; z <= hz; z++) {
+      for (int y = ly; y <= hy; y++) {
+        for (int x = lx; x <= hx; x++) {
+          int i = x + y * MAP_LENGTH_VOXEL_NUM + z * MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM;
+          if (risk_maps_[i][j] > risk_threshold_) {
+            Eigen::Vector3d pt = Eigen::Vector3d(x * resolution_ - local_update_range_x_,
+                                                 y * resolution_ - local_update_range_y_,
+                                                 z * resolution_ - local_update_range_z_) +
+                                 pose_.cast<double>();
+            points.push_back(pt);
+            // Eigen::Vector3f pt = getVoxelPosition(i);
+            // points.push_back(pt.cast<double>());
+          }
+        }
       }
     }
   }

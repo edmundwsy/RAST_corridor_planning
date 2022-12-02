@@ -137,10 +137,10 @@ bool FakeBaselinePlanner::plan() {
   // a_star_->setMapCenter(odom_pos_);
   auto      t1  = ros::Time::now();
   ASTAR_RET rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_,
-                                  Eigen::Vector3d(0, 0, 0), true, true, 0);
+                                  Eigen::Vector3d(3, 0, 0), true, true, 0);
   if (rst == 0) {
     a_star_->reset();
-    rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_, Eigen::Vector3d(0, 0, 0),
+    rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_, Eigen::Vector3d(3, 0, 0),
                           false, true, 0);
   }
 
@@ -156,32 +156,52 @@ bool FakeBaselinePlanner::plan() {
 
   /*----- Safety Corridor Generation -----*/
 
-  std::vector<Eigen::Vector3d>  route = a_star_->getPath(cfg_.corridor_tau);  // 0.4
+  std::vector<Eigen::Vector3d>  route = a_star_->getPath(cfg_.corridor_tau);  // 0.4 TODO: Debug, always 7
   std::vector<Eigen::MatrixX4d> hPolys;
   std::vector<Eigen::Vector3d>  pc;
   printf("route size: %d \n", route.size());
   // if (route.size() > 4) {
   //   route.erase(route.begin() + 4, route.end());
   // }
+  for (int i = 0; i < route.size(); i++) {
+    std::cout << "route[" << i << "] = " << route[i].transpose() << std::endl;
+  }
 
   t1 = ros::Time::now();
-  // pc.reserve(3000);
-  pc.reserve(1000);
+  pc.reserve(2000);
 
   Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, 0) + odom_pos_;
   Eigen::Vector3d higher_corner = Eigen::Vector3d(5, 4, 3) + odom_pos_;
 
   for (int i = 0; i < route.size() - 1; i++) {
-    Eigen::MatrixX4d hPoly;
-    map_->getObstaclePoints(pc, i * cfg_.corridor_tau, (i + 1) * cfg_.corridor_tau);
+    /* Get a local bounding box */
+    Eigen::Vector3d llc, lhc; /* local lower corner and higher corner */
+    lhc(0) = std::min(std::max(route[i](0), route[i + 1](0)) + cfg_.init_range, higher_corner(0));
+    lhc(1) = std::min(std::max(route[i](1), route[i + 1](1)) + cfg_.init_range, higher_corner(1));
+    lhc(2) = std::min(std::max(route[i](2), route[i + 1](2)) + cfg_.init_range, higher_corner(2));
+    llc(0) = std::max(std::min(route[i](0), route[i + 1](0)) - cfg_.init_range, lower_corner(0));
+    llc(1) = std::max(std::min(route[i](1), route[i + 1](1)) - cfg_.init_range, lower_corner(1));
+    llc(2) = std::max(std::min(route[i](2), route[i + 1](2)) - cfg_.init_range, lower_corner(2));
+    map_->getObstaclePoints(pc, i * cfg_.corridor_tau, (i + 1) * cfg_.corridor_tau, llc, lhc);
+    std::cout << "pc size: " << pc.size() << std::endl;
     // collision_avoider_->getObstaclePoints(pc, 1.0);  // TODO:
-    sfc_gen::genSingleCvxCover(route[i], route[i + 1], pc, lower_corner, higher_corner, 7.0, 1.0,
-                               hPoly);
+
+    Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();
+    bd(0, 0)             = 1;
+    bd(1, 1)             = 1;
+    bd(2, 2)             = 1;
+    bd(3, 0)             = -1;
+    bd(4, 1)             = -1;
+    bd(5, 2)             = -1;
+    bd.block<3, 1>(0, 3) = -lhc;
+    bd.block<3, 1>(3, 3) = llc;
+    Eigen::MatrixX4d hPoly;
+    
+    Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> m_pc(pc[0].data(), 3, pc.size());
+    firi::firi(bd, m_pc, route[i], route[i + 1], hPoly);
     hPolys.push_back(hPoly);
   }
 
-  // sfc_gen::convexCover(route, pc, lower_corner, higher_corner, 7.0, 1.0, hPolys);
-  // sfc_gen::shortCut(hPolys);  /* merge adjacent corridors */
   t2 = ros::Time::now();
   ROS_INFO("Decomps takes: %f ms", (t2 - t1).toSec() * 1000);
   this->showObstaclePoints(pc);

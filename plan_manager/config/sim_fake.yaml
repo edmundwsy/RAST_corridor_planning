@@ -6,12 +6,12 @@ planner:
   max_vel: 3.0
   max_acc: 5.0
   max_differentiated_current_a: 3.0
-  corridor_tau: 0.4
+  corridor_tau: 0.3
 
 fsm:
   goal_tolerance: 2.5
   replan_tolerance: 1.0
-  replan_duration: 1.0
+  replan_duration: 0.5 
 
 search:
   max_tau: 0.6       # Useless
@@ -28,10 +28,11 @@ search:
   check_num: 5
 
 corridor:
+  init_range: 1.0 
   risk_threshold_single_voxel: 0.15 # Useless
   risk_threshold_corridor: 3.0      # Useless
 
-optimizer:
+optimizer:  # Useless
   pos_factor: 0.0
   vel_factor: 0.0
   acc_factor: 0.0
