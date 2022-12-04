@@ -60,7 +60,7 @@ void RiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::Vecto
 void RiskHybridAstar::setEnvironment(const FakeRiskVoxel::Ptr& grid_map) { grid_map_ = grid_map; }
 
 void RiskHybridAstar::setParam(ros::NodeHandle& nh) {
-  nh.param("search/max_tau", max_tau_, -1.0);           /* 每次前向积分的时间，设为地图的时间长度 */ 
+  nh.param("search/max_tau", max_tau_, -1.0); /* 每次前向积分的时间，设为地图的时间长度 */
   nh.param("search/init_max_tau", init_max_tau_, -1.0); /* 按照之前的输入前向积分的时间 */
   nh.param("search/max_vel", max_vel_, -1.0);
   nh.param("search/max_acc", max_acc_, -1.0);
@@ -99,7 +99,7 @@ void RiskHybridAstar::reset() {
 }
 
 /**
- * @brief 
+ * @brief
  * @param start_pt : start position
  * @param start_v  : start velocity
  * @param start_a  : start acceleration
@@ -107,8 +107,8 @@ void RiskHybridAstar::reset() {
  * @param end_v  : end velocity
  * @param init : true if this is the first time to search path
  * @param dynamic : true if the trajectory time is considered
- * @param time_start : start time of the trajectory 
- * @return 
+ * @param time_start : start time of the trajectory
+ * @return
  */
 ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
                                   Eigen::Vector3d start_v,
@@ -171,7 +171,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     bool near_end      = abs(cur_node->getIndex(0) - end_index(0)) <= tolerance_ &&
                     abs(cur_node->getIndex(1) - end_index(1)) <= tolerance_ &&
                     abs(cur_node->getIndex(2) - end_index(2)) <= tolerance_;
-    bool exceed_time = cur_node->time >= 1.2; // TODO
+    bool exceed_time = cur_node->time >= 1.2;  // TODO
 
     /* If ReachGoal(n_c) or AnalyticExpand(n_c_) */
     if (reach_horizon || near_end || exceed_time) {
@@ -291,7 +291,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
         for (int k = 1; k <= check_num_; ++k) {
           double dt = tau * double(k) / double(check_num_);
           stateTransit(cur_state, xt, um, dt);
-          pos = xt.head(3);
+          pos      = xt.head(3);
           double t = cur_node->time + dt;
           // std::cout << "pos:" << pos.transpose() << " t: " << t << std::endl;
           if (grid_map_->getInflateOccupancy(pos - map_center_, t) == 1) {
@@ -568,6 +568,11 @@ std::vector<double> RiskHybridAstar::quartic(double a, double b, double c, doubl
   return dts;
 }
 
+/**
+ * @brief
+ * @param delta_t : sample time
+ * @return
+ */
 std::vector<Eigen::Vector3d> RiskHybridAstar::getPath(double delta_t) {
   std::vector<Eigen::Vector3d> state_list;
 
@@ -575,17 +580,41 @@ std::vector<Eigen::Vector3d> RiskHybridAstar::getPath(double delta_t) {
   PathNodePtr                 node = node_path_.back();  // TODO 0??
   Eigen::Matrix<double, 6, 1> x0, xt;
 
+  double t_counter = 0;
+  double t_node    = 0;        // time to next node
+  double t_sample  = delta_t;  // time to next sample
+  state_list.push_back(node->state.head(3));
   while (node->getParent() != NULL) {
     Eigen::Vector3d ut       = node->input;
     double          duration = node->duration;
     x0                       = node->getParent()->state;
-    for (double t = duration; t >= 1e-5; t -= delta_t) {
-      stateTransit(x0, xt, ut, t);
+    t_node                   = duration;
+    while (true) {
+      if (t_sample > t_node) {  // can't sample in this node
+        node = node->getParent();
+        t_sample -= t_node;
+        break;
+      }
+      t_node -= t_sample;
+      stateTransit(x0, xt, ut, t_node);  // backward
       state_list.push_back(xt.head(3));
+      t_sample = delta_t;  // update time to next sample
     }
-    node = node->getParent();
   }
-  state_list.push_back(node->state.head(3));
+  // while (node->getParent() != NULL) {  // sample from the terminal node
+  //   Eigen::Vector3d ut       = node->input;
+  //   double          duration = node->duration;
+  //   x0                       = node->getParent()->state;
+  //   for (double t = duration; t >= 1e-5; t -= delta_t) {
+  //     stateTransit(x0, xt, ut, t);
+  //     state_list.push_back(xt.head(3));
+  //     t_sample = delta_t;
+  //     t_counter += delta_t;
+  //     std::cout << "t: " << t_counter << " x: " << xt.transpose() << std::endl;
+  //   }
+  //   node = node->getParent();
+  // }
+  // state_list.push_back(node->state.head(3));
   reverse(state_list.begin(), state_list.end());
   /* ---------- get traj of one shot ---------- */
   if (is_shot_succ_) {
@@ -605,6 +634,43 @@ std::vector<Eigen::Vector3d> RiskHybridAstar::getPath(double delta_t) {
     }
   }
 
+  return state_list;
+}
+
+/**
+ * @brief
+ * @param delta_t : sample time
+ * @return
+ */
+std::vector<Eigen::Matrix<double, 6, 1>> RiskHybridAstar::getPathWithVel(double delta_t) {
+  std::vector<Eigen::Matrix<double, 6, 1>> state_list;
+
+  /* ---------- get traj of searching ---------- */
+  PathNodePtr                 node = node_path_.back();  // TODO 0??
+  Eigen::Matrix<double, 6, 1> x0, xt;
+
+  double t_counter = 0;
+  double t_node    = 0;        // time to next node
+  double t_sample  = delta_t;  // time to next sample
+  state_list.push_back(node->state);
+  while (node->getParent() != NULL) {
+    Eigen::Vector3d ut       = node->input;
+    double          duration = node->duration;
+    x0                       = node->getParent()->state;
+    t_node                   = duration;
+    while (true) {
+      if (t_sample > t_node) {  // can't sample in this node, skip to next
+        node = node->getParent();
+        t_sample -= t_node;
+        break;
+      }
+      t_node -= t_sample;
+      stateTransit(x0, xt, ut, t_node);  // backward
+      state_list.push_back(xt);
+      t_sample = delta_t;  // update time to next sample
+    }
+  }
+  reverse(state_list.begin(), state_list.end());
   return state_list;
 }
 
@@ -718,8 +784,8 @@ int RiskHybridAstar::timeToIndex(double time) {
 }
 
 /**
- * @brief 
- * @param state0: current state 
+ * @brief
+ * @param state0: current state
  * @param state1: propagated state (next state)
  * @param um    : control input
  * @param tau   : time duration

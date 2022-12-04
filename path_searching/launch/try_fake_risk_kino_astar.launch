@@ -25,7 +25,7 @@
     <param name="init_z" value="$(arg init_z)" />
     <param name="vel_x" value="$(arg vel_x)" />
     <param name="vel_y" value="$(arg vel_y)" />
-    <param name="vel_z" value="$(arg vel_z)" /
+    <param name="vel_z" value="$(arg vel_z)" />
 
     <remap from="~map/odom" to="/odom" />
     <remap from="~map/cloud" to="/local_cloud" />
@@ -48,7 +48,8 @@
     <param name="search/lambda_heu" value="5.0" type="double"/>
     <param name="search/resolution_astar" value="0.1" type="double"/>
     <param name="search/time_resolution" value="0.2" type="double"/>
-    <param name="search/margin" value="0.2" type="double"/>  <!-- TODO -->
+    <param name="sample_duration" value="0.2" type="double"/>
+    <param name="search/margin" value="0.4" type="double"/>  <!-- TODO -->
     <param name="search/allocate_num" value="100000" type="int"/>
     <param name="search/check_num" value="5" type="int"/>
   </node>

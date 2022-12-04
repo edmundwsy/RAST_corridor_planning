@@ -32,6 +32,7 @@ Eigen::Vector3d              end_vel_   = Eigen::Vector3d::Zero();
 Eigen::Vector3d              start_acc_ = Eigen::Vector3d::Zero();
 Eigen::Vector3d              end_acc_   = Eigen::Vector3d::Zero();
 std::vector<Eigen::Vector3d> path_;
+double                       sample_duration_ = 0.2;
 
 void visualizePath(const std::vector<Eigen::Vector3d> &path) {
   visualization_msgs::Marker marker;
@@ -100,13 +101,13 @@ void visualizeTemporalPath(const std::vector<Eigen::Vector3d> &path, double dt) 
       pt.y = last.y();
       pt.z = t;
       marker.points.push_back(pt);
+      t += dt;
       last = p;
       pt.x = last.x();
       pt.y = last.y();
-      pt.z = t + dt;
+      pt.z = t;
       marker.points.push_back(pt);
     }
-    t += dt;
   }
   t_path_pub_.publish(marker);
 }
@@ -128,10 +129,14 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   }
 
   if (rst > 2) {
-    path_ = a_star_->getPath(0.1);
+    path_ = a_star_->getPath(sample_duration_);
     std::cout << "Path size: " << path_.size() << std::endl;
+    int i = 0;
+    for (const auto &p : path_) {
+      std::cout << "t: " << (i++)*sample_duration_ << ": " << p.transpose() << std::endl;
+    }
     visualizePath(path_);
-    visualizeTemporalPath(path_, 0.1);
+    visualizeTemporalPath(path_, sample_duration_);
   } else {
     ROS_WARN("Failed to find path!");
   }
@@ -157,6 +162,7 @@ int main(int argc, char **argv) {
   nh.getParam("vel_z", start_vel_(2));
   ROS_INFO("Start velocity: (%f, %f, %f)", start_vel_(0), start_vel_(1), start_vel_(2));
 
+  nh.getParam("sample_duration", sample_duration_);
 
   grid_map_.reset(new FakeRiskVoxel());
   grid_map_->init(nh);
