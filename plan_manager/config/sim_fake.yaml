@@ -6,12 +6,12 @@ planner:
   max_vel: 3.0
   max_acc: 5.0
   max_differentiated_current_a: 3.0
-  corridor_tau: 0.3
+  corridor_tau: 0.4
 
 fsm:
   goal_tolerance: 2.5
   replan_tolerance: 1.0
-  replan_duration: 0.5 
+  replan_duration: 0.10 
 
 search:
   max_tau: 0.6       # Useless
@@ -19,11 +19,11 @@ search:
   max_vel: 3
   max_acc: 3
   w_time: 10.0
-  horizon: 4.0
+  horizon: 3.0
   lambda_heu: 5.0
   resolution_astar: 0.1
   time_resolution: 0.2
-  margin: 0.2
+  margin: 0.4
   allocate_num: 100000
   check_num: 5
 

@@ -174,8 +174,8 @@ bool FakeBaselinePlanner::plan() {
   t1 = ros::Time::now();
   pc.reserve(2000);
 
-  Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, 0) + odom_pos_;
-  Eigen::Vector3d higher_corner = Eigen::Vector3d(4, 4, 3) + odom_pos_;
+  Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, -1) + odom_pos_;
+  Eigen::Vector3d higher_corner = Eigen::Vector3d(4, 4, 1) + odom_pos_;
 
   for (int i = 0; i < route.size() - 1; i++) {
     /* Get a local bounding box */
@@ -189,22 +189,21 @@ bool FakeBaselinePlanner::plan() {
 
     map_->getObstaclePoints(pc, i * cfg_.corridor_tau, (i + 1) * cfg_.corridor_tau, llc, lhc);
     // map_->getObstaclePoints(pc, 0, 1.2);
-    std::cout << "t: " << i * cfg_.corridor_tau << " | " << (i + 1) * cfg_.corridor_tau
-              << std::endl;
-    std::cout << "pc size: " << pc.size() << std::endl;
-    // collision_avoider_->getObstaclePoints(pc, 1.0);  // TODO:
+    // std::cout << "t: " << i * cfg_.corridor_tau << " | " << (i + 1) * cfg_.corridor_tau
+    //           << std::endl;
+    // std::cout << "pc size: " << pc.size() << std::endl;
+    collision_avoider_->getObstaclePoints(pc, 1.0);  // TODO:
 
     Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();  // initial corridor
-    bd(0, 0)                       = 1;
-    bd(1, 1)                       = 1;
-    bd(2, 2)                       = 1;
-    bd(3, 0)                       = -1;
-    bd(4, 1)                       = -1;
-    bd(5, 2)                       = -1;
+    bd(0, 0)                       = 1.0;
+    bd(1, 1)                       = 1.0;
+    bd(2, 2)                       = 1.0;
+    bd(3, 0)                       = -1.0;
+    bd(4, 1)                       = -1.0;
+    bd(5, 2)                       = -1.0;
     bd.block<3, 1>(0, 3)           = -lhc;
     bd.block<3, 1>(3, 3)           = llc;
-    Eigen::MatrixX4d hPoly;
-
+    Eigen::MatrixX4d                                                hPoly;
     Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> m_pc(pc[0].data(), 3,
                                                                          pc.size());
     firi::firi(bd, m_pc, route[i], route[i + 1], hPoly);
@@ -233,7 +232,7 @@ bool FakeBaselinePlanner::plan() {
   init_state.row(0)  = odom_pos_;
   init_state.row(1)  = odom_vel_;
   init_state.row(2)  = odom_acc_;
-  final_state.row(0) = local_goal_pos;  
+  final_state.row(0) = local_goal_pos;
   final_state.row(1) = local_goal_vel;
   final_state.row(2) = Eigen::Vector3d(0, 0, 0);
 
