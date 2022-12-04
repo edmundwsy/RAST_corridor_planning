@@ -50,7 +50,7 @@ struct BaselineParameters {
   bool  sample_z_acc     = true;
 
   float a_star_acc_sample_step = 2.f;
-  float corridor_tau           = 0.4f; /* time span for corridor generation */
+  double corridor_tau           = 0.4f; /* time span for corridor generation */
   float expand_safety_distance = 0.2f;
 
   float risk_threshold_motion_primitive = 0.15;

@@ -133,14 +133,14 @@ bool FakeBaselinePlanner::plan() {
   ROS_INFO("Planning...");
 
   /*----- Path Searching on DSP Static -----*/
+  std::cout << "/*----- Path Searching on DSP Static -----*/" << std::endl;
   a_star_->reset();
-  // a_star_->setMapCenter(odom_pos_);
   auto      t1  = ros::Time::now();
   ASTAR_RET rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_,
-                                  Eigen::Vector3d(3, 0, 0), true, true, 0);
+                                  Eigen::Vector3d(0, 0, 0), true, true, 0);
   if (rst == 0) {
     a_star_->reset();
-    rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_, Eigen::Vector3d(3, 0, 0),
+    rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_, Eigen::Vector3d(0, 0, 0),
                           false, true, 0);
   }
 
@@ -155,15 +155,19 @@ bool FakeBaselinePlanner::plan() {
   showAstarPath();
 
   /*----- Safety Corridor Generation -----*/
-
-  std::vector<Eigen::Vector3d>  route = a_star_->getPath(cfg_.corridor_tau);  // 0.4 TODO: Debug, always 7
+  std::cout << "/*----- Safety Corridor Generation -----*/" << std::endl;
+  std::vector<Eigen::Matrix<double, 6, 1>> route_vel = a_star_->getPathWithVel(cfg_.corridor_tau);
+  // std::vector<Eigen::Vector3d>             route     = a_star_->getPath(cfg_.corridor_tau);
+  std::vector<Eigen::Vector3d>  route;
   std::vector<Eigen::MatrixX4d> hPolys;
   std::vector<Eigen::Vector3d>  pc;
+
+  route.resize(route_vel.size()); /* copy route_vel to route */
+
   printf("route size: %d \n", route.size());
-  // if (route.size() > 4) {
-  //   route.erase(route.begin() + 4, route.end());
-  // }
+  std::cout << "pos: " << odom_pos_.transpose() << std::endl;
   for (int i = 0; i < route.size(); i++) {
+    route[i] = route_vel[i].head(3);
     std::cout << "route[" << i << "] = " << route[i].transpose() << std::endl;
   }
 
@@ -171,7 +175,7 @@ bool FakeBaselinePlanner::plan() {
   pc.reserve(2000);
 
   Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, 0) + odom_pos_;
-  Eigen::Vector3d higher_corner = Eigen::Vector3d(5, 4, 3) + odom_pos_;
+  Eigen::Vector3d higher_corner = Eigen::Vector3d(4, 4, 3) + odom_pos_;
 
   for (int i = 0; i < route.size() - 1; i++) {
     /* Get a local bounding box */
@@ -182,38 +186,45 @@ bool FakeBaselinePlanner::plan() {
     llc(0) = std::max(std::min(route[i](0), route[i + 1](0)) - cfg_.init_range, lower_corner(0));
     llc(1) = std::max(std::min(route[i](1), route[i + 1](1)) - cfg_.init_range, lower_corner(1));
     llc(2) = std::max(std::min(route[i](2), route[i + 1](2)) - cfg_.init_range, lower_corner(2));
+
     map_->getObstaclePoints(pc, i * cfg_.corridor_tau, (i + 1) * cfg_.corridor_tau, llc, lhc);
+    // map_->getObstaclePoints(pc, 0, 1.2);
+    std::cout << "t: " << i * cfg_.corridor_tau << " | " << (i + 1) * cfg_.corridor_tau
+              << std::endl;
     std::cout << "pc size: " << pc.size() << std::endl;
     // collision_avoider_->getObstaclePoints(pc, 1.0);  // TODO:
 
-    Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();
-    bd(0, 0)             = 1;
-    bd(1, 1)             = 1;
-    bd(2, 2)             = 1;
-    bd(3, 0)             = -1;
-    bd(4, 1)             = -1;
-    bd(5, 2)             = -1;
-    bd.block<3, 1>(0, 3) = -lhc;
-    bd.block<3, 1>(3, 3) = llc;
+    Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();  // initial corridor
+    bd(0, 0)                       = 1;
+    bd(1, 1)                       = 1;
+    bd(2, 2)                       = 1;
+    bd(3, 0)                       = -1;
+    bd(4, 1)                       = -1;
+    bd(5, 2)                       = -1;
+    bd.block<3, 1>(0, 3)           = -lhc;
+    bd.block<3, 1>(3, 3)           = llc;
     Eigen::MatrixX4d hPoly;
-    
-    Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> m_pc(pc[0].data(), 3, pc.size());
+
+    Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> m_pc(pc[0].data(), 3,
+                                                                         pc.size());
     firi::firi(bd, m_pc, route[i], route[i + 1], hPoly);
     hPolys.push_back(hPoly);
   }
 
   t2 = ros::Time::now();
-  ROS_INFO("Decomps takes: %f ms", (t2 - t1).toSec() * 1000);
+  ROS_INFO("Generate %i corridors in %f ms", hPolys.size(), (t2 - t1).toSec() * 1000);
   this->showObstaclePoints(pc);
   visualizer_->visualizePolytope(hPolys);
 
   /*----- Trajectory Optimization -----*/
-
+  std::cout << "/*----- Trajectory Optimization -----*/" << std::endl;
   std::cout << "hPolys size: " << hPolys.size() << std::endl;
   // std::cout << "route size: " << route.size() << std::endl;
 
   /* Goal position and time allocation */
-  Eigen::Vector3d     local_goal = route[route.size() - 1];
+  Eigen::Vector3d local_goal_pos = route_vel[route_vel.size() - 1].head(3);
+  Eigen::Vector3d local_goal_vel = route_vel[route_vel.size() - 1].tail(3);
+
   std::vector<double> time_alloc;
   time_alloc.resize(hPolys.size(), cfg_.corridor_tau);
   std::cout << "time_alloc size: " << time_alloc.size() << std::endl;
@@ -222,14 +233,14 @@ bool FakeBaselinePlanner::plan() {
   init_state.row(0)  = odom_pos_;
   init_state.row(1)  = odom_vel_;
   init_state.row(2)  = odom_acc_;
-  final_state.row(0) = local_goal;  // TODO(@Oct 30): use distance to select the goal
-  final_state.row(1) = Eigen::Vector3d(0, 0, 0);
+  final_state.row(0) = local_goal_pos;  
+  final_state.row(1) = local_goal_vel;
   final_state.row(2) = Eigen::Vector3d(0, 0, 0);
 
   // std::cout << "init_state: " << init_state << std::endl;
   // std::cout << "final_state: " << final_state << std::endl;
   visualizer_->visualizeStartGoal(odom_pos_);
-  visualizer_->visualizeStartGoal(local_goal);
+  visualizer_->visualizeStartGoal(local_goal_pos);
 
   t1 = ros::Time::now();
   traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.opt_max_vel,
