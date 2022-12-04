@@ -65,6 +65,7 @@ class FakeRiskVoxel : public RiskVoxel {
   inline Eigen::Vector3f getVoxelPosition(int index);
 
  private:
+  bool is_publish_spatio_temporal_map_;
   float resolution_;
   float time_resolution_;
   /* ROS Utilities */

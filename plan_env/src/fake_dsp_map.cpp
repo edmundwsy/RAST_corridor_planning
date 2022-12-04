@@ -28,6 +28,7 @@ void FakeRiskVoxel::init(ros::NodeHandle &nh) {
   nh_.param("map/risk_threshold", risk_threshold_, 0.2F);
   nh_.param("map/static_clearance", clearance_, 0.3F);
   nh_.param("map/time_resolution", time_resolution_, 0.2F);
+  nh_.param("map/publish_spatio_temporal", is_publish_spatio_temporal_map_, false);
 
   resolution_           = 0.1F;
   local_update_range_x_ = MAP_LENGTH_VOXEL_NUM / 2 * resolution_;
@@ -216,23 +217,30 @@ int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, double t) {
 void FakeRiskVoxel::pubCallback(const ros::TimerEvent &event) {
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
   cloud->points.reserve(VOXEL_NUM);
-  for (int i = 0; i < VOXEL_NUM; i++) {
-    Eigen::Vector3f pt = getVoxelPosition(i);
-    pcl::PointXYZ   p;
-    for (int j = 0; j < PREDICTION_TIMES; j++) {
-      if (risk_maps_[i][j] > risk_threshold_) {
+  if (is_publish_spatio_temporal_map_) {
+    for (int i = 0; i < VOXEL_NUM; i++) {
+      Eigen::Vector3f pt = getVoxelPosition(i);
+      pcl::PointXYZ   p;
+      for (int j = 0; j < PREDICTION_TIMES; j++) {
+        if (risk_maps_[i][j] > risk_threshold_) {
+          p.x = pt[0];
+          p.y = pt[1];
+          p.z = j * time_resolution_;
+          cloud->points.push_back(p);
+        }
+      }
+    }
+  } else {
+    for (int i = 0; i < VOXEL_NUM; i++) {
+      Eigen::Vector3f pt = getVoxelPosition(i);
+      pcl::PointXYZ   p;
+      if (risk_maps_[i][0] > risk_threshold_) {
         p.x = pt[0];
         p.y = pt[1];
-        p.z = j * time_resolution_;
+        p.z = pt[2];
         cloud->points.push_back(p);
       }
     }
-    // if (risk_maps_[i][3] > risk_threshold_) {
-    //   p.x = pt[0];
-    //   p.y = pt[1];
-    //   p.z = pt[2];
-    //   cloud->points.push_back(p);
-    // }
   }
 
   sensor_msgs::PointCloud2 cloud_msg;
@@ -284,23 +292,22 @@ void FakeRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
   points.clear();
   int idx_start = floor(t_start / time_resolution_);
   int idx_end   = ceil(t_end / time_resolution_);
-  int lx        = (lower_corner[0] + local_update_range_x_) / resolution_;
-  int ly        = (lower_corner[1] + local_update_range_y_) / resolution_;
-  int lz        = (lower_corner[2] + local_update_range_z_) / resolution_;
-  int hx        = (higher_corner[0] + local_update_range_x_) / resolution_;
-  int hy        = (higher_corner[1] + local_update_range_y_) / resolution_;
-  int hz        = (higher_corner[2] + local_update_range_z_) / resolution_;
+  int lx        = (lower_corner[0] - pose_.x() + local_update_range_x_) / resolution_;
+  int ly        = (lower_corner[1] - pose_.y() + local_update_range_y_) / resolution_;
+  int lz        = (lower_corner[2] - pose_.z() + local_update_range_z_) / resolution_;
+  int hx        = (higher_corner[0] - pose_.x() + local_update_range_x_) / resolution_;
+  int hy        = (higher_corner[1] - pose_.y() + local_update_range_y_) / resolution_;
+  int hz        = (higher_corner[2] - pose_.z() + local_update_range_z_) / resolution_;
 
-  hx                 = std::min(hx, MAP_LENGTH_VOXEL_NUM - 1);
-  hy                 = std::min(hy, MAP_WIDTH_VOXEL_NUM - 1);
-  hz                 = std::min(hz, MAP_HEIGHT_VOXEL_NUM - 1);
-  Eigen::Vector3i hi = getVoxelRelIndex(higher_corner.cast<float>());
+  hx = std::min(hx, MAP_LENGTH_VOXEL_NUM - 1);
+  hy = std::min(hy, MAP_WIDTH_VOXEL_NUM - 1);
+  hz = std::min(hz, MAP_HEIGHT_VOXEL_NUM - 1);
 
-  for (int j = idx_start; j < idx_end; j++) {
-    for (int z = lz; z <= hz; z++) {
-      for (int y = ly; y <= hy; y++) {
-        for (int x = lx; x <= hx; x++) {
-          int i = x + y * MAP_LENGTH_VOXEL_NUM + z * MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM;
+  for (int z = lz; z <= hz; z++) {
+    for (int y = ly; y <= hy; y++) {
+      for (int x = lx; x <= hx; x++) {
+        int i = x + y * MAP_LENGTH_VOXEL_NUM + z * MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM;
+        for (int j = idx_start; j < idx_end; j++) {  // TODO: debug
           if (risk_maps_[i][j] > risk_threshold_) {
             Eigen::Vector3d pt = Eigen::Vector3d(x * resolution_ - local_update_range_x_,
                                                  y * resolution_ - local_update_range_y_,
