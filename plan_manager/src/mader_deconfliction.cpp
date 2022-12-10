@@ -101,13 +101,14 @@ void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg)
  * @param t prediction horizon
  */
 void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double horizon) {
-  ros::Time t_start = ros::Time::now();
+  ros::Time t_start = ros::Time::now() + ros::Duration(0.1);
   ros::Time t_end   = t_start + ros::Duration(horizon);
   for (int i = 0; i < num_robots_ - 1; i++) { /* iterate all robots in the buffer */
     SwarmTraj traj;
     while (!swarm_trajs_[i].empty()) {
       traj = swarm_trajs_[i].front();
-
+      ROS_INFO("t_start: 0 , t_end: %f | traj: (%f, %f)", t_end.toSec() - t_start.toSec(),
+               traj.time_start.toSec() - t_start.toSec(), traj.time_end.toSec() - t_start.toSec());
       /* If trajectory ends earlier */
       if (t_start > traj.time_end) {
         swarm_trajs_[i].pop();
@@ -119,8 +120,16 @@ void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double horizon)
         for (int j = 0; j < traj.control_points.rows(); j++) {
           pts.push_back(traj.control_points.row(j));
         }
+        /* Access the last traj in the queue */
+        traj = swarm_trajs_[i].back();
+        ROS_INFO("t_start: 0 , t_end: %f | traj: (%f, %f)", t_end.toSec() - t_start.toSec(),
+                 traj.time_start.toSec() - t_start.toSec(),
+                 traj.time_end.toSec() - t_start.toSec());
+        for (int j = 0; j < traj.control_points.rows(); j++) {
+          pts.push_back(traj.control_points.row(j));
+        }
+        break;
       }
-      break;
     }
   }
 }

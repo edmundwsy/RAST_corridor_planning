@@ -38,7 +38,7 @@ void RiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::Vecto
   /* ---------- map params ---------- */
   this->inv_resolution_ = 1.0 / resolution_;
   inv_time_resolution_  = 1.0 / time_resolution_;
-  tolerance_            = ceil(inv_resolution_);
+  // tolerance_            = ceil(inv_resolution_);
 
   map_center_ = map_center;
   map_size_   = map_size;
@@ -72,6 +72,7 @@ void RiskHybridAstar::setParam(ros::NodeHandle& nh) {
   nh.param("search/allocate_num", allocate_num_, -1);
   nh.param("search/check_num", check_num_, -1);
   nh.param("search/optimistic", optimistic_, true);
+  nh.param("search/tolerance", tolerance_, 1); /* 终点误差容忍度 */
   tie_breaker_ = 1.0 + 1.0 / 10000;
 
   double vel_margin;
@@ -169,8 +170,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     std::cout << "cur_node->state: " << cur_node->state.transpose() << std::endl;
     bool reach_horizon = (cur_node->state.head(3) - start_pt).norm() >= horizon_;
     bool near_end      = abs(cur_node->getIndex(0) - end_index(0)) <= tolerance_ &&
-                    abs(cur_node->getIndex(1) - end_index(1)) <= tolerance_ &&
-                    abs(cur_node->getIndex(2) - end_index(2)) <= tolerance_;
+                    abs(cur_node->getIndex(1) - end_index(1)) <= tolerance_;
     bool exceed_time = cur_node->time >= 1.2;  // TODO
 
     /* If ReachGoal(n_c) or AnalyticExpand(n_c_) */
