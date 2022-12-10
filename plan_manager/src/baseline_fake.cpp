@@ -192,7 +192,7 @@ bool FakeBaselinePlanner::plan() {
     // std::cout << "t: " << i * cfg_.corridor_tau << " | " << (i + 1) * cfg_.corridor_tau
     //           << std::endl;
     // std::cout << "pc size: " << pc.size() << std::endl;
-    collision_avoider_->getObstaclePoints(pc, 1.0);  // TODO:
+    collision_avoider_->getObstaclePoints(pc, 1.0);
 
     Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();  // initial corridor
     bd(0, 0)                       = 1.0;
@@ -267,4 +267,5 @@ bool FakeBaselinePlanner::plan() {
   }
   t2 = ros::Time::now();
   ROS_INFO("MADER takes: %f ms", (t2 - t1).toSec() * 1000);
+  traj_start_time_ = ros::Time::now();
 }
