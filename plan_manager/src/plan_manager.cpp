@@ -44,8 +44,7 @@ void FiniteStateMachine::run() {
 
   _status = FSM_STATUS::INIT; /* Initialize state machine */
   ROS_INFO("[FSM] Initialization complete");
-  _fsm_timer =
-      _nh.createTimer(ros::Duration(_cfgs.replan_duration), &FiniteStateMachine::FSMCallback, this);
+  _fsm_timer = _nh.createTimer(ros::Duration(0.1), &FiniteStateMachine::FSMCallback, this);
 }
 
 /** ***********************************************************************************************
@@ -123,7 +122,7 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
         // } else if (isGoalReached(_planner->getPos())) {
         //   FSMChangeState(FSM_STATUS::GOAL_REACHED);
         // }
-        if (checkTimeLapse(1.0)) {
+        if (checkTimeLapse(_cfgs.replan_duration)) {
           FSMChangeState(FSM_STATUS::REPLAN);
         }
 
@@ -241,7 +240,7 @@ void FiniteStateMachine::TriggerCallback(const geometry_msgs::PoseStampedPtr& ms
       ROS_INFO("[FSM] Existing waypoints: %f, %f, %f", _goal.x(), _goal.y(), _goal.z());
       ROS_INFO("[FSM] remaining waypoints: %d", (int)_waypoints.size());
     }
-      _is_goal_received = true;
+    _is_goal_received = true;
   }
 }
 

@@ -30,6 +30,9 @@ struct SwarmTraj {
   Eigen::MatrixX3d control_points;
 };
 
+// we should give some hyperparameter to control the size of the cube
+// Assume our robot is homogenous, i.e. all robots have the same size
+
 class MADER {
  public:
   /* constructor */
@@ -41,7 +44,13 @@ class MADER {
   void reset();
   void trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg);
   bool isSafeAfterOpt(const Bernstein::Bezier &traj);
-  bool isSafeAfterChk() { return !have_received_traj_while_checking_; }
+  bool isSafeAfterChk() {
+    if (have_received_traj_while_checking_) {
+      have_received_traj_while_checking_ = false;  // reset
+      return false;
+    }
+    return true;
+  }
   bool updateTrajObstacles(/* arguments */);
   void getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double t);
 

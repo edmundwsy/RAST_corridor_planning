@@ -131,6 +131,7 @@ void FakeBaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>&
 
 bool FakeBaselinePlanner::plan() {
   ROS_INFO("Planning...");
+  ros::Time t0 = ros::Time::now();
 
   /*----- Path Searching on DSP Static -----*/
   std::cout << "/*----- Path Searching on DSP Static -----*/" << std::endl;
@@ -171,12 +172,12 @@ bool FakeBaselinePlanner::plan() {
     std::cout << "route[" << i << "] = " << route[i].transpose() << std::endl;
   }
 
-  t1 = ros::Time::now();
   pc.reserve(2000);
 
   Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, -1) + odom_pos_;
   Eigen::Vector3d higher_corner = Eigen::Vector3d(4, 4, 1) + odom_pos_;
 
+  t1 = ros::Time::now();
   for (int i = 0; i < route.size() - 1; i++) {
     /* Get a local bounding box */
     Eigen::Vector3d llc, lhc; /* local lower corner and higher corner */
@@ -206,7 +207,11 @@ bool FakeBaselinePlanner::plan() {
     Eigen::MatrixX4d                                                hPoly;
     Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> m_pc(pc[0].data(), 3,
                                                                          pc.size());
-    firi::firi(bd, m_pc, route[i], route[i + 1], hPoly);
+
+    ros::Time t3 = ros::Time::now();
+    firi::firi(bd, m_pc, route[i], route[i + 1], hPoly, 2);
+    ros::Time t4 = ros::Time::now();
+    ROS_INFO("FIRI time used: %f ms", (t4 - t3).toSec() * 1000);
     hPolys.push_back(hPoly);
   }
 
@@ -263,9 +268,12 @@ bool FakeBaselinePlanner::plan() {
   }
   if (!collision_avoider_->isSafeAfterChk()) {
     ROS_ERROR("Trajectory commited while checking!");
+    t2 = ros::Time::now();
+    ROS_INFO("MADER takes: %f ms", (t2 - t1).toSec() * 1000);
     return false;
   }
   t2 = ros::Time::now();
   ROS_INFO("MADER takes: %f ms", (t2 - t1).toSec() * 1000);
+  ROS_INFO("Trajectory planning takes: %f ms", (t2 - t0).toSec() * 1000);
   traj_start_time_ = ros::Time::now();
 }

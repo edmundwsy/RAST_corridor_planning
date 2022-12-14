@@ -40,16 +40,18 @@ void MADER::init() {
  * @param traj_msg
  */
 void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg) {
-  if (is_checking_) {
-    have_received_traj_while_checking_ = true;
-  } else {
-    have_received_traj_while_optimizing_ = false;
-  }
   int id = traj_msg->drone_id;
 
   /* filter out ego trajectories */
   if (id == drone_id_) {
     return;
+  }
+
+  if (is_checking_) {
+    have_received_traj_while_checking_ = true;
+    ROS_INFO("Received traj from agent %i while checking agent %i", id, drone_id_);
+  } else {
+    have_received_traj_while_optimizing_ = false;
   }
 
   int k = traj_id_to_index_[id];
@@ -125,9 +127,8 @@ void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double horizon)
         ROS_INFO("t_start: 0 , t_end: %f | traj: (%f, %f)", t_end.toSec() - t_start.toSec(),
                  traj.time_start.toSec() - t_start.toSec(),
                  traj.time_end.toSec() - t_start.toSec());
-        for (int j = 0; j < traj.control_points.rows(); j++) {
-          pts.push_back(traj.control_points.row(j));
-        }
+        Eigen::MatrixXd cpts;
+        loadVertices(pts, cpts);
         break;
       }
     }
@@ -173,10 +174,11 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
     }
 
     Eigen::MatrixXd cpts = swarm_trajs_[k].front().control_points;
-    for (int i = 0; i < cpts.rows(); i++) {
+    loadVertices(pointsB, cpts);
+    /* for (int i = 0; i < cpts.rows(); i++) {
       pointsB.push_back(cpts.row(i));
     }
-
+    */
     if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
       ROS_WARN("Drone %d will collides with drone %d", drone_id_, k);
       is_checking_ = false;
@@ -187,3 +189,15 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
   is_checking_ = false;
   return true;
 }
+
+/**
+ */
+void MADER::loadVertices(std::vector<Eigen::Vector3d> &pts, Eigen::MatrixXd &cpts) {
+  for (int i = 0; i < cpts.rows(); i++) {
+    /* Add trajectory control point */
+    Eigen::Vector3d pt = cpts.row(i);
+    // pts.push_back(pt);
+    for (int j = 0; j < 8; j++) {
+      pts.push_back(pt + ego_cube_.col(j));
+    }
+  }
