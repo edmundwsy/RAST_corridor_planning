@@ -53,6 +53,13 @@ class MADER {
   }
   bool updateTrajObstacles(/* arguments */);
   void getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double t);
+  /**
+   * @brief input vertices of trajectory convex hull, get Minkowski sum of the convex
+   * hull and ego polytope, and push these vertices into the buffer `pts`
+   * @param pts : points buffer
+   * @param cpts: control points (vertices of trajectory convex hull)
+   */
+  void loadVertices(std::vector<Eigen::Vector3d> &pts, Eigen::MatrixXd &cpts);
 
   typedef std::shared_ptr<MADER> Ptr;
 
@@ -69,8 +76,13 @@ class MADER {
   bool is_traj_safe_;
   bool is_checking_;
 
-  int drone_id_;
-  int num_robots_;
+  int    drone_id_;
+  int    num_robots_;
+  double drone_size_x_;
+  double drone_size_y_;
+  double drone_size_z_;
+
+  Eigen::Matrix<double, 3, 8> ego_cube_; /* Eight vertices of the ego cube */
 
   separator::Separator *separator_solver_;
 };

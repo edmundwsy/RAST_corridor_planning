@@ -16,14 +16,28 @@ void MADER::init() {
 
   swarm_sub_ = nh_.subscribe("/broadcast_traj", 1, &MADER::trajectoryCallback, this);
   nh_.param("drone_id", drone_id_, 0);
-  nh_.param("swarm/num_robots", num_robots_, 3);  // TODO(1): dynamic reconfigure
+  nh_.param("swarm/num_robots", num_robots_, 3);
+  nh_.param("swarm/drone_size_x", drone_size_x_, 0.3);
+  nh_.param("swarm/drone_size_y", drone_size_y_, 0.3);
+  nh_.param("swarm/drone_size_z", drone_size_z_, 0.4);  // avoid z-axis wind effect
 
+  /* Initialize Booleans */
   is_checking_                         = false;
   have_received_traj_while_checking_   = false;
   have_received_traj_while_optimizing_ = false;
 
   swarm_trajs_.resize(num_robots_ - 1);
   traj_id_to_index_.clear();
+
+  /* Pre-allocate Ego Cube */
+  ego_cube_.col(0) = Eigen::Vector3d(drone_size_x_ / 2, drone_size_y_ / 2, drone_size_z_ / 2);
+  ego_cube_.col(1) = Eigen::Vector3d(drone_size_x_ / 2, -drone_size_y_ / 2, drone_size_z_ / 2);
+  ego_cube_.col(2) = Eigen::Vector3d(drone_size_x_ / 2, drone_size_y_ / 2, -drone_size_z_ / 2);
+  ego_cube_.col(3) = Eigen::Vector3d(drone_size_x_ / 2, -drone_size_y_ / 2, -drone_size_z_ / 2);
+  ego_cube_.col(4) = Eigen::Vector3d(-drone_size_x_ / 2, drone_size_y_ / 2, drone_size_z_ / 2);
+  ego_cube_.col(5) = Eigen::Vector3d(-drone_size_x_ / 2, -drone_size_y_ / 2, drone_size_z_ / 2);
+  ego_cube_.col(6) = Eigen::Vector3d(-drone_size_x_ / 2, drone_size_y_ / 2, -drone_size_z_ / 2);
+  ego_cube_.col(7) = Eigen::Vector3d(-drone_size_x_ / 2, -drone_size_y_ / 2, -drone_size_z_ / 2);
 
   /* Assign traj_id to k in swarm_trajs_ */
   int j = 0;
@@ -154,9 +168,11 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
   std::vector<Eigen::Vector3d> pointsA;
   std::vector<Eigen::Vector3d> pointsB;
 
-  for (int i = 0; i < cpts.rows(); i++) {
+  /* Push ego trajectory convex hull to buffer */
+  /* for (int i = 0; i < cpts.rows(); i++) {
     pointsA.push_back(cpts.row(i));
-  }
+  } */
+  loadVertices(pointsA, cpts);
 
   Eigen::Vector3d n_k;
   double          d_k;
@@ -174,11 +190,18 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
     }
 
     Eigen::MatrixXd cpts = swarm_trajs_[k].front().control_points;
+    std::cout << "Loading points from B" << std::endl;
     loadVertices(pointsB, cpts);
     /* for (int i = 0; i < cpts.rows(); i++) {
       pointsB.push_back(cpts.row(i));
-    }
-    */
+    } */
+    std::cout << "Time: (" << swarm_trajs_[k].front().time_start.toSec() - ros::Time::now().toSec()
+              << ", " << swarm_trajs_[k].front().time_end.toSec() - ros::Time::now().toSec() << ")"
+              << std::endl;
+    std::cout << "Drone " << drone_id_ << " is checking with drone " << k
+              << "Ego Buffer size: " << pointsA.size()
+              << "  Obstacle Buffer size: " << pointsB.size() << std::endl;
+
     if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
       ROS_WARN("Drone %d will collides with drone %d", drone_id_, k);
       is_checking_ = false;
@@ -191,13 +214,22 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
 }
 
 /**
+ * @brief input vertices of trajectory convex hull, get Minkowski sum of the convex
+ * hull and ego polytope, and push these vertices into the buffer `pts`
+ * @param pts : points buffer
+ * @param cpts: control points (vertices of trajectory convex hull)
  */
 void MADER::loadVertices(std::vector<Eigen::Vector3d> &pts, Eigen::MatrixXd &cpts) {
   for (int i = 0; i < cpts.rows(); i++) {
     /* Add trajectory control point */
     Eigen::Vector3d pt = cpts.row(i);
     // pts.push_back(pt);
+
+    printf("row: %i | %i \n", i, cpts.rows());
+    Eigen::Vector3d pt = cpts.row(i);
+    pts.push_back(pt);
     for (int j = 0; j < 8; j++) {
       pts.push_back(pt + ego_cube_.col(j));
     }
   }
+}
