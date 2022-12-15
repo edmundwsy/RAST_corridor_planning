@@ -15,23 +15,23 @@
 
 	<!-- map -->
 	<node pkg ="map_generator" name ="map_generator" type ="dynamic_forest_seq" output = "screen">
-    <remap from="~global_cloud" to="/map_generator/global_cloud" />
-    <remap from="~global_cylinder_state" to="/ground_truth_state" />
-		<param name="map/x_size"     value="$(arg map_size_x)" />
-		<param name="map/y_size"     value="$(arg map_size_y)" />
-		<param name="map/z_size"     value="$(arg map_size_z)" />
-		<param name="map/resolution" value="0.10"/>        
-		<param name="map/frame_id"   value="world" />
+		<remap from="~global_cloud" to="/map_generator/global_cloud" />
+		<remap from="~global_cylinder_state" to="/ground_truth_state" />
+		<param name="map/x_size" value="$(arg map_size_x)" />
+		<param name="map/y_size" value="$(arg map_size_y)" />
+		<param name="map/z_size" value="$(arg map_size_z)" />
+		<param name="map/resolution" value="0.10"/>
+		<param name="map/frame_id" value="world" />
 
 		<param name="ObstacleShape/seed" value="-1"/>
-		<param name="map/obs_num"    value="$(arg obs_num)"/>
+		<param name="map/obs_num" value="$(arg obs_num)"/>
 		<param name="ObstacleShape/lower_rad" value="0.5"/>
 		<param name="ObstacleShape/upper_rad" value="1.0"/>
 		<param name="ObstacleShape/lower_hei" value="4.0"/>
-		<param name="ObstacleShape/upper_hei" value="4.0"/>        
-		<param name="ObstacleShape/set_cylinder" value="true"/>     
+		<param name="ObstacleShape/upper_hei" value="4.0"/>
+		<param name="ObstacleShape/set_cylinder" value="true"/>
 
-		<param name="sensing/radius" value="5.0"/>        
-		<param name="sensing/rate"   value="10.0"/>   
+		<param name="sensing/radius" value="5.0"/>
+		<param name="sensing/rate" value="10.0"/>
 	</node>
 </launch>

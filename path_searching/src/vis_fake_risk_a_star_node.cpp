@@ -11,10 +11,10 @@
 
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <path_searching/risk_hybrid_a_star.h>
-// #include <path_searching/fake_risk_hybrid_a_star.h>
-#include <plan_env/risk_voxel.h>
-// #include <plan_env/fake_dsp_map.h>
+// #include <path_searching/risk_hybrid_a_star.h>
+#include <path_searching/fake_risk_hybrid_a_star.h>
+// #include <plan_env/risk_voxel.h>
+#include <plan_env/fake_dsp_map.h>
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
 
@@ -25,8 +25,8 @@ ros::Subscriber click_sub_;
 ros::Publisher  path_pub_;
 ros::Publisher  t_path_pub_;
 
-RiskVoxel::Ptr       grid_map_;
-RiskHybridAstar::Ptr a_star_;
+FakeRiskVoxel::Ptr       grid_map_;
+FakeRiskHybridAstar::Ptr a_star_;
 
 Eigen::Vector3d              end_pos_, start_pos_, start_vel_;
 Eigen::Vector3d              end_vel_   = Eigen::Vector3d::Zero();
@@ -166,13 +166,13 @@ int main(int argc, char **argv) {
 
   nh.getParam("sample_duration", sample_duration_);
 
-  grid_map_.reset(new RiskVoxel());
+  grid_map_.reset(new FakeRiskVoxel());
   grid_map_->init(nh);
   Eigen::Vector3f posf = start_pos_.cast<float>();
   // grid_map_->setMapCenter(posf);
   ROS_INFO("Map initialized!");
 
-  a_star_.reset(new RiskHybridAstar());
+  a_star_.reset(new FakeRiskHybridAstar());
   a_star_->setParam(nh);
   a_star_->setEnvironment(grid_map_);
   a_star_->init(start_pos_, Eigen::Vector3d(10, 10, 4));

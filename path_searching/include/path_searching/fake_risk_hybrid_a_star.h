@@ -1,5 +1,5 @@
 /**
- * @file risk_hybrid_a_star.h
+ * @file fake_risk_hybrid_a_star.h
  * @author Bolei Zhou
  * @brief This file is based on Fast-Planner (github.com/HKUST-Aerial-Robotics/Fast-Planner)
  * @version 1.0
@@ -13,8 +13,8 @@
 
 #include <path_searching/dyn_a_star.h>
 #include <path_searching/path_node.h>
-// #include <plan_env/fake_dsp_map.h>
-#include <plan_env/risk_voxel.h>
+#include <plan_env/fake_dsp_map.h>
+// #include <plan_env/risk_voxel.h>
 
 #include <Eigen/Core>
 #include <iostream>
@@ -24,7 +24,7 @@
 #include <unordered_map>
 #include <utility>
 
-class RiskHybridAstar : public AStar {
+class FakeRiskHybridAstar : public AStar {
  private:
   /* ---------- search parameter ---------- */
   bool   optimistic_;
@@ -46,8 +46,8 @@ class RiskHybridAstar : public AStar {
   // Eigen::Vector3d map_center_;  // map center
   Eigen::Vector3d map_size_;
 
-  RiskVoxel::Ptr grid_map_;
-  // FakeRiskVoxel::Ptr grid_map_;
+  FakeRiskVoxel::Ptr grid_map_;
+  // FakeFakeRiskVoxel::Ptr grid_map_;
   // GridNodePtr ***          GridNodeMap_;
   std::vector<PathNodePtr>                                                   node_path_;
   NodeHashTable                                                              expanded_nodes_;
@@ -82,14 +82,14 @@ class RiskHybridAstar : public AStar {
                     double                       tau);
 
  public:
-  RiskHybridAstar() {}
-  ~RiskHybridAstar();
+  FakeRiskHybridAstar() {}
+  ~FakeRiskHybridAstar();
   enum { REACH_HORIZON = 1, REACH_END = 2, NO_PATH = 3, NEAR_END = 4 };
-  typedef std::shared_ptr<RiskHybridAstar> Ptr;
+  typedef std::shared_ptr<FakeRiskHybridAstar> Ptr;
 
   /* main API */
   void setParam(ros::NodeHandle& nh);
-  void setEnvironment(const RiskVoxel::Ptr& grid_map);
+  void setEnvironment(const FakeRiskVoxel::Ptr& grid_map);
   void setMapCenter(const Eigen::Vector3d& map_center) { map_center_ = map_center; }
   void init(const Eigen::Vector3d& map_center, const Eigen::Vector3d& map_size);
   void reset();
@@ -117,7 +117,7 @@ class RiskHybridAstar : public AStar {
 };
 
 /* ----- inline function -----*/
-inline int RiskHybridAstar::checkOccupancy(const Eigen::Vector3d& pos) {
+inline int FakeRiskHybridAstar::checkOccupancy(const Eigen::Vector3d& pos) {
   return grid_map_->getInflateOccupancy(pos);
 }
 

@@ -55,11 +55,13 @@ using namespace std;
 #define LIMIT_MOVEMENT_IN_XY_PLANE 1
 
 #define PREDICTION_TIMES 6
-static const float prediction_future_time[PREDICTION_TIMES] = {
+/* static const float prediction_future_time[PREDICTION_TIMES] = {
     0.05f, 0.2f, 0.5f, 1.f,
-    1.5f,  2.f};  // unit: second. The first value is used to compensate the delay caused by the
-                  // map.
+    1.5f,  2.f};  // unit: second. The first value is used to compensate the delay caused by the */
+// map.
 
+static const float prediction_future_time[PREDICTION_TIMES] = {0.05f, 0.25f, 0.45f,
+                                                               0.65f, 0.85f, 1.05f};
 const int half_fov_h = 45;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
                             // or make half_fov_h a smaller value than the real FOV angle
 const int half_fov_v = 27;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
@@ -142,9 +144,9 @@ static int observation_pyramid_neighbors[observation_pyramid_num][10]{};
 /// Variables for velocity estimation
 // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_current_view_rotated(
 //     new pcl::PointCloud<pcl::PointXYZ>());
-static float                               current_position[3]          = {0.f, 0.f, 0.f};
-static float                               voxel_filtered_resolution    = 0.15;
-static float                               delt_t_from_last_observation = 0.f;
+static float current_position[3]          = {0.f, 0.f, 0.f};
+static float voxel_filtered_resolution    = 0.15;
+static float delt_t_from_last_observation = 0.f;
 // pcl::PointCloud<pcl::PointXYZINormal>::Ptr input_cloud_with_velocity(
 //     new pcl::PointCloud<pcl::PointXYZINormal>());
 
@@ -184,10 +186,10 @@ class DSPMap {
       , total_time(0.0)
       , update_times(0) {
     /// Variables for velocity estimation
-    cloud_in_current_view_rotated = pcl::PointCloud<pcl::PointXYZ>::Ptr(
-        new pcl::PointCloud<pcl::PointXYZ>());
-    input_cloud_with_velocity = pcl::PointCloud<pcl::PointXYZINormal>::Ptr(
-        new pcl::PointCloud<pcl::PointXYZINormal>());
+    cloud_in_current_view_rotated =
+        pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>());
+    input_cloud_with_velocity =
+        pcl::PointCloud<pcl::PointXYZINormal>::Ptr(new pcl::PointCloud<pcl::PointXYZINormal>());
     setInitParameters();
 
     addRandomParticles(init_particle_num, init_weight);

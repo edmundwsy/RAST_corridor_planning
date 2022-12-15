@@ -9,9 +9,9 @@
  *
  */
 
-#include <plan_manager/plan_manager.h>
+#include <plan_manager/fake_plan_manager.h>
 
-void FiniteStateMachine::run() {
+void FiniteStateMachineFake::run() {
   _nh.param("drone_id", _drone_id, 0);
   _nh.param("goal_x", _goal[0], 0.0);
   _nh.param("goal_y", _goal[1], 0.0);
@@ -21,14 +21,14 @@ void FiniteStateMachine::run() {
   _nh.param("fsm/replan_duration", _cfgs.replan_duration, 0.1);
 
   /* Initialize planner */
-  _planner.reset(new BaselinePlanner(_nh, BaselineParameters(_nh)));
+  _planner.reset(new FakeBaselinePlanner(_nh, BaselineParameters(_nh)));
   _planner->init();
 
   /* ROS publishers */
   _traj_pub           = _nh.advertise<traj_utils::BezierTraj>("trajectory", 1);
   _broadcast_traj_pub = _nh.advertise<traj_utils::BezierTraj>("/broadcast_traj", 1);
   _trigger_sub =
-      _nh.subscribe("/traj_start_trigger", 1, &FiniteStateMachine::TriggerCallback, this);
+      _nh.subscribe("/traj_start_trigger", 1, &FiniteStateMachineFake::TriggerCallback, this);
 
   _is_goal_received       = false;
   _is_exec_triggered      = false;
@@ -44,7 +44,7 @@ void FiniteStateMachine::run() {
 
   _status = FSM_STATUS::INIT; /* Initialize state machine */
   ROS_INFO("[FSM] Initialization complete");
-  _fsm_timer = _nh.createTimer(ros::Duration(0.1), &FiniteStateMachine::FSMCallback, this);
+  _fsm_timer = _nh.createTimer(ros::Duration(0.1), &FiniteStateMachineFake::FSMCallback, this);
 }
 
 /** ***********************************************************************************************
@@ -63,7 +63,7 @@ void FiniteStateMachine::run() {
  * - EXIT: exit the planner
  * @param event
  */
-void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
+void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
   double risk = 0;
   switch (_status) {
     /* initialize */
@@ -197,7 +197,7 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
  * @brief change the state of the finite state machine
  * @param state
  */
-void FiniteStateMachine::FSMChangeState(FSM_STATUS new_state) {
+void FiniteStateMachineFake::FSMChangeState(FSM_STATUS new_state) {
   FSMPrintState(new_state);
   _status = new_state;
 }
@@ -206,7 +206,7 @@ void FiniteStateMachine::FSMChangeState(FSM_STATUS new_state) {
  * @brief print the current state of the finite state machine via termcolor
  * This function is used for debugging purposes
  */
-void FiniteStateMachine::FSMPrintState(FSM_STATUS new_state) {
+void FiniteStateMachineFake::FSMPrintState(FSM_STATUS new_state) {
   static string state_str[8] = {"INIT",      "WAIT_TARGET", "NEW_PLAN",     "REPLAN",
                                 "EXEC_TRAJ", "EMERGENCY",   "GOAL_REACHED", "EXIT"};
   std::cout << termcolor::dark << termcolor::on_bright_green << "[UAV" << _drone_id
@@ -220,7 +220,7 @@ void FiniteStateMachine::FSMPrintState(FSM_STATUS new_state) {
  *
  * @param msg
  */
-void FiniteStateMachine::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
+void FiniteStateMachineFake::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
   if (_is_exec_triggered) {
     ROS_INFO("[FSM] Execution has already triggered");
     return;
@@ -248,7 +248,7 @@ void FiniteStateMachine::TriggerCallback(const geometry_msgs::PoseStampedPtr& ms
  * Utility Functions
  * ********************************************************/
 
-void FiniteStateMachine::publishTrajectory() {
+void FiniteStateMachineFake::publishTrajectory() {
   _traj_idx++;
   Trajectory traj = _planner->getTrajectory(); /* TODO: reduce copy */
   int        N    = traj.getOrder();
@@ -280,4 +280,4 @@ void FiniteStateMachine::publishTrajectory() {
   _broadcast_traj_pub.publish(msg);
 }
 
-bool FiniteStateMachine::isTrajectorySafe() { return true; }
+bool FiniteStateMachineFake::isTrajectorySafe() { return true; }

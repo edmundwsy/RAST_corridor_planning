@@ -4,28 +4,31 @@ planner:
   risk_threshold_replan: 1.0
   replan_time_threshold: 1.2 # make sure > 1.0 because planner replans every seconds
   max_vel: 3.0
-  max_acc: 5.0
+  max_acc: 3.0
   max_differentiated_current_a: 3.0
+  corridor_tau: 0.4
 
 fsm:
   goal_tolerance: 2.5
   replan_tolerance: 1.0
+  replan_duration: 0.5
 
 search:
   max_tau: 0.6
   init_max_tau: 0.8
-  max_vel: 2
-  max_acc: 2
+  max_vel: 1.5
+  max_acc: 1.5
   w_time: 10.0
   horizon: 5.0
   lambda_heu: 5.0
-  resolution_astar: 1
-  time_resolution: 0.3
-  margin: 0.2
+  resolution_astar: 0.1
+  time_resolution: 0.2
+  margin: 0.4
   allocate_num: 100000
   check_num: 5
 
 corridor:
+  init_range: 1.0
   risk_threshold_single_voxel: 0.15
   risk_threshold_corridor: 3.0
 
@@ -34,7 +37,7 @@ optimizer:
   vel_factor: 0.0
   acc_factor: 0.0
   jerk_factor: 0.0
-  snap_factor: 1.0  # minimum snap
+  snap_factor: 1.0 # minimum snap
   delta_corridor: 0.4
 
   max_vel_optimization: 3 # Constraint in optimization. A little larger than max_vel

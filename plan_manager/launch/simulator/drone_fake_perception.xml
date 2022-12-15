@@ -15,13 +15,14 @@
   <arg name="is_pose_subscribed" value="false" />
 
   <!-- <node pkg="plan_manager" name="planner" type="baseline" output="screen"> -->
-  <node pkg="plan_manager" name="planner" type="baseline">
+  <node pkg="plan_manager" name="planner" type="fake_baseline">
     <!-- Topics -->
     <remap from="~pose" to="$(arg pose_topic)" />
     <remap from="~map/odom" to="$(arg odom_topic)" />
     <remap from="~map/cloud" to="/map_generator/global_cloud" />
     <remap from="~map/pose" to="$(arg pose_topic)" />
-    <remap from="~map/state" to="/ground_truth_state" /> <!-- Map ground truth statet --> 
+    <remap from="~map/state" to="/ground_truth_state" />
+    <!-- Map ground truth statet -->
     <rosparam file="$(find plan_manager)/config/sim_fake.yaml" command="load" />
     <param name="drone_id" value="$(arg drone_id)" />
     <param name="init_x" value="$(arg init_x)" />

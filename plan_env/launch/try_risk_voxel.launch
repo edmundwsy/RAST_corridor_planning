@@ -37,6 +37,7 @@
     <remap from="~map/state" to="/ground_truth_state" />
 
     <remap from="~map/odom" to="/odom" />
+    <!-- <remap from="~map/cloud" to="/map_generator/global_cloud" /> -->
     <remap from="~map/cloud" to="/local_cloud" />
     <remap from="~map/pose" to="/drone_camera_pose_topic" />
     <remap from="~map/depth" to="/drone_depth_topic" />
@@ -76,7 +77,7 @@
   </node>
 
   <node pkg="map_generator" name="map_generator" type="dynamic_forest_seq">
-    <remap from="~global_cloud" to="/local_cloud" />
+    <remap from="~global_cloud" to="/map_generator/global_cloud" />
     <remap from="~global_cylinder_state" to="/ground_truth_state" />
     <param name="init_state_x" value="0.0" />
     <param name="init_state_y" value="0.0" />
@@ -105,8 +106,8 @@
     <remap from="~odometry" to="/odom" />
   </node>
 
-  <!-- Fake Perception -->
-  <!-- <node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
+  <!-- Disable for Fake Perception -->
+  <node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
     <rosparam command="load" file="$(find local_sensing_node)/params/camera.yaml" />
     <param name="sensing_horizon" value="5.0" />
     <param name="sensing_rate" value="30.0" />
@@ -121,7 +122,7 @@
     <remap from="~global_map" to="/map_generator/global_cloud" />
     <remap from="~odometry" to="/odom" />
     <remap from="~pcl_render_node/cloud" to="/local_cloud" />
-  </node> -->
+  </node>
 
   <node pkg="rviz" name="rviz" type="rviz" args="-d $(find plan_env)/rviz/dynamic_map.rviz" />
 

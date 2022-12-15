@@ -15,17 +15,17 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <path_searching/risk_hybrid_a_star.h>
+#include <pcl/point_cloud.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <plan_env/risk_voxel.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <traj_utils/BezierTraj.h>
 #include <bernstein/bezier_optimizer.hpp>
+#include <plan_manager/mader_deconfliction.hpp>
+#include <sfc_gen/sfc_gen.hpp>
 #include <traj_utils/bernstein.hpp>
 #include <traj_utils/corridor.hpp>
 #include <traj_utils/visualizer.hpp>
-#include <plan_manager/mader_deconfliction.hpp>
-#include <sfc_gen/sfc_gen.hpp>
-#include <pcl/point_cloud.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <sensor_msgs/PointCloud2.h>
 
 #include <ros/ros.h>
 #include <Eigen/Eigen>
@@ -36,20 +36,22 @@
 
 struct BaselineParameters {
   /* data */
-  double max_vel              = 3.0;
-  double max_acc              = 4.0;
-  double opt_max_vel = 3.0;
-  double opt_max_acc = 4.0;
-  double delta_corridor       = 0.3;
+  double max_vel        = 3.0;
+  double max_acc        = 4.0;
+  double opt_max_vel    = 3.0;
+  double opt_max_acc    = 4.0;
+  double delta_corridor = 0.3;
+  double init_range     = 1.0;
 
   bool  use_height_limit = true;
   float height_limit_max = 2.2f;
   float height_limit_min = 0.f;
   bool  sample_z_acc     = true;
 
-  float a_star_acc_sample_step  = 2.f;
-  float a_star_search_time_step = 0.6f;  /* TODO */
-  float expand_safety_distance  = 0.2f;
+  float  a_star_acc_sample_step  = 2.f;
+  double corridor_tau            = 0.4f; /* time span for corridor generation */
+  float  a_star_search_time_step = 0.4f;
+  float  expand_safety_distance  = 0.2f;
 
   float risk_threshold_motion_primitive = 0.15;
   float risk_threshold_single_voxel     = 0.15;
@@ -72,12 +74,15 @@ struct BaselineParameters {
   BaselineParameters(const ros::NodeHandle &nh) {
     nh.getParam("planner/max_vel", max_vel);
     nh.getParam("planner/max_acc", max_acc);
+    nh.getParam("planner/corridor_tau", corridor_tau);
     nh.getParam("planner/goal_reach_threshold", goal_reach_threshold);
     nh.getParam("planner/risk_threshold_replan", risk_threshold_replan);
     nh.getParam("planner/replan_time_threshold", replan_time_threshold);
     nh.getParam("planner/max_differentiated_current_a", max_differentiated_current_a);
     nh.getParam("planner/planning_time_step", planning_time_step);
     nh.getParam("planner/trajectory_piece_max_size", trajectory_piece_max_size);
+
+    nh.getParam("corridor/init_range", init_range);
 
     nh.getParam("optimizer/max_vel_optimization", opt_max_vel);
     nh.getParam("optimizer/max_acc_optimization", opt_max_acc);
@@ -117,14 +122,15 @@ class BaselinePlanner {
 
   void setGoal(const Eigen::Vector3d &goal) { goal_pos_ = goal; }
 
-  bool getMapStatus() { return is_map_updated_; }
-  bool getOdomStatus() { return is_odom_received_; }
-  Eigen::Vector3d getPos() const { return odom_pos_; }
+  bool              getMapStatus() { return is_map_updated_; }
+  bool              getOdomStatus() { return is_odom_received_; }
+  Eigen::Vector3d   getPos() const { return odom_pos_; }
   Bernstein::Bezier getTrajectory() const { return traj_; }
-  
+
   void getTrajStartTime(ros::Time &start_time) const { start_time = traj_start_time_; }
 
   typedef std::shared_ptr<BaselinePlanner> Ptr;
+
  private:
   /* Helper function */
   void showObstaclePoints(const std::vector<Eigen::Vector3d> &points);
@@ -150,8 +156,8 @@ class BaselinePlanner {
   /* Shared Pointers */
   RiskVoxel::Ptr           map_;
   RiskHybridAstar::Ptr     a_star_;
-  traj_opt::BezierOpt::Ptr traj_optimizer_; /** Trajectory optimizer */
-  MADER::Ptr               collision_avoider_;  /* multi-agent collision avoidance policy*/
+  traj_opt::BezierOpt::Ptr traj_optimizer_;    /** Trajectory optimizer */
+  MADER::Ptr               collision_avoider_; /* multi-agent collision avoidance policy*/
   /* Trajectory */
   Bernstein::Bezier traj_;     /** Trajectory */
   int               traj_idx_; /** Trajectory index */

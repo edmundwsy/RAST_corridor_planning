@@ -21,20 +21,20 @@
  * along with Fast-Planner. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <path_searching/risk_hybrid_a_star.h>
+#include <path_searching/fake_risk_hybrid_a_star.h>
 
 #include <sstream>
 
 using namespace std;
 using namespace Eigen;
 
-RiskHybridAstar::~RiskHybridAstar() {
+FakeRiskHybridAstar::~FakeRiskHybridAstar() {
   for (int i = 0; i < allocate_num_; i++) {
     delete path_node_pool_[i];
   }
 }
 
-void RiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::Vector3d& map_size) {
+void FakeRiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::Vector3d& map_size) {
   /* ---------- map params ---------- */
   this->inv_resolution_ = 1.0 / resolution_;
   inv_time_resolution_  = 1.0 / time_resolution_;
@@ -57,9 +57,11 @@ void RiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::Vecto
   iter_num_     = 0;
 }
 
-void RiskHybridAstar::setEnvironment(const RiskVoxel::Ptr& grid_map) { grid_map_ = grid_map; }
+void FakeRiskHybridAstar::setEnvironment(const FakeRiskVoxel::Ptr& grid_map) {
+  grid_map_ = grid_map;
+}
 
-void RiskHybridAstar::setParam(ros::NodeHandle& nh) {
+void FakeRiskHybridAstar::setParam(ros::NodeHandle& nh) {
   nh.param("search/max_tau", max_tau_, -1.0); /* 每次前向积分的时间，设为地图的时间长度 */
   nh.param("search/init_max_tau", init_max_tau_, -1.0); /* 按照之前的输入前向积分的时间 */
   nh.param("search/max_vel", max_vel_, -1.0);
@@ -80,7 +82,7 @@ void RiskHybridAstar::setParam(ros::NodeHandle& nh) {
   max_vel_ += vel_margin;
 }
 
-void RiskHybridAstar::reset() {
+void FakeRiskHybridAstar::reset() {
   expanded_nodes_.clear();
   node_path_.clear();
 
@@ -111,14 +113,14 @@ void RiskHybridAstar::reset() {
  * @param time_start : start time of the trajectory
  * @return
  */
-ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
-                                  Eigen::Vector3d start_v,
-                                  Eigen::Vector3d start_a,
-                                  Eigen::Vector3d end_pt,
-                                  Eigen::Vector3d end_v,
-                                  bool            init,
-                                  bool            dynamic,
-                                  double          time_start) {
+ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
+                                      Eigen::Vector3d start_v,
+                                      Eigen::Vector3d start_a,
+                                      Eigen::Vector3d end_pt,
+                                      Eigen::Vector3d end_v,
+                                      bool            init,
+                                      bool            dynamic,
+                                      double          time_start) {
   Eigen::Vector3f map_center_f;
   grid_map_->getMapCenter(map_center_f);
   map_center_ = map_center_f.cast<double>();
@@ -395,9 +397,9 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
   return ASTAR_RET::NO_PATH;
 }
 
-double RiskHybridAstar::estimateHeuristic(Eigen::VectorXd x1,
-                                          Eigen::VectorXd x2,
-                                          double&         optimal_time) {
+double FakeRiskHybridAstar::estimateHeuristic(Eigen::VectorXd x1,
+                                              Eigen::VectorXd x2,
+                                              double&         optimal_time) {
   const Vector3d dp = x2.head(3) - x1.head(3);
   const Vector3d v0 = x1.segment(3, 3);
   const Vector3d v1 = x2.segment(3, 3);
@@ -431,9 +433,9 @@ double RiskHybridAstar::estimateHeuristic(Eigen::VectorXd x1,
   return 1.0 * (1 + tie_breaker_) * cost;
 }
 
-bool RiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
-                                      Eigen::VectorXd state2,
-                                      double          time_to_goal) {
+bool FakeRiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
+                                          Eigen::VectorXd state2,
+                                          double          time_to_goal) {
   /* ---------- get coefficient ---------- */
   const Vector3d p0  = state1.head(3);
   const Vector3d dp  = state2.head(3) - p0;
@@ -505,7 +507,7 @@ bool RiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
   return true;
 }
 
-std::vector<double> RiskHybridAstar::cubic(double a, double b, double c, double d) {
+std::vector<double> FakeRiskHybridAstar::cubic(double a, double b, double c, double d) {
   std::vector<double> dts;
 
   double a2 = b / a;
@@ -534,7 +536,7 @@ std::vector<double> RiskHybridAstar::cubic(double a, double b, double c, double 
   }
 }
 
-std::vector<double> RiskHybridAstar::quartic(double a, double b, double c, double d, double e) {
+std::vector<double> FakeRiskHybridAstar::quartic(double a, double b, double c, double d, double e) {
   std::vector<double> dts;
 
   double a3 = b / a;
@@ -574,7 +576,7 @@ std::vector<double> RiskHybridAstar::quartic(double a, double b, double c, doubl
  * @param delta_t : sample time
  * @return
  */
-std::vector<Eigen::Vector3d> RiskHybridAstar::getPath(double delta_t) {
+std::vector<Eigen::Vector3d> FakeRiskHybridAstar::getPath(double delta_t) {
   std::vector<Eigen::Vector3d> state_list;
 
   /* ---------- get traj of searching ---------- */
@@ -643,7 +645,7 @@ std::vector<Eigen::Vector3d> RiskHybridAstar::getPath(double delta_t) {
  * @param delta_t : sample time
  * @return
  */
-std::vector<Eigen::Matrix<double, 6, 1>> RiskHybridAstar::getPathWithVel(double delta_t) {
+std::vector<Eigen::Matrix<double, 6, 1>> FakeRiskHybridAstar::getPathWithVel(double delta_t) {
   std::vector<Eigen::Matrix<double, 6, 1>> state_list;
 
   /* ---------- get traj of searching ---------- */
@@ -675,9 +677,9 @@ std::vector<Eigen::Matrix<double, 6, 1>> RiskHybridAstar::getPathWithVel(double 
   return state_list;
 }
 
-void RiskHybridAstar::getSamples(double&                  ts,
-                                 vector<Eigen::Vector3d>& point_set,
-                                 vector<Eigen::Vector3d>& start_end_derivatives) {
+void FakeRiskHybridAstar::getSamples(double&                  ts,
+                                     vector<Eigen::Vector3d>& point_set,
+                                     vector<Eigen::Vector3d>& start_end_derivatives) {
   /* ---------- path duration ---------- */
   double T_sum = 0.0;
   if (is_shot_succ_) T_sum += t_shot_;
@@ -768,18 +770,18 @@ void RiskHybridAstar::getSamples(double&                  ts,
   start_end_derivatives.push_back(end_acc);
 }
 
-std::vector<PathNodePtr> RiskHybridAstar::getVisitedNodes() {
+std::vector<PathNodePtr> FakeRiskHybridAstar::getVisitedNodes() {
   vector<PathNodePtr> visited;
   visited.assign(path_node_pool_.begin(), path_node_pool_.begin() + use_node_num_ - 1);
   return visited;
 }
 
-Eigen::Vector3i RiskHybridAstar::posToIndex(Eigen::Vector3d pt) {
+Eigen::Vector3i FakeRiskHybridAstar::posToIndex(Eigen::Vector3d pt) {
   Eigen::Vector3i idx = ((pt - map_center_) * inv_resolution_).array().floor().cast<int>();
   return idx;
 }
 
-int RiskHybridAstar::timeToIndex(double time) {
+int FakeRiskHybridAstar::timeToIndex(double time) {
   int idx = static_cast<int>(floor((time - time_origin_) * inv_time_resolution_));
   return idx;
 }
@@ -791,10 +793,10 @@ int RiskHybridAstar::timeToIndex(double time) {
  * @param um    : control input
  * @param tau   : time duration
  */
-void RiskHybridAstar::stateTransit(Eigen::Matrix<double, 6, 1>& state0,
-                                   Eigen::Matrix<double, 6, 1>& state1,
-                                   Eigen::Vector3d              um,
-                                   double                       tau) {
+void FakeRiskHybridAstar::stateTransit(Eigen::Matrix<double, 6, 1>& state0,
+                                       Eigen::Matrix<double, 6, 1>& state1,
+                                       Eigen::Vector3d              um,
+                                       double                       tau) {
   /* phi_ = [ O | I ]*tau */
   for (int i = 0; i < 3; ++i) phi_(i, i + 3) = tau;
 
@@ -805,7 +807,7 @@ void RiskHybridAstar::stateTransit(Eigen::Matrix<double, 6, 1>& state0,
   state1 = phi_ * state0 + integral;
 }
 
-void RiskHybridAstar::retrievePath(PathNodePtr end_node) {
+void FakeRiskHybridAstar::retrievePath(PathNodePtr end_node) {
   PathNodePtr cur_node = end_node;
   node_path_.push_back(cur_node);
 

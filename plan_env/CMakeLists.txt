@@ -63,36 +63,35 @@ target_link_libraries(plan_env
 )
 
 # add_executable(obj_generator
-#     src/obj_generator.cpp
+# src/obj_generator.cpp
 # )
 # target_link_libraries(obj_generator
-#     ${catkin_LIBRARIES}
+# ${catkin_LIBRARIES}
 # )
 
 # add_executable(test_grid_map_node
-#     src/test_grid_map_node.cpp
+# src/test_grid_map_node.cpp
 # )
 # target_link_libraries(test_grid_map_node
-#     plan_env
-#     ${catkin_LIBRARIES}
+# plan_env
+# ${catkin_LIBRARIES}
 # )
 
 # add_executable(test_dsp_map_node
-#     src/test_dsp_map_node.cpp
+# src/test_dsp_map_node.cpp
 # )
 # target_link_libraries(test_dsp_map_node
-#     plan_env
-#     ${catkin_LIBRARIES}
+# plan_env
+# ${catkin_LIBRARIES}
 # )
 
 # add_executable(dsp_map_node
-#     src/dsp_map_node.cpp
+# src/dsp_map_node.cpp
 # )
 # target_link_libraries(dsp_map_node
-#     plan_env
-#     ${catkin_LIBRARIES}
+# plan_env
+# ${catkin_LIBRARIES}
 # )
-
 add_executable(risk_voxel_node src/risk_voxel_node.cpp)
 target_link_libraries(risk_voxel_node
     plan_env

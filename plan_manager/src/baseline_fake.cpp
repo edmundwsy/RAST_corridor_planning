@@ -18,7 +18,7 @@ void FakeBaselinePlanner::init() {
   map_->init(nh_);
 
   /*** INITIALIZE A STAR ***/
-  a_star_.reset(new RiskHybridAstar());
+  a_star_.reset(new FakeRiskHybridAstar());
   a_star_->setParam(nh_);
   a_star_->setEnvironment(map_);
   a_star_->init(odom_pos_, Eigen::Vector3d(10, 10, 4));

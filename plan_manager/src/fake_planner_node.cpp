@@ -10,12 +10,12 @@
  */
 
 #include <ros/ros.h>
-#include "plan_manager/plan_manager.h"
+#include "plan_manager/fake_plan_manager.h"
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "planner_node");
-  ros::NodeHandle    nh("~");
-  FiniteStateMachine plan_manager(nh);
+  ros::NodeHandle        nh("~");
+  FiniteStateMachineFake plan_manager(nh);
   plan_manager.run();
   ros::AsyncSpinner spinner(3);  // use 3 threads
   spinner.start();

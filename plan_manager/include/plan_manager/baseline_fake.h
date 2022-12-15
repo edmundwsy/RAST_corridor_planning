@@ -14,7 +14,7 @@
 
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
-#include <path_searching/risk_hybrid_a_star.h>
+#include <path_searching/fake_risk_hybrid_a_star.h>
 #include <pcl/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <plan_env/fake_dsp_map.h>
@@ -158,7 +158,7 @@ class FakeBaselinePlanner {
 
   /* Shared Pointers */
   FakeRiskVoxel::Ptr       map_;
-  RiskHybridAstar::Ptr     a_star_;
+  FakeRiskHybridAstar::Ptr a_star_;
   traj_opt::BezierOpt::Ptr traj_optimizer_;    /** Trajectory optimizer */
   MADER::Ptr               collision_avoider_; /* multi-agent collision avoidance policy*/
   /* Trajectory */

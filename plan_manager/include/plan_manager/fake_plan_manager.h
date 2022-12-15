@@ -11,7 +11,7 @@
 
 #ifndef PLAN_MANAGER_H
 #define PLAN_MANAGER_H
-#include <plan_manager/baseline.h>
+#include <plan_manager/baseline_fake.h>
 #include <ros/ros.h>
 #include <Eigen/Eigen>
 #include <memory>
@@ -50,10 +50,10 @@ struct FSMParameters {
   double replan_duration  = 0.1;
 };
 
-class FiniteStateMachine {
+class FiniteStateMachineFake {
  public:
-  FiniteStateMachine(ros::NodeHandle &nh) : _nh(nh) {}
-  ~FiniteStateMachine() = default;
+  FiniteStateMachineFake(ros::NodeHandle &nh) : _nh(nh) {}
+  ~FiniteStateMachineFake() = default;
 
   void run();
 
@@ -108,7 +108,7 @@ class FiniteStateMachine {
   ros::Time _prev_plan_time;
 
   /* planner */
-  BaselinePlanner::Ptr _planner;
+  FakeBaselinePlanner::Ptr _planner;
 
   /* trajectory */
   Eigen::Vector3d             _goal;
@@ -125,7 +125,7 @@ class FiniteStateMachine {
  * @return true input position is close to the goal
  * @return false
  */
-inline bool FiniteStateMachine ::isGoalReached(const Eigen::Vector3d &p) {
+inline bool FiniteStateMachineFake ::isGoalReached(const Eigen::Vector3d &p) {
   return ((p - _goal).norm() < _cfgs.goal_tolerance) ? true : false;
 }
 
@@ -134,7 +134,7 @@ inline bool FiniteStateMachine ::isGoalReached(const Eigen::Vector3d &p) {
  * @return true   no update
  * @return false
  */
-inline bool FiniteStateMachine::isInputLost() {
+inline bool FiniteStateMachineFake::isInputLost() {
   _is_map_updated   = _planner->getMapStatus();
   _is_odom_received = _planner->getOdomStatus();
   return !_is_map_updated || !_is_odom_received;
@@ -144,14 +144,14 @@ inline bool FiniteStateMachine::isInputLost() {
  * @brief read drone ID from the ros node handle
  * @return int drone ID
  */
-inline int FiniteStateMachine::getDroneID() {
+inline int FiniteStateMachineFake::getDroneID() {
   std::string name = ros::this_node::getNamespace();
   int         id   = name.substr(name.size() - 1, 1).c_str()[0] - '0';
   // std::cout << "|" << name << "| " << id << std::endl;
   return id;
 }
 
-inline bool FiniteStateMachine::checkTimeLapse(double time) {
+inline bool FiniteStateMachineFake::checkTimeLapse(double time) {
   double elapsed = ros::Time::now().toSec() - _prev_plan_time.toSec();
   return (elapsed > time);
 }

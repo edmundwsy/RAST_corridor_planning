@@ -223,11 +223,6 @@ void MADER::loadVertices(std::vector<Eigen::Vector3d> &pts, Eigen::MatrixXd &cpt
   for (int i = 0; i < cpts.rows(); i++) {
     /* Add trajectory control point */
     Eigen::Vector3d pt = cpts.row(i);
-    // pts.push_back(pt);
-
-    printf("row: %i | %i \n", i, cpts.rows());
-    Eigen::Vector3d pt = cpts.row(i);
-    pts.push_back(pt);
     for (int j = 0; j < 8; j++) {
       pts.push_back(pt + ego_cube_.col(j));
     }
