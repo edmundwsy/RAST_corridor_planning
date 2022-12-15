@@ -46,6 +46,11 @@ class FakeRiskVoxel : public RiskVoxel {
 
   void        getObstaclePoints(std::vector<Eigen::Vector3d> &points);
   void        getObstaclePoints(std::vector<Eigen::Vector3d> &points, double t_start, double t_end);
+  void        getObstaclePoints(std::vector<Eigen::Vector3d> &points,
+                                double                        t_start,
+                                double                        t_end,
+                                const Eigen::Vector3d &       lc,
+                                const Eigen::Vector3d &       hc);
   int         getInflateOccupancy(const Eigen::Vector3d pos);
   int         getInflateOccupancy(const Eigen::Vector3d pos, int t);
   int         getInflateOccupancy(const Eigen::Vector3d pos, double t);
@@ -54,11 +59,13 @@ class FakeRiskVoxel : public RiskVoxel {
 
  private:
   /* Inline helper functions */
-  inline bool            isInRange(const Eigen::Vector3f &p);
+  inline Eigen::Vector3i getVoxelRelIndex(const Eigen::Vector3f &pos);
   inline int             getVoxelIndex(const Eigen::Vector3f &pos);
+  inline bool            isInRange(const Eigen::Vector3f &p);
   inline Eigen::Vector3f getVoxelPosition(int index);
 
  private:
+  bool  is_publish_spatio_temporal_map_;
   float resolution_;
   float time_resolution_;
   /* ROS Utilities */
@@ -88,6 +95,13 @@ inline int FakeRiskVoxel::getVoxelIndex(const Eigen::Vector3f &pos) {
   int y = (pos[1] + local_update_range_y_) / resolution_;
   int z = (pos[2] + local_update_range_z_) / resolution_;
   return z * MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM + y * MAP_LENGTH_VOXEL_NUM + x;
+}
+
+inline Eigen::Vector3i FakeRiskVoxel::getVoxelRelIndex(const Eigen::Vector3f &pos) {
+  int x = (pos[0] + local_update_range_x_) / resolution_;
+  int y = (pos[1] + local_update_range_y_) / resolution_;
+  int z = (pos[2] + local_update_range_z_) / resolution_;
+  return Eigen::Vector3i(x, y, z);
 }
 
 /**

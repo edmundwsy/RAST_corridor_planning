@@ -102,6 +102,7 @@ class RiskHybridAstar : public AStar {
                    double          time_start = -1.0);
 
   std::vector<Eigen::Vector3d> getPath(double delta_t);
+  std::vector<Eigen::Matrix<double, 6, 1>> getPathWithVel(double delta_t);
 
   void getSamples(double&                       ts,
                   std::vector<Eigen::Vector3d>& point_set,

@@ -10,7 +10,7 @@
  */
 
 #include <ros/ros.h>
-#include "plan_manager/baseline.h"
+#include <plan_manager/baseline.h>
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "test_baseline_node");

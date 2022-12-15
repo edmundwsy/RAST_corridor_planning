@@ -25,7 +25,7 @@
     <param name="init_z" value="$(arg init_z)" />
     <param name="vel_x" value="$(arg vel_x)" />
     <param name="vel_y" value="$(arg vel_y)" />
-    <param name="vel_z" value="$(arg vel_z)" /
+    <param name="vel_z" value="$(arg vel_z)" />
 
     <remap from="~map/odom" to="/odom" />
     <remap from="~map/cloud" to="/local_cloud" />
@@ -39,8 +39,10 @@
     <param name="map/local_update_range_y" value="6.5" />
     <param name="map/local_update_range_z" value="3.5" />
 
-    <param name="search/max_tau" value="0.6" type="double"/>      <!-- useless -->
-    <param name="search/init_max_tau" value="0.8" type="double"/> <!-- useless -->
+    <param name="search/max_tau" value="0.6" type="double"/>
+    <!-- useless -->
+    <param name="search/init_max_tau" value="0.8" type="double"/>
+    <!-- useless -->
     <param name="search/max_vel" value="3" type="double"/>
     <param name="search/max_acc" value="3" type="double"/>
     <param name="search/w_time" value="10.0" type="double"/>
@@ -48,7 +50,9 @@
     <param name="search/lambda_heu" value="5.0" type="double"/>
     <param name="search/resolution_astar" value="0.1" type="double"/>
     <param name="search/time_resolution" value="0.2" type="double"/>
-    <param name="search/margin" value="0.2" type="double"/>  <!-- TODO -->
+    <param name="sample_duration" value="0.2" type="double"/>
+    <param name="search/margin" value="0.4" type="double"/>
+    <!-- TODO -->
     <param name="search/allocate_num" value="100000" type="int"/>
     <param name="search/check_num" value="5" type="int"/>
   </node>
@@ -83,7 +87,7 @@
     <remap from="~command" to="planning/pos_cmd" />
     <remap from="~odometry" to="/odom" />
   </node>
-  <!-- 
+  <!--
   <node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
     <rosparam command="load" file="$(find local_sensing_node)/params/camera.yaml" />
     <param name="sensing_horizon" value="6.0" />

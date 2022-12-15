@@ -30,6 +30,9 @@ struct SwarmTraj {
   Eigen::MatrixX3d control_points;
 };
 
+// we should give some hyperparameter to control the size of the cube
+// Assume our robot is homogenous, i.e. all robots have the same size
+
 class MADER {
  public:
   /* constructor */
@@ -41,9 +44,22 @@ class MADER {
   void reset();
   void trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg);
   bool isSafeAfterOpt(const Bernstein::Bezier &traj);
-  bool isSafeAfterChk() { return !have_received_traj_while_checking_; }
+  bool isSafeAfterChk() {
+    if (have_received_traj_while_checking_) {
+      have_received_traj_while_checking_ = false;  // reset
+      return false;
+    }
+    return true;
+  }
   bool updateTrajObstacles(/* arguments */);
   void getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double t);
+  /**
+   * @brief input vertices of trajectory convex hull, get Minkowski sum of the convex
+   * hull and ego polytope, and push these vertices into the buffer `pts`
+   * @param pts : points buffer
+   * @param cpts: control points (vertices of trajectory convex hull)
+   */
+  void loadVertices(std::vector<Eigen::Vector3d> &pts, Eigen::MatrixXd &cpts);
 
   typedef std::shared_ptr<MADER> Ptr;
 
@@ -60,8 +76,13 @@ class MADER {
   bool is_traj_safe_;
   bool is_checking_;
 
-  int drone_id_;
-  int num_robots_;
+  int    drone_id_;
+  int    num_robots_;
+  double drone_size_x_;
+  double drone_size_y_;
+  double drone_size_z_;
+
+  Eigen::Matrix<double, 3, 8> ego_cube_; /* Eight vertices of the ego cube */
 
   separator::Separator *separator_solver_;
 };

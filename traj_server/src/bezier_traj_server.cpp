@@ -27,13 +27,14 @@ ros::Publisher _error_pub;
 
 bool   _is_traj_received = false;
 bool   _is_triggered     = false;
-double _replan_thres     = 1.0;  // seconds of trajectory loaded into the queue
+double _replan_thres     = 1.2;  // seconds of trajectory loaded into the queue
 
 int               _traj_id;
 Bernstein::Bezier _traj;
-ros::Time         _t_str;     // start time
-ros::Time         _t_end;     // end time
-ros::Time         _t_cur;     // current time
+ros::Time         _t_str;  // start time
+ros::Time         _t_end;  // end time
+ros::Time         _t_cur;  // current time
+ros::Time         _t_init;
 double            _duration;  // duration of the trajectory in seconds
 
 double _last_yaw    = 0;  // previous yaw value
@@ -255,19 +256,24 @@ void bezierCallback(traj_utils::BezierTrajConstPtr msg) {
     _traj.setOrder(N);
     _traj.setTime(time_alloc);
     _traj.setControlPoints(cpts);
+    /* If trajectory start time later than previous end time, add trajectory to the end */
     if (_t_str >= _t_end && _is_triggered) { /* look ahead */
-      // ROS_INFO("[TrajSrv] %f < %f | adding to the end", _t_str.toSec(), _t_end.toSec());
+      ROS_INFO("[TrajSrv] %f ... %f | %li | adding to the end", _t_end.toSec() - _t_init.toSec(),
+               _t_str.toSec() - _t_init.toSec(), _traj_queue.size());
       fillTrajQueue(_traj);
-      auto tmp = _t_end;
-      _t_str   = _t_end;
-      _t_end   = _t_str + ros::Duration(_duration);
+
+      /* if start time earlier than end time of previous trajectory, reset the queue */
     } else { /* emergency and before trigger */
-      // ROS_INFO("[TrajSrv] %f < %f | clearing and reloading", _t_str.toSec(), _t_end.toSec());
+      ROS_INFO("[TrajSrv] %f -> %f| clearing and reloading", _t_str.toSec() - _t_init.toSec(),
+               _t_end.toSec() - _t_init.toSec());
       std::queue<TrajPoint> empty;
       std::swap(_traj_queue, empty);
       fillTrajQueue(_traj);
-      _t_end = _t_str + ros::Duration(_duration);
     }
+    _t_str = ros::Time::now();
+    _t_end = _t_str + ros::Duration(_duration);
+    ROS_INFO("[TrajSrv] traj start from %f to %f", _t_str.toSec() - _t_init.toSec(),
+             _t_end.toSec() - _t_init.toSec());
     _vis_ptr->visualizeTraj(_traj_queue);
     ROS_INFO("[TrajSrv] queue size %li", _traj_queue.size());
   }
@@ -340,6 +346,7 @@ int main(int argc, char **argv) {
 
   ros::Duration(3.0).sleep();
   ROS_INFO("[TrajSrv]: ready to receive trajectory");
+  _t_init = ros::Time::now();
   ros::AsyncSpinner spinner(2);
   spinner.start();
   ros::waitForShutdown();
