@@ -44,7 +44,7 @@ TrajSrvVisualizer::Ptr _vis_ptr;
 
 /**
  * @brief Get the yaw angle and yaw dot
- * 
+ *
  * @param v velocity
  * @param yaw return yaw angle
  * @param yaw_dot return yaw dot
@@ -255,16 +255,14 @@ void polyCallback(traj_utils::PolyTrajConstPtr msg) {
     if (_t_str >= _t_end && _is_triggered) { /* look ahead */
       // ROS_INFO("[TrajSrv] %f < %f | adding to the end", _t_str.toSec(), _t_end.toSec());
       fillTrajQueue(_traj);
-      auto tmp = _t_end;
-      _t_str   = _t_end;
-      _t_end   = _t_str + ros::Duration(_duration);
     } else { /* emergency and before trigger */
       // ROS_INFO("[TrajSrv] %f < %f | clearing and reloading", _t_str.toSec(), _t_end.toSec());
       std::queue<TrajPoint> empty;
       std::swap(_traj_queue, empty);
       fillTrajQueue(_traj);
-      _t_end = _t_str + ros::Duration(_duration);
     }
+    _t_str = ros::Time::now();
+    _t_end = _t_str + ros::Duration(_duration);
     _vis_ptr->visualizeTraj(_traj_queue);
     ROS_INFO("[TrajSrv] queue size %li", _traj_queue.size());
   }
