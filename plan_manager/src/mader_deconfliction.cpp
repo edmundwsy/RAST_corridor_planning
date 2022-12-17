@@ -27,7 +27,19 @@ void MADER::init() {
   have_received_traj_while_optimizing_ = false;
 
   swarm_trajs_.resize(num_robots_ - 1);
-  traj_id_to_index_.clear();
+  drone_id_to_index_.clear();
+  index_to_drone_id_.clear();
+
+  /* Assign traj_id to k in swarm_trajs_ */
+  int j = 0;
+  for (int i = 0; i < num_robots_; i++) {
+    if (i != drone_id_) {
+      drone_id_to_index_[i] = j;
+      index_to_drone_id_[j] = i;
+      std::cout << "drone_id_to_index_[" << i << "] = " << j << std::endl;
+      j++;
+    }
+  }
 
   /* Pre-allocate Ego Cube */
   ego_cube_.col(0) = Eigen::Vector3d(drone_size_x_ / 2, drone_size_y_ / 2, drone_size_z_ / 2);
@@ -38,15 +50,6 @@ void MADER::init() {
   ego_cube_.col(5) = Eigen::Vector3d(-drone_size_x_ / 2, -drone_size_y_ / 2, drone_size_z_ / 2);
   ego_cube_.col(6) = Eigen::Vector3d(-drone_size_x_ / 2, drone_size_y_ / 2, -drone_size_z_ / 2);
   ego_cube_.col(7) = Eigen::Vector3d(-drone_size_x_ / 2, -drone_size_y_ / 2, -drone_size_z_ / 2);
-
-  /* Assign traj_id to k in swarm_trajs_ */
-  int j = 0;
-  for (int i = 0; i < num_robots_ - 1; i++) {
-    if (i != drone_id_) {
-      traj_id_to_index_[i] = j;
-    }
-    j++;
-  }
 }
 
 /**
@@ -68,7 +71,7 @@ void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg)
     have_received_traj_while_optimizing_ = false;
   }
 
-  int k = traj_id_to_index_[id];
+  int k = drone_id_to_index_[id];
 
   /* remove old trajectories from swarm_trajs_ buffer */
   ros::Time now = ros::Time::now();
@@ -117,34 +120,37 @@ void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg)
  * @param t prediction horizon
  */
 void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double horizon) {
-  ros::Time t_start = ros::Time::now() + ros::Duration(0.1);
-  ros::Time t_end   = t_start + ros::Duration(horizon);
-  for (int i = 0; i < num_robots_ - 1; i++) { /* iterate all robots in the buffer */
+  ros::Time t_start = ros::Time::now() + ros::Duration(0.05); /* Start time of planned trajectory */
+  ros::Time t_end   = t_start + ros::Duration(horizon);       /* End time of planned trajectory */
+  for (int i = 0; i < num_robots_ - 1; i++) {                 /* iterate all robots in the buffer */
+    if (swarm_trajs_[i].empty()) {
+      ROS_INFO("Drone %d has no trajectories for drone %d", drone_id_, index_to_drone_id_[i]);
+      continue;
+    }
+    std::queue<SwarmTraj> traj_queue(swarm_trajs_[i]); /* copy the queue */
+
     SwarmTraj traj;
-    while (!swarm_trajs_[i].empty()) {
-      traj = swarm_trajs_[i].front();
+    while (!traj_queue.empty()) { /* check all trajectories preserved in the queue */
+      traj = traj_queue.front();
       ROS_INFO("t_start: 0 , t_end: %f | traj: (%f, %f)", t_end.toSec() - t_start.toSec(),
                traj.time_start.toSec() - t_start.toSec(), traj.time_end.toSec() - t_start.toSec());
-      /* If trajectory ends earlier */
+      /* If checked trajectory ends before planned trajectory */
       if (t_start > traj.time_end) {
-        swarm_trajs_[i].pop();
+        traj_queue.pop();
         continue;
       }
 
+      /* If checked trajectory coincide with planned trajectory */
       if (t_end > traj.time_start || t_start < traj.time_end) {
         ROS_INFO("Drone %d : pushing %d obstacle points", traj.id, (int)traj.control_points.rows());
-        for (int j = 0; j < traj.control_points.rows(); j++) {
-          pts.push_back(traj.control_points.row(j));
-        }
-        /* Access the last traj in the queue */
-        traj = swarm_trajs_[i].back();
         ROS_INFO("t_start: 0 , t_end: %f | traj: (%f, %f)", t_end.toSec() - t_start.toSec(),
                  traj.time_start.toSec() - t_start.toSec(),
                  traj.time_end.toSec() - t_start.toSec());
-        Eigen::MatrixXd cpts;
+        Eigen::MatrixXd cpts = traj.control_points;
         loadVertices(pts, cpts);
-        break;
       }
+
+      traj_queue.pop();
     }
   }
 }
@@ -177,11 +183,11 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
   Eigen::Vector3d n_k;
   double          d_k;
 
-  for (int k = 0; k < swarm_trajs_.size(); k++) {
+  for (int k = 0; k < swarm_trajs_.size(); k++) { /* iterate all robots in the buffer */
     if (swarm_trajs_[k].empty()) {
       continue;
     }
-    for (int i = 0; i < swarm_trajs_.size(); i++) {
+    for (int i = 0; i < swarm_trajs_.size(); i++) { /* iterate all trajectories */
       if (swarm_trajs_[k].front().time_end < ros::Time::now()) {
         swarm_trajs_[k].pop();
       } else {
@@ -198,7 +204,7 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
     std::cout << "Time: (" << swarm_trajs_[k].front().time_start.toSec() - ros::Time::now().toSec()
               << ", " << swarm_trajs_[k].front().time_end.toSec() - ros::Time::now().toSec() << ")"
               << std::endl;
-    std::cout << "Drone " << drone_id_ << " is checking with drone " << k
+    std::cout << "Drone " << drone_id_ << " is checking with drone " << index_to_drone_id_[k]
               << "Ego Buffer size: " << pointsA.size()
               << "  Obstacle Buffer size: " << pointsB.size() << std::endl;
 

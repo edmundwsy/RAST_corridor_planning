@@ -68,7 +68,8 @@ class MADER {
   ros::Subscriber swarm_sub_;
   /* variables */
   std::vector<std::queue<SwarmTraj>> swarm_trajs_;
-  std::map<int, int>                 traj_id_to_index_;
+  std::map<int, int>                 drone_id_to_index_;
+  std::map<int, int>                 index_to_drone_id_;
 
   bool is_planner_initialized_;
   bool have_received_traj_while_checking_;
