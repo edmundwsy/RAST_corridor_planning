@@ -97,3 +97,9 @@ target_link_libraries(risk_voxel_node
     plan_env
     ${catkin_LIBRARIES}
 )
+
+add_executable(risk_voxel_moving src/risk_voxel_moving.cpp)
+target_link_libraries(risk_voxel_moving
+    plan_env
+    ${catkin_LIBRARIES}
+)

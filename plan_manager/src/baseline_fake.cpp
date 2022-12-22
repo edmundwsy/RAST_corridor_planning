@@ -131,14 +131,40 @@ void FakeBaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>&
   obstacle_pub_.publish(cloud_msg);
 }
 
+/**
+ * @brief add agents trajectory to map
+ * get agents trajectory from collision avoider
+ * add agents trajectory to map
+ */
+void FakeBaselinePlanner::addAgentsTrajectoryToMap() {
+  int             n = collision_avoider_->getNumAgents();
+  Eigen::Vector3d robot_size;
+  collision_avoider_->getAgentsSize(robot_size);
+  std::vector<Eigen::Vector3d> obs_points;
+  for (int i = 0; i < n - 1; i++) {
+    obs_points.clear();
+    collision_avoider_->getAgentsTrajectory(obs_points, i, 0.2);
+    if (obs_points.size() > 0) {
+      for (int j = 0; j < obs_points.size(); j++) {
+        std::vector<Eigen::Vector3d> pts;
+        pts.push_back(obs_points[j] - odom_pos_);
+        map_->addObstacles(pts, robot_size, ros::Time::now() + ros::Duration(0.2 * j));
+      }
+    }
+  }
+}
+
 bool FakeBaselinePlanner::plan() {
   ROS_INFO("Planning...");
   ros::Time t0 = ros::Time::now();
-
-  /*----- Path Searching on DSP Static -----*/
+  /* ----- Add other agents to the DSP Map ----- */
+  addAgentsTrajectoryToMap();
+  ros::Time t1 = ros::Time::now();
+  ROS_INFO("Add trajectory to map: Time used: %f ms", (t1 - t0).toSec() * 1000);
+  /*----- Path Searching on DSP Dynamic -----*/
   std::cout << "/*----- Path Searching on DSP Static -----*/" << std::endl;
   a_star_->reset();
-  auto      t1  = ros::Time::now();
+  t1            = ros::Time::now();
   ASTAR_RET rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_,
                                   Eigen::Vector3d(0, 0, 0), true, true, 0);
   if (rst == 0) {

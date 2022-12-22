@@ -141,6 +141,7 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
       }
     }
   }
+  last_update_time_ = ros::Time::now();
 }
 
 /**
@@ -321,4 +322,58 @@ void FakeRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
       }
     }
   }
+}
+
+/**
+ * @brief add obstacles to the risk map at the initial time
+ * @param points: given obstacle points in the map frame
+ * @param size: the size of the obstacle (axis-aligned bounding box)
+ * @param t_index: the time index (indicating the number of predicted map)
+ */
+void FakeRiskVoxel::addObstacles(const std::vector<Eigen::Vector3d> &centers,
+                                 const Eigen::Vector3d &             size,
+                                 int                                 t_index) {
+  for (auto &pt : centers) {
+    float pt_x   = static_cast<float>(pt.x());
+    float pt_y   = static_cast<float>(pt.y());
+    float pt_z   = static_cast<float>(pt.z());
+    float size_x = static_cast<float>(size.x());
+    float size_y = static_cast<float>(size.y());
+    float size_z = static_cast<float>(size.z());
+
+    for (float z = pt_z - size_z; z <= pt_z + size_z; z += resolution_) {
+      for (float y = pt_y - size_y; y <= pt_y + size_y; y += resolution_) {
+        for (float x = pt_x - size_x; x <= pt_x + size_x; x += resolution_) {
+          Eigen::Vector3f ptf = Eigen::Vector3f(x, y, z);
+          if (isInRange(ptf)) {
+            int index = getVoxelIndex(ptf);
+
+            risk_maps_[index][t_index] = 1.0;
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * @brief add obstacles to the risk map at the given time
+ * @param points: given obstacle points in the map frame
+ * @param size: the size of the obstacle (axis-aligned bounding box)
+ */
+void FakeRiskVoxel::addObstacles(const std::vector<Eigen::Vector3d> &centers,
+                                 const Eigen::Vector3d &             size,
+                                 const ros::Time &                   t) {
+  double dt = t.toSec() - last_update_time_.toSec(); /* TODO: use last update time */
+  // double dt  = t.toSec() - ros::Time::now().toSec(); /* approximation: use current time */
+  int idx = floor(dt / time_resolution_);
+  if (idx >= PREDICTION_TIMES) {
+    ROS_WARN("The time %.2f is too large, the risk map will not be updated", dt);
+    return;
+  }
+  if (idx < 0) {
+    ROS_WARN("The time %.2f is too small, the risk map will not be updated", dt);
+    return;
+  }
+  addObstacles(centers, size, idx);
 }

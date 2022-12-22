@@ -21,6 +21,8 @@ void MADER::init() {
   nh_.param("swarm/drone_size_y", drone_size_y_, 0.3);
   nh_.param("swarm/drone_size_z", drone_size_z_, 0.4);  // avoid z-axis wind effect
 
+  ego_size_ = Eigen::Vector3d(drone_size_x_, drone_size_y_, drone_size_z_);
+
   /* Initialize Booleans */
   is_checking_                         = false;
   have_received_traj_while_checking_   = false;
@@ -180,41 +182,41 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
   } */
   loadVertices(pointsA, cpts);
 
-  Eigen::Vector3d n_k;
-  double          d_k;
-
+  /* checkin: check other trajectories */
   for (int k = 0; k < swarm_trajs_.size(); k++) { /* iterate all robots in the buffer */
-    if (swarm_trajs_[k].empty()) {
-      continue;
-    }
-    for (int i = 0; i < swarm_trajs_.size(); i++) { /* iterate all trajectories */
-      if (swarm_trajs_[k].front().time_end < ros::Time::now()) {
+    if (!swarm_trajs_[k].empty()) {               /* if the buffer is not empty */
+      while (swarm_trajs_[k].front().time_end < ros::Time::now()) {
         swarm_trajs_[k].pop();
-      } else {
-        break;
+        if (swarm_trajs_[k].empty()) {
+          break;
+        }
       }
     }
 
-    Eigen::MatrixXd cpts = swarm_trajs_[k].front().control_points;
-    std::cout << "Loading points from B" << std::endl;
-    loadVertices(pointsB, cpts);
-    /* for (int i = 0; i < cpts.rows(); i++) {
-      pointsB.push_back(cpts.row(i));
-    } */
-    std::cout << "Time: (" << swarm_trajs_[k].front().time_start.toSec() - ros::Time::now().toSec()
-              << ", " << swarm_trajs_[k].front().time_end.toSec() - ros::Time::now().toSec() << ")"
-              << std::endl;
-    std::cout << "Drone " << drone_id_ << " is checking with drone " << index_to_drone_id_[k]
-              << "Ego Buffer size: " << pointsA.size()
-              << "  Obstacle Buffer size: " << pointsB.size() << std::endl;
+    if (!swarm_trajs_[k].empty()) {
+      Eigen::Vector3d n_k;
+      double          d_k;
+      pointsB.clear();
+      Eigen::MatrixXd cpts = swarm_trajs_[k].front().control_points;
+      std::cout << "Loading points from B" << std::endl;
+      loadVertices(pointsB, cpts);
+      /* for (int i = 0; i < cpts.rows(); i++) {
+        pointsB.push_back(cpts.row(i));
+      } */
+      std::cout << "Time: ("
+                << swarm_trajs_[k].front().time_start.toSec() - ros::Time::now().toSec() << ", "
+                << swarm_trajs_[k].front().time_end.toSec() - ros::Time::now().toSec() << ")";
+      std::cout << "\tDrone " << drone_id_ << " is checking with drone " << index_to_drone_id_[k]
+                << "\tEgo Buffer size: " << pointsA.size()
+                << "  Obstacle Buffer size: " << pointsB.size() << std::endl;
 
-    if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
-      ROS_WARN("Drone %d will collides with drone %d", drone_id_, k);
-      is_checking_ = false;
-      return false;
+      if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
+        ROS_WARN("Drone %d will collides with drone %d", drone_id_, k);
+        is_checking_ = false;
+        return false;
+      }
     }
   }
-
   is_checking_ = false;
   return true;
 }
@@ -231,6 +233,41 @@ void MADER::loadVertices(std::vector<Eigen::Vector3d> &pts, Eigen::MatrixXd &cpt
     Eigen::Vector3d pt = cpts.row(i);
     for (int j = 0; j < 8; j++) {
       pts.push_back(pt + ego_cube_.col(j));
+    }
+  }
+}
+
+/**
+ * @brief
+ * @param points  trajectory waypoints to be filled
+ * @param i : index of the agent
+ * @param tf
+ */
+void MADER::getAgentsTrajectory(std::vector<Eigen::Vector3d> &points, int idx_agent, double dt) {
+  ros::Time t0 = ros::Time::now() + ros::Duration(dt);
+
+  std::queue<SwarmTraj> traj_queue = swarm_trajs_[idx_agent];
+  while (!traj_queue.empty()) {
+    Eigen::MatrixXd cpts = traj_queue.front().control_points;
+
+    if (traj_queue.front().time_start < t0 && traj_queue.front().time_end > t0) {
+      /* Adding trajectory points to the buffer */
+      /* Here we use control points as an approximation */
+      for (int j = 0; j < 2; j++) {
+        /* control point number: 0 2 */
+        Eigen::Vector3d pt = cpts.row(2 * j);
+        points.push_back(pt);
+        ROS_INFO_STREAM("[CA|Traj" << idx_agent << "] got trajectory at "
+                                   << t0.toSec() - traj_queue.front().time_start.toSec()
+                                   << pt.transpose());
+        t0 += ros::Duration(dt);
+        if (t0 > traj_queue.front().time_end) {
+          break;
+        }
+      }
+    } else {
+      traj_queue.pop();
+      continue;
     }
   }
 }

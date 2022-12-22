@@ -44,16 +44,23 @@ class FakeRiskVoxel : public RiskVoxel {
   void pubCallback(const ros::TimerEvent &event);
   typedef std::shared_ptr<FakeRiskVoxel> Ptr;
 
-  void        getObstaclePoints(std::vector<Eigen::Vector3d> &points);
-  void        getObstaclePoints(std::vector<Eigen::Vector3d> &points, double t_start, double t_end);
-  void        getObstaclePoints(std::vector<Eigen::Vector3d> &points,
-                                double                        t_start,
-                                double                        t_end,
-                                const Eigen::Vector3d &       lc,
-                                const Eigen::Vector3d &       hc);
-  int         getInflateOccupancy(const Eigen::Vector3d pos);
-  int         getInflateOccupancy(const Eigen::Vector3d pos, int t);
-  int         getInflateOccupancy(const Eigen::Vector3d pos, double t);
+  void addObstacles(const std::vector<Eigen::Vector3d> &centers,
+                    const Eigen::Vector3d &             size,
+                    int                                 t_index);
+  void addObstacles(const std::vector<Eigen::Vector3d> &centers,
+                    const Eigen::Vector3d &             size,
+                    const ros::Time &                   t);
+  void getObstaclePoints(std::vector<Eigen::Vector3d> &points);
+  void getObstaclePoints(std::vector<Eigen::Vector3d> &points, double t_start, double t_end);
+  void getObstaclePoints(std::vector<Eigen::Vector3d> &points,
+                         double                        t_start,
+                         double                        t_end,
+                         const Eigen::Vector3d &       lc,
+                         const Eigen::Vector3d &       hc);
+  int  getInflateOccupancy(const Eigen::Vector3d pos);
+  int  getInflateOccupancy(const Eigen::Vector3d pos, int t);
+  int  getInflateOccupancy(const Eigen::Vector3d pos, double t);
+
   inline void setMapCenter(const Eigen::Vector3f &center) { pose_ = center; }
   inline void setQuaternion(const Eigen::Quaternionf &q) { q_ = q; }
 
@@ -69,8 +76,9 @@ class FakeRiskVoxel : public RiskVoxel {
   float resolution_;
   float time_resolution_;
   /* ROS Utilities */
-  ros::Subscriber       gt_map_sub_;    // ground truth local map
-  ros::Subscriber       gt_state_sub_;  // ground truth velocity
+  ros::Time             last_update_time_;  // last map update time (start time of the risk map)
+  ros::Subscriber       gt_map_sub_;        // ground truth local map
+  ros::Subscriber       gt_state_sub_;      // ground truth velocity
   ros::Subscriber       odom_sub_;
   ros::Subscriber       pose_sub_;
   std::vector<Cylinder> gt_cylinders_;

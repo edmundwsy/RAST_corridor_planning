@@ -52,6 +52,8 @@ class MADER {
     return true;
   }
   bool updateTrajObstacles(/* arguments */);
+  void getAgentsSize(Eigen::Vector3d &size) { size = ego_size_; }
+  void getAgentsTrajectory(std::vector<Eigen::Vector3d> &points, int idx_agent, double dt);
   void getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double t);
   /**
    * @brief input vertices of trajectory convex hull, get Minkowski sum of the convex
@@ -60,7 +62,7 @@ class MADER {
    * @param cpts: control points (vertices of trajectory convex hull)
    */
   void loadVertices(std::vector<Eigen::Vector3d> &pts, Eigen::MatrixXd &cpts);
-
+  int  getNumAgents() { return num_robots_; }
   typedef std::shared_ptr<MADER> Ptr;
 
  private:
@@ -83,6 +85,7 @@ class MADER {
   double drone_size_y_;
   double drone_size_z_;
 
+  Eigen::Vector3d             ego_size_;
   Eigen::Matrix<double, 3, 8> ego_cube_; /* Eight vertices of the ego cube */
 
   separator::Separator *separator_solver_;
