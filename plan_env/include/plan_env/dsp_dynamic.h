@@ -46,8 +46,8 @@ efficient and sufficient in most scenarios. So it is recommended to use this hea
 using namespace std;
 
 /** Parameters for the map **/
-#define MAP_LENGTH_VOXEL_NUM       66
-#define MAP_WIDTH_VOXEL_NUM        66
+#define MAP_LENGTH_VOXEL_NUM       65
+#define MAP_WIDTH_VOXEL_NUM        65
 #define MAP_HEIGHT_VOXEL_NUM       40
 #define VOXEL_RESOLUTION           0.15
 #define ANGLE_RESOLUTION           3
@@ -62,9 +62,9 @@ using namespace std;
 
 static const float prediction_future_time[PREDICTION_TIMES] = {0.05f, 0.25f, 0.45f,
                                                                0.65f, 0.85f, 1.05f};
-const int half_fov_h = 45;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
+const int half_fov_h = 48;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
                             // or make half_fov_h a smaller value than the real FOV angle
-const int half_fov_v = 27;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
+const int half_fov_v = 36;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
                             // or make half_fov_h a smaller value than the real FOV angle
 
 #define DYNAMIC_CLUSTER_MAX_POINT_NUM \

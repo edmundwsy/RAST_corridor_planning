@@ -9,6 +9,7 @@
   <arg name="map_size_x"/>
   <arg name="map_size_y"/>
   <arg name="map_size_z"/>
+  <arg name="num_robots" default="1" />
 
   <arg name="pose_topic" value="/uav$(arg drone_id)/mavros/local_position/odom"/>
   <arg name="odom_topic" value="/uav$(arg drone_id)/mavros/local_position/pose"/>
@@ -25,6 +26,7 @@
     <!-- Map ground truth statet -->
     <rosparam file="$(find plan_manager)/config/sim_fake.yaml" command="load" />
     <param name="drone_id" value="$(arg drone_id)" />
+    <param name="swarm/num_robots" value="$(arg num_robots)" />
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />
