@@ -41,7 +41,7 @@ efficient and sufficient in most scenarios. So it is recommended to use this hea
 #include <thread>
 #include "Eigen/Eigen"
 #include "iostream"
-#include "munkres.h"  // TODO: move munkres to this folder
+#include "munkres.h"
 
 using namespace std;
 
@@ -54,14 +54,14 @@ using namespace std;
 #define MAX_PARTICLE_NUM_VOXEL     20
 #define LIMIT_MOVEMENT_IN_XY_PLANE 1
 
-#define PREDICTION_TIMES 6
+#define PREDICTION_TIMES 9
 /* static const float prediction_future_time[PREDICTION_TIMES] = {
     0.05f, 0.2f, 0.5f, 1.f,
     1.5f,  2.f};  // unit: second. The first value is used to compensate the delay caused by the */
 // map.
 
-static const float prediction_future_time[PREDICTION_TIMES] = {0.05f, 0.25f, 0.45f,
-                                                               0.65f, 0.85f, 1.05f};
+static const float prediction_future_time[PREDICTION_TIMES] = {0.05f, 0.25f, 0.45f, 0.65f, 0.85f,
+                                                               1.05f, 1.25f, 1.45f, 1.65f};
 const int half_fov_h = 48;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
                             // or make half_fov_h a smaller value than the real FOV angle
 const int half_fov_v = 36;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION

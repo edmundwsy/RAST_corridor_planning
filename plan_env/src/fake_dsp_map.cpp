@@ -142,7 +142,7 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
     }
   }
 
-  ros::Time       tic = ros::Time::now();
+  // ros::Time       tic = ros::Time::now();
   Eigen::Vector3d robot_size;
   coordinator_->getAgentsSize(robot_size);
   int n = coordinator_->getNumAgents();
@@ -160,8 +160,8 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
     }
     addObstacles(waypoints, robot_size, idx);
   }
-  ros::Time toc = ros::Time::now();
-  std::cout << "adding obstacles takes: " << (toc - tic).toSec() * 1000 << "ms" << std::endl;
+  // ros::Time toc = ros::Time::now();
+  // std::cout << "adding obstacles takes: " << (toc - tic).toSec() * 1000 << "ms" << std::endl;
   last_update_time_ = ros::Time::now();
 }
 
