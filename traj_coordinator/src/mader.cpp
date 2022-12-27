@@ -207,7 +207,7 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
                 << "  Obstacle Buffer size: " << pointsB.size() << std::endl;
 
       if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
-        ROS_WARN("Drone %d will collides with drone %d", drone_id_, k);
+        ROS_WARN("Drone %i will collides with drone %i", drone_id_, index_to_drone_id_[k]);
         is_checking_ = false;
         return false;
       }

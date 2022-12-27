@@ -170,9 +170,8 @@ void FakeBaselinePlanner::addAgentsTrajectoryToMap() {
 
 bool FakeBaselinePlanner::plan() {
   ROS_INFO("Planning...");
-  setEmptyTrajectory(); /* init: set current position as traj to prevent planning failed */
   ros::Time t0, t1;
-  // t0 = ros::Time::now();
+  t0 = ros::Time::now();
   // /* ----- Add other agents to the DSP Map ----- */
   // addAgentsTrajectoryToMap();
   // t1 = ros::Time::now();
@@ -195,7 +194,8 @@ bool FakeBaselinePlanner::plan() {
   ROS_INFO("A star search finished with return code %d", rst);
 
   if (rst == NO_PATH) {
-    ROS_WARN("No path found!");
+    ROS_ERROR("No path found!");
+    setEmptyTrajectory();
     return false;
   }
   showAstarPath();
@@ -300,6 +300,7 @@ bool FakeBaselinePlanner::plan() {
     t2 = ros::Time::now();
     ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
     ROS_ERROR("Trajectory optimization failed!");
+    setEmptyTrajectory();
     return false;
   }
   t2 = ros::Time::now();
@@ -311,12 +312,14 @@ bool FakeBaselinePlanner::plan() {
   t1 = ros::Time::now();
   if (!collision_avoider_->isSafeAfterOpt(traj_)) {
     ROS_ERROR("Trajectory collides after optimization!");
+    setEmptyTrajectory(); /* set current position as traj to prevent planning failed */
     return false;
   }
   if (!collision_avoider_->isSafeAfterChk()) {
     ROS_ERROR("Trajectory commited while checking!");
     t2 = ros::Time::now();
     ROS_INFO("MADER takes: %f ms", (t2 - t1).toSec() * 1000);
+    setEmptyTrajectory();
     return false;
   }
   t2 = ros::Time::now();

@@ -174,7 +174,7 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
     bool near_end      = abs(cur_node->getIndex(0) - end_index(0)) <= tolerance_ &&
                     abs(cur_node->getIndex(1) - end_index(1)) <= tolerance_ &&
                     abs(cur_node->getIndex(2) - end_index(2)) <= tolerance_;
-    bool exceed_time = cur_node->time >= 1.2;  // TODO
+    bool exceed_time = cur_node->time >= max_tau_;
 
     /* If ReachGoal(n_c) or AnalyticExpand(n_c_) */
     if (reach_horizon || near_end || exceed_time) {
