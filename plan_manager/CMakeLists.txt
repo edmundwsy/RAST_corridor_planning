@@ -22,39 +22,45 @@ find_package(catkin REQUIRED COMPONENTS
   decomp_ros_msgs
   plan_env
   path_searching
-  separator   # MADER linear separator
+  traj_coordinator
+
+  # separator # MADER linear separator
 )
 
 catkin_package(
- INCLUDE_DIRS include
- LIBRARIES plan_manager
- CATKIN_DEPENDS roscpp traj_opt traj_utils
+  INCLUDE_DIRS include
+  LIBRARIES plan_manager
+  CATKIN_DEPENDS roscpp traj_opt traj_utils traj_coordinator plan_env path_searching
 )
 
 include_directories(
-include
-${catkin_INCLUDE_DIRS}
-${PCL_INCLUDE_DIRS}
-${Eigen3_INCLUDE_DIRS}
+  include
+  ${catkin_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
+  ${Eigen3_INCLUDE_DIRS}
 )
 
-## Declare a C++ library
+# # Declare a C++ library
 add_library(${PROJECT_NAME}
   src/baseline.cpp
   src/plan_manager.cpp
-  src/mader_deconfliction.cpp
-  src/baseline_fake.cpp  # Debug
+
+  # src/mader_deconfliction.cpp
+  src/baseline_fake.cpp # Debug
   src/fake_plan_manager.cpp # Debug
 )
 target_link_libraries(${PROJECT_NAME}
-    ${catkin_LIBRARIES}
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
 )
 
 # add_executable(test_baseline src/test_baseline_node.cpp)
 # target_link_libraries(test_baseline ${catkin_LIBRARIES} ${PROJECT_NAME})
-
 add_executable(baseline src/planner_node.cpp)
 target_link_libraries(baseline ${catkin_LIBRARIES} ${PROJECT_NAME})
 
 add_executable(fake_baseline src/fake_planner_node.cpp)
 target_link_libraries(fake_baseline ${catkin_LIBRARIES} ${PROJECT_NAME})
+
+add_executable(test_firi src/test_firi_node.cpp)
+target_link_libraries(test_firi ${catkin_LIBRARIES} ${PROJECT_NAME})
