@@ -54,10 +54,21 @@ class MADER {
     }
     return true;
   }
-  bool updateTrajObstacles(/* arguments */);
+  /**
+   * @brief get the size of the ego agent
+   * @param size : size of the ego agent (x, y, z)
+   */
   void getAgentsSize(Eigen::Vector3d &size) { size = ego_size_; }
   void getAgentsTrajectory(std::vector<Eigen::Vector3d> &points, int idx_agent, double dt);
   void getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double t);
+  /**
+   * @brief get waypoints of the agent 'idx_agenq' at time 't'
+   * @param pts: points buffer
+   * @param idx_agent: index of the agent
+   * @param t: ros::Time
+   */
+  void getWaypoints(std::vector<Eigen::Vector3d> &pts, int idx_agent, ros::Time t);
+
   /**
    * @brief input vertices of trajectory convex hull, get Minkowski sum of the convex
    * hull and ego polytope, and push these vertices into the buffer `pts`
@@ -65,7 +76,13 @@ class MADER {
    * @param cpts: control points (vertices of trajectory convex hull)
    */
   void loadVertices(std::vector<Eigen::Vector3d> &pts, Eigen::MatrixXd &cpts);
-  int  getNumAgents() { return num_robots_; }
+
+  /**
+   * @brief get the number of agents
+   * @return
+   */
+  int getNumAgents() { return num_robots_; }
+
   typedef std::shared_ptr<MADER> Ptr;
 
  private:

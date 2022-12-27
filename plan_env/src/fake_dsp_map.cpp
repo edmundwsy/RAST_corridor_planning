@@ -141,6 +141,27 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
       }
     }
   }
+
+  ros::Time       tic = ros::Time::now();
+  Eigen::Vector3d robot_size;
+  coordinator_->getAgentsSize(robot_size);
+  int n = coordinator_->getNumAgents();
+  for (int idx = 0; idx < PREDICTION_TIMES; idx++) {
+    std::vector<Eigen::Vector3d> waypoints;
+    for (int i = 0; i < n - 1; i++) {
+      /* query coordinator to get the future waypoints from broadcast trajectory */
+      coordinator_->getWaypoints(waypoints, i,
+                                 ros::Time::now() + ros::Duration(time_resolution_ * idx));
+      /* Get waypoints at the beginning of each time step, and modify map accordingly */
+    }
+    /* Transfer to local frame */
+    for (auto &wp : waypoints) {
+      wp = wp - pose_.cast<double>();
+    }
+    addObstacles(waypoints, robot_size, idx);
+  }
+  ros::Time toc = ros::Time::now();
+  std::cout << "adding obstacles takes: " << (toc - tic).toSec() * 1000 << "ms" << std::endl;
   last_update_time_ = ros::Time::now();
 }
 
@@ -174,7 +195,8 @@ void FakeRiskVoxel::groundTruthStateCallback(
 int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos) {
   Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
   int             idx = getVoxelIndex(pf);
-  // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
+  // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM <<
+  // "\trange"
   //           << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
   if (!this->isInRange(pf)) return -1;
   if (risk_maps_[idx][0] > risk_threshold_) return 1;
@@ -190,7 +212,8 @@ int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos) {
 int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, int t) {
   Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
   int             idx = getVoxelIndex(pf);
-  // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
+  // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM <<
+  // "\trange"
   // //           << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
   if (!this->isInRange(pf)) return -1;
   if (t > PREDICTION_TIMES) return -1;
@@ -208,7 +231,8 @@ int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, double t) {
   int             ti  = t / time_resolution_;
   Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
   int             idx = getVoxelIndex(pf);
-  // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM << "\trange"
+  // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM <<
+  // "\trange"
   //           << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
   if (!this->isInRange(pf)) return -1;
   if (t > PREDICTION_TIMES) return -1;

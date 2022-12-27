@@ -30,16 +30,13 @@ void FakeBaselinePlanner::init() {
   /*** INITIALIZE MADER DECONFLICTION ***/
   collision_avoider_.reset(new MADER(nh_));
   collision_avoider_->init();
+  map_->setCoordinator(collision_avoider_);
 
   /*** INITIALIZE VISUALIZATION ***/
   std::string ns = "world";
   visualizer_.reset(new visualizer::Visualizer(nh_, ns));
 
   /*** INITIALIZE SUBSCRIBER ***/
-  // click_sub_ = nh_.subscribe("/traj_start_trigger", 1, &FakeBaselinePlanner::clickCallback,
-  // this);
-  // click_sub_ = nh_.subscribe("/traj_start_trigger", 1, &FakeBaselinePlanner::clickCallback,
-  // this);
   pose_sub_     = nh_.subscribe("pose", 10, &FakeBaselinePlanner::PoseCallback, this);
   obstacle_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 100);
 
@@ -132,6 +129,23 @@ void FakeBaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>&
 }
 
 /**
+ * @brief get empty trajectory
+ * set current position as the trajectory
+ */
+void FakeBaselinePlanner::setEmptyTrajectory() {
+  traj_ = Bernstein::Bezier(cfg_.corridor_tau);
+
+  Eigen::Matrix<double, 5, 3> cpts;
+  cpts.row(0) = odom_pos_;
+  cpts.row(1) = odom_pos_;
+  cpts.row(2) = odom_pos_;
+  cpts.row(3) = odom_pos_;
+  cpts.row(4) = odom_pos_;
+
+  traj_.setControlPoints(cpts);
+}
+
+/**
  * @brief add agents trajectory to map
  * get agents trajectory from collision avoider
  * add agents trajectory to map
@@ -156,11 +170,14 @@ void FakeBaselinePlanner::addAgentsTrajectoryToMap() {
 
 bool FakeBaselinePlanner::plan() {
   ROS_INFO("Planning...");
-  ros::Time t0 = ros::Time::now();
-  /* ----- Add other agents to the DSP Map ----- */
-  addAgentsTrajectoryToMap();
-  ros::Time t1 = ros::Time::now();
-  ROS_INFO("Add trajectory to map: Time used: %f ms", (t1 - t0).toSec() * 1000);
+  setEmptyTrajectory(); /* init: set current position as traj to prevent planning failed */
+  ros::Time t0, t1;
+  // t0 = ros::Time::now();
+  // /* ----- Add other agents to the DSP Map ----- */
+  // addAgentsTrajectoryToMap();
+  // t1 = ros::Time::now();
+  // ROS_INFO("Add trajectory to map: Time used: %f ms", (t1 - t0).toSec() * 1000);
+
   /*----- Path Searching on DSP Dynamic -----*/
   std::cout << "/*----- Path Searching on DSP Static -----*/" << std::endl;
   a_star_->reset();
@@ -221,7 +238,7 @@ bool FakeBaselinePlanner::plan() {
     // std::cout << "t: " << i * cfg_.corridor_tau << " | " << (i + 1) * cfg_.corridor_tau
     //           << std::endl;
     // std::cout << "pc size: " << pc.size() << std::endl;
-    collision_avoider_->getObstaclePoints(pc, 1.0);
+    // collision_avoider_->getObstaclePoints(pc, 1.0);
 
     Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();  // initial corridor
     bd(0, 0)                       = 1.0;
@@ -241,11 +258,13 @@ bool FakeBaselinePlanner::plan() {
     ros::Time t4 = ros::Time::now();
     ROS_INFO("FIRI time used: %f ms", (t4 - t3).toSec() * 1000);
     hPolys.push_back(hPoly);
+
+    this->showObstaclePoints(pc);  // TODO(12.25): only to record point cloud data set
+    pc.clear();
   }
 
   t2 = ros::Time::now();
   ROS_INFO("Generate %i corridors in %f ms", hPolys.size(), (t2 - t1).toSec() * 1000);
-  this->showObstaclePoints(pc);
   visualizer_->visualizePolytope(hPolys);
 
   /*----- Trajectory Optimization -----*/
@@ -304,4 +323,5 @@ bool FakeBaselinePlanner::plan() {
   ROS_INFO("MADER takes: %f ms", (t2 - t1).toSec() * 1000);
   ROS_INFO("Trajectory planning takes: %f ms", (t2 - t0).toSec() * 1000);
   traj_start_time_ = ros::Time::now();
+  return true;
 }

@@ -160,6 +160,7 @@ void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double horizon)
 
 /**
  * @brief check if the trajectory is collision free
+ *  check if two sets of convex hulls linear separable
  *
  * @param traj_msg
  * @return true    safe
@@ -178,9 +179,6 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
   std::vector<Eigen::Vector3d> pointsB;
 
   /* Push ego trajectory convex hull to buffer */
-  /* for (int i = 0; i < cpts.rows(); i++) {
-    pointsA.push_back(cpts.row(i));
-  } */
   loadVertices(pointsA, cpts);
 
   /* checkin: check other trajectories */
@@ -201,9 +199,6 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
       Eigen::MatrixXd cpts = swarm_trajs_[k].front().control_points;
       std::cout << "Loading points from B" << std::endl;
       loadVertices(pointsB, cpts);
-      /* for (int i = 0; i < cpts.rows(); i++) {
-        pointsB.push_back(cpts.row(i));
-      } */
       std::cout << "Time: ("
                 << swarm_trajs_[k].front().time_start.toSec() - ros::Time::now().toSec() << ", "
                 << swarm_trajs_[k].front().time_end.toSec() - ros::Time::now().toSec() << ")";
@@ -225,7 +220,7 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
 /**
  * @brief input vertices of trajectory convex hull, get Minkowski sum of the convex
  * hull and ego polytope, and push these vertices into the buffer `pts`
- * @param pts : points buffer
+ * @param pts : points buffer to be filled
  * @param cpts: control points (vertices of trajectory convex hull)
  */
 void MADER::loadVertices(std::vector<Eigen::Vector3d> &pts, Eigen::MatrixXd &cpts) {
@@ -239,7 +234,7 @@ void MADER::loadVertices(std::vector<Eigen::Vector3d> &pts, Eigen::MatrixXd &cpt
 }
 
 /**
- * @brief
+ * @brief DEPRECATED
  * @param points  trajectory waypoints to be filled
  * @param i : index of the agent
  * @param tf
@@ -269,6 +264,27 @@ void MADER::getAgentsTrajectory(std::vector<Eigen::Vector3d> &points, int idx_ag
     } else {
       traj_queue.pop();
       continue;
+    }
+  }
+}
+
+/**
+ * @brief get waypoints of the agent 'idx_agenq' at time 't'
+ * @param pts
+ * @param idx_agent
+ * @param t
+ */
+void MADER::getWaypoints(std::vector<Eigen::Vector3d> &pts, int idx_agent, ros::Time t) {
+  std::queue<SwarmTraj> traj_queue = swarm_trajs_[idx_agent];
+  while (!traj_queue.empty()) {
+    if (traj_queue.front().time_start < t && traj_queue.front().time_end > t) {
+      double dt = (t - traj_queue.front().time_start).toSec();
+      pts.push_back(traj_queue.front().piece.getPos(dt));
+      ROS_INFO_STREAM("[CA|Traj" << idx_agent << "] got trajectory at " << dt << " "
+                                 << pts.back().transpose());
+      break;
+    } else {
+      traj_queue.pop();
     }
   }
 }

@@ -19,6 +19,7 @@
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <traj_coordinator/mader.hpp>
 
 struct Cylinder {
   double x;   // x coordinate
@@ -37,6 +38,7 @@ class FakeRiskVoxel : public RiskVoxel {
   FakeRiskVoxel() {}
   ~FakeRiskVoxel() {}
   void init(ros::NodeHandle &nh);
+  void setCoordinator(MADER::Ptr ptr) { coordinator_ = ptr; }
   void groundTruthMapCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg);
   void groundTruthStateCallback(const visualization_msgs::MarkerArray::ConstPtr &state_msg);
   void odomCallback(const nav_msgs::Odometry::ConstPtr &odom_msg);
@@ -76,12 +78,15 @@ class FakeRiskVoxel : public RiskVoxel {
   float resolution_;
   float time_resolution_;
   /* ROS Utilities */
-  ros::Time             last_update_time_;  // last map update time (start time of the risk map)
-  ros::Subscriber       gt_map_sub_;        // ground truth local map
-  ros::Subscriber       gt_state_sub_;      // ground truth velocity
-  ros::Subscriber       odom_sub_;
-  ros::Subscriber       pose_sub_;
+  ros::Time       last_update_time_;  // last map update time (start time of the risk map)
+  ros::Subscriber gt_map_sub_;        // ground truth local map
+  ros::Subscriber gt_state_sub_;      // ground truth velocity
+  ros::Subscriber odom_sub_;
+  ros::Subscriber pose_sub_;
+
+  /* Data Variables */
   std::vector<Cylinder> gt_cylinders_;
+  MADER::Ptr            coordinator_;  // TODO(01.10): move this to risk_voxel
 };
 
 /**

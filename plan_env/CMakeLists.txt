@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
     visualization_msgs
     cv_bridge
     message_filters
+    traj_coordinator # for adding other traj into map
     quadrotor_msgs # only for examples
 )
 
@@ -32,7 +33,7 @@ set(Munkres_LIBS
 catkin_package(
     INCLUDE_DIRS include
     LIBRARIES ${PROJECT_NAME}
-    CATKIN_DEPENDS roscpp std_msgs
+    CATKIN_DEPENDS roscpp std_msgs cv_bridge traj_coordinator
     DEPENDS OpenCV Munkres
 )
 

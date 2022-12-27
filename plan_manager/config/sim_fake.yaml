@@ -71,6 +71,7 @@ map:
 
   clearance: 0.2
 
+  publish_spatio_temporal: false
   virtual_ceil_height: 2.9
   visualization_truncate_height: 1.8
   show_occ_time: false
