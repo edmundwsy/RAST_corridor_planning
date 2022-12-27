@@ -10,6 +10,15 @@
   <arg name="map_size_y"/>
   <arg name="map_size_z"/>
   <arg name="num_robots" default="1" />
+  <!-- <arg name="color_r" default="0.0" />
+  <arg name="color_g" default="0.0" />
+  <arg name="color_b" default="0.0" /> -->
+
+
+  <!-- Assign color to the drone -->
+  <include file="$(find plan_manager)/launch/simulator/drone_colormap.launch">
+    <arg name="drone_id" value="$(arg drone_id)" />
+  </include>
 
   <arg name="pose_topic" value="/uav$(arg drone_id)/mavros/local_position/odom"/>
   <arg name="odom_topic" value="/uav$(arg drone_id)/mavros/local_position/pose"/>
@@ -60,9 +69,9 @@
   <node pkg="odom_visualization" name="odom_visualization" type="odom_visualization" output="screen">
     <remap from="~odom" to="$(arg odom_topic)" />
     <param name="color/a" value="1.0" />
-    <param name="color/r" value="0.0" />
-    <param name="color/g" value="0.0" />
-    <param name="color/b" value="0.0" />
+    <!-- <param name="color/r" value="$(arg color_r)" />
+    <param name="color/g" value="$(arg color_g)" />
+    <param name="color/b" value="$(arg color_b)" /> -->
     <param name="covariance_scale" value="100.0" />
     <param name="robot_scale" value="1.0" />
     <param name="tf45" value="true" />

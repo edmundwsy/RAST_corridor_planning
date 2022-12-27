@@ -3,7 +3,7 @@
   <arg name="map_size_x" value="16" />
   <arg name="map_size_y" value="16" />
   <arg name="map_size_z" value="7" />
-  <arg name="obs_num" value="2" />
+  <arg name="obs_num" value="9" />
   <!-- Number of obstacles -->
   <arg name="num_robots" value="4" />
 

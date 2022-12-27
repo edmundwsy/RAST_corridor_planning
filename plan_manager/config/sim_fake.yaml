@@ -11,7 +11,7 @@ planner:
 fsm:
   goal_tolerance: 1.0
   replan_tolerance: 1.0
-  replan_duration: 0.5
+  replan_duration: 0.25
 
 search:
   max_tau: 0.6 # Useless
