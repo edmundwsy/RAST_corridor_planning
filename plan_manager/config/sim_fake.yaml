@@ -6,7 +6,7 @@ planner:
   max_vel: 3.0
   max_acc: 5.0
   max_differentiated_current_a: 3.0
-  corridor_tau: 0.4
+  corridor_tau: 0.3
 
 fsm:
   goal_tolerance: 1.0
@@ -72,7 +72,7 @@ map:
 
   clearance: 0.2
 
-  publish_spatio_temporal: false
+  publish_spatio_temporal: true
   virtual_ceil_height: 2.9
   visualization_truncate_height: 1.8
   show_occ_time: false
@@ -84,6 +84,6 @@ visualization:
 
 swarm:
   num_robots: 4
-  drone_size_x: 0.3
-  drone_size_y: 0.3
+  drone_size_x: 0.2
+  drone_size_y: 0.2
   drone_size_z: 0.4

@@ -110,6 +110,7 @@ void FakeBaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstP
 void FakeBaselinePlanner::showAstarPath() {
   std::vector<Eigen::Vector3d> path = a_star_->getPath(0.1);
   visualizer_->visualizeAstarPath(path);
+  visualizer_->visualizeAstarPathXYT(path, 0.1);
 }
 
 void FakeBaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>& points) {
@@ -210,7 +211,7 @@ bool FakeBaselinePlanner::plan() {
 
   route.resize(route_vel.size()); /* copy route_vel to route */
 
-  printf("route size: %d \n", route.size());
+  printf("route size: %i \n", route.size());
   std::cout << "pos: " << odom_pos_.transpose() << std::endl;
   for (int i = 0; i < route.size(); i++) {
     route[i] = route_vel[i].head(3);
@@ -232,14 +233,8 @@ bool FakeBaselinePlanner::plan() {
     llc(0) = std::max(std::min(route[i](0), route[i + 1](0)) - cfg_.init_range, lower_corner(0));
     llc(1) = std::max(std::min(route[i](1), route[i + 1](1)) - cfg_.init_range, lower_corner(1));
     llc(2) = std::max(std::min(route[i](2), route[i + 1](2)) - cfg_.init_range, lower_corner(2));
-
+    pc.clear();
     map_->getObstaclePoints(pc, i * cfg_.corridor_tau, (i + 1) * cfg_.corridor_tau, llc, lhc);
-    // map_->getObstaclePoints(pc, 0, 1.2);
-    // std::cout << "t: " << i * cfg_.corridor_tau << " | " << (i + 1) * cfg_.corridor_tau
-    //           << std::endl;
-    // std::cout << "pc size: " << pc.size() << std::endl;
-    // collision_avoider_->getObstaclePoints(pc, 1.0);
-
     Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();  // initial corridor
     bd(0, 0)                       = 1.0;
     bd(1, 1)                       = 1.0;
@@ -249,7 +244,8 @@ bool FakeBaselinePlanner::plan() {
     bd(5, 2)                       = -1.0;
     bd.block<3, 1>(0, 3)           = -lhc;
     bd.block<3, 1>(3, 3)           = llc;
-    Eigen::MatrixX4d                                                hPoly;
+    Eigen::MatrixX4d hPoly;
+
     Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> m_pc(pc[0].data(), 3,
                                                                          pc.size());
 
@@ -259,8 +255,7 @@ bool FakeBaselinePlanner::plan() {
     ROS_INFO("FIRI time used: %f ms", (t4 - t3).toSec() * 1000);
     hPolys.push_back(hPoly);
 
-    this->showObstaclePoints(pc);  // TODO(12.25): only to record point cloud data set
-    pc.clear();
+    this->showObstaclePoints(pc);
   }
 
   t2 = ros::Time::now();
@@ -273,8 +268,8 @@ bool FakeBaselinePlanner::plan() {
   // std::cout << "route size: " << route.size() << std::endl;
 
   /* Goal position and time allocation */
-  Eigen::Vector3d local_goal_pos = route_vel[route_vel.size() - 1].head(3);
-  Eigen::Vector3d local_goal_vel = route_vel[route_vel.size() - 1].tail(3);
+  Eigen::Vector3d local_goal_pos = route_vel.back().head(3);
+  Eigen::Vector3d local_goal_vel = route_vel.back().tail(3);
 
   std::vector<double> time_alloc;
   time_alloc.resize(hPolys.size(), cfg_.corridor_tau);

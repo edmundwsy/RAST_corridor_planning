@@ -201,12 +201,16 @@ class Visualizer {
   ros::Publisher  _ctrl_pts_pub;
   ros::Publisher  _colorful_traj_pub;
   ros::Publisher  _astar_path_pub;
+  ros::Publisher  _astar_t_path_pub;
   ros::Publisher  _start_goal_pub;
   ros::Publisher  _text_pub;
   ros::Publisher  _mesh_pub;
   ros::Publisher  _edge_pub;
   ros::Publisher  _obstacle_pub;
   std::string     _frame_id;
+  double          color_r = 0.0;
+  double          color_g = 0.0;
+  double          color_b = 0.0;
 
  public:
   Visualizer(ros::NodeHandle& nh) : _nh(nh) {
@@ -217,9 +221,13 @@ class Visualizer {
   ~Visualizer() {}
 
   void init() {
+    _nh.param("odom_visualization/color/r", color_r, 0.0);
+    _nh.param("odom_visualization/color/g", color_g, 0.0);
+    _nh.param("odom_visualization/color/b", color_b, 0.0);
     _corridor_pub      = _nh.advertise<decomp_ros_msgs::PolyhedronArray>("vis_corridor", 1);
     _colorful_traj_pub = _nh.advertise<visualization_msgs::Marker>("vis_color_traj", 1);
     _astar_path_pub    = _nh.advertise<visualization_msgs::Marker>("vis_astar_path", 1);
+    _astar_t_path_pub  = _nh.advertise<visualization_msgs::Marker>("vis_astar_t_path", 1);
     _start_goal_pub    = _nh.advertise<visualization_msgs::Marker>("vis_start_goal", 1);
     _ctrl_pts_pub      = _nh.advertise<visualization_msgs::Marker>("vis_ctrl_pts", 1);
     _text_pub          = _nh.advertise<visualization_msgs::Marker>("vis_text", 1);
@@ -239,6 +247,7 @@ class Visualizer {
                           const Eigen::Vector3d&               map_pose);
   void visualizePath(const std::vector<Eigen::Vector3d>& path);
   void visualizeAstarPath(const std::vector<Eigen::Vector3d>& points);
+  void visualizeAstarPathXYT(const std::vector<Eigen::Vector3d>& points, double dt);
   void visualizeStartGoal(const Eigen::Vector3d& center, int sg = 1);
   void visualizeControlPoints(const Eigen::MatrixX3d& cpts);
   void displayOptimizationInfo(const double& comp_time,

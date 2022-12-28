@@ -9,9 +9,9 @@
  *
  */
 
+#include <traj_utils/geo_utils.hpp>
 #include <traj_utils/quickhull.hpp>
 #include <traj_utils/visualizer.hpp>
-#include <traj_utils/geo_utils.hpp>
 
 namespace visualizer {
 
@@ -244,6 +244,56 @@ void Visualizer::visualizePath(const std::vector<Eigen::Vector3d>& route) {
     }
     _astar_path_pub.publish(routeMarker);
   }
+}
+
+void Visualizer::visualizeAstarPathXYT(const std::vector<Eigen::Vector3d>& points, double dt) {
+  int                          idx = 0;
+  std::vector<Eigen::Vector3d> points_xyt;
+  points_xyt.reserve(points.size());
+  for (auto& p : points) {
+    double t = idx * dt;
+    points_xyt.push_back(Eigen::Vector3d(p(0), p(1), t));
+    idx++;
+  }
+
+  visualization_msgs::Marker astar_mkr;
+  astar_mkr.header.frame_id = _frame_id;
+  astar_mkr.header.stamp    = ros::Time::now();
+
+  astar_mkr.type    = visualization_msgs::Marker::LINE_LIST;
+  astar_mkr.action  = visualization_msgs::Marker::ADD;
+  astar_mkr.ns      = "astar_path";
+  astar_mkr.id      = 1;
+  astar_mkr.scale.x = 0.1;
+  astar_mkr.scale.y = 0.1;
+  astar_mkr.scale.z = 0.1;
+  astar_mkr.color.a = 0.8;
+  astar_mkr.color.r = 0.942;
+  astar_mkr.color.g = 0.215;
+  astar_mkr.color.b = 0.322;
+
+  astar_mkr.pose.orientation.w = 1.0;
+
+  Eigen::Vector3d last;
+  bool            first = true;
+  for (const auto& point : points_xyt) {
+    if (first) {
+      first = false;
+      last  = point;
+      continue;
+    }
+    geometry_msgs::Point p;
+    p.x = last.x();
+    p.y = last.y();
+    p.z = last.z();
+    astar_mkr.points.push_back(p);
+    p.x = point.x();
+    p.y = point.y();
+    p.z = point.z();
+    astar_mkr.points.push_back(p);
+    last = point;
+  }
+  _astar_t_path_pub.publish(astar_mkr);
 }
 
 void Visualizer::visualizeAstarPath(const std::vector<Eigen::Vector3d>& points) {
