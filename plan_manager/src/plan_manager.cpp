@@ -95,7 +95,7 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
         bool is_safe = true;         /** TODO: time delay !!! */
         if (is_success && is_safe) { /* publish trajectory */
           publishTrajectory();
-          ROS_WARN("%f", _traj_start_time.toSec());
+          ROS_WARN("[FSM] %f", _traj_start_time.toSec());
         }
 
         if (_is_exec_triggered) { /* execute trajectory */
@@ -138,7 +138,12 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       } else {
         _planner->setGoal(_goal);
-        bool is_success = _planner->plan();
+
+        ros::Time t1         = ros::Time::now();
+        bool      is_success = _planner->plan();
+        ros::Time t2         = ros::Time::now();
+        ROS_INFO("[FSM] cost: %f ms", (t2 - t1).toSec() * 1000);
+
         // bool is_safe    = true;  // TODO: isTrajectorySafe(_traj);
         // bool is_safe    = isTrajectorySafe(_traj);
 
@@ -154,7 +159,7 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
           if (is_finished) {
             FSMChangeState(FSM_STATUS::GOAL_REACHED);
           } else {
-            ROS_WARN("Replanning failed");
+            ROS_WARN("[FSM] Replanning failed");
           }
         }
       }

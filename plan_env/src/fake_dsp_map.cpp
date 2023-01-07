@@ -34,9 +34,9 @@ void FakeRiskVoxel::init(ros::NodeHandle &nh) {
   local_update_range_x_ = MAP_LENGTH_VOXEL_NUM / 2 * resolution_;
   local_update_range_y_ = MAP_WIDTH_VOXEL_NUM / 2 * resolution_;
   local_update_range_z_ = MAP_HEIGHT_VOXEL_NUM / 2 * resolution_;
-  ROS_INFO("Local update range: %f, %f, %f", local_update_range_x_, local_update_range_y_,
+  ROS_INFO("[MAP] Local update range: %f, %f, %f", local_update_range_x_, local_update_range_y_,
            local_update_range_z_);
-  ROS_INFO("Init fake risk voxel map");
+  ROS_INFO("[MAP] Init fake risk voxel map");
 
   cloud_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
   cloud_->points.reserve(80000);
@@ -392,11 +392,11 @@ void FakeRiskVoxel::addObstacles(const std::vector<Eigen::Vector3d> &centers,
   // double dt  = t.toSec() - ros::Time::now().toSec(); /* approximation: use current time */
   int idx = floor(dt / time_resolution_);
   if (idx >= PREDICTION_TIMES) {
-    ROS_WARN("The time %.2f is too large, the risk map will not be updated", dt);
+    ROS_WARN("[MAP] The time %.2f is too large, the risk map will not be updated", dt);
     return;
   }
   if (idx < 0) {
-    ROS_WARN("The time %.2f is too small, the risk map will not be updated", dt);
+    ROS_WARN("[MAP] The time %.2f is too small, the risk map will not be updated", dt);
     return;
   }
   addObstacles(centers, size, idx);

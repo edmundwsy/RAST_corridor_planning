@@ -118,9 +118,9 @@ inline void convexCover(const std::vector<Eigen::Vector3d> &path,
   bd(5, 2) = -1.0;
 
   /* Debug */
-  for (auto &pt : path) {
-    // std::cout << "path: " << pt[1] << std::endl;
-  }
+  // for (auto &pt : path) {
+  // std::cout << "path: " << pt[1] << std::endl;
+  // }
 
   Eigen::MatrixX4d             hp, gap;
   Eigen::Vector3d              a, b = path[0];

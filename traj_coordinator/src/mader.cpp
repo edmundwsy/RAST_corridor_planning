@@ -38,7 +38,6 @@ void MADER::init() {
     if (i != drone_id_) {
       drone_id_to_index_[i] = j;
       index_to_drone_id_[j] = i;
-      std::cout << "drone_id_to_index_[" << i << "] = " << j << std::endl;
       j++;
     }
   }
@@ -65,15 +64,14 @@ void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg)
   if (id == drone_id_) {
     return;
   }
+  int k = drone_id_to_index_[id];
 
   if (is_checking_) {
     have_received_traj_while_checking_ = true;
-    ROS_INFO("Received traj from agent %i while checking agent %i", id, drone_id_);
+    ROS_INFO("[CA|A%i] trajectory received during checking", k);
   } else {
     have_received_traj_while_optimizing_ = false;
   }
-
-  int k = drone_id_to_index_[id];
 
   /* remove old trajectories from swarm_trajs_ buffer */
   ros::Time now = ros::Time::now();
@@ -85,7 +83,7 @@ void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg)
       break;
     }
   }
-  ROS_INFO("Traj size after remove: %d", (int)swarm_trajs_[k].size());
+  ROS_INFO("[CA|A%i] %d traj in buffer after removal", id, (int)swarm_trajs_[k].size());
 
   /* update swarm_trajs_ */
   int n_seg = traj_msg->duration.size();
@@ -96,8 +94,8 @@ void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg)
   traj.time_received = ros::Time::now();
   traj.time_start    = traj_msg->start_time;
 
-  ROS_INFO("Agent %i traj start time: %f", traj.id, traj.time_start.toSec());
-  ROS_INFO("Agent %i traj received time: %f", traj.id, traj.time_received.toSec());
+  ROS_INFO("[CA|A%i] traj communication delay %f ms", traj.id,
+           (traj.time_received - traj.time_start).toSec() * 1000);
 
   for (int i = 0; i < n_seg; i++) {
     traj.duration   = traj_msg->duration[i];
@@ -113,7 +111,7 @@ void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg)
   }
 
   /* print intermediate results */
-  ROS_INFO("Drone %d has %d trajectories for drone %d", drone_id_, (int)swarm_trajs_[k].size(), k);
+  ROS_INFO("[CA|A%i] saved %d trajectories", id, (int)swarm_trajs_[k].size());
 }
 
 /**
@@ -127,7 +125,7 @@ void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double horizon)
   ros::Time t_end   = t_start + ros::Duration(horizon);       /* End time of planned trajectory */
   for (int i = 0; i < num_robots_ - 1; i++) {                 /* iterate all robots in the buffer */
     if (swarm_trajs_[i].empty()) {
-      ROS_INFO("Drone %d has no trajectories for drone %d", drone_id_, index_to_drone_id_[i]);
+      ROS_INFO("[CA|A%d] buffer is empty", index_to_drone_id_[i]);
       continue;
     }
     std::queue<SwarmTraj> traj_queue(swarm_trajs_[i]); /* copy the queue */
@@ -135,8 +133,9 @@ void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double horizon)
     SwarmTraj traj;
     while (!traj_queue.empty()) { /* check all trajectories preserved in the queue */
       traj = traj_queue.front();
-      ROS_INFO("t_start: 0 , t_end: %f | traj: (%f, %f)", t_end.toSec() - t_start.toSec(),
-               traj.time_start.toSec() - t_start.toSec(), traj.time_end.toSec() - t_start.toSec());
+      ROS_INFO("[CA|A%d] t_start: 0 , t_end: %f | traj: (%f, %f)", index_to_drone_id_[traj.id],
+               t_end.toSec() - t_start.toSec(), traj.time_start.toSec() - t_start.toSec(),
+               traj.time_end.toSec() - t_start.toSec());
       /* If checked trajectory ends before planned trajectory */
       if (t_start > traj.time_end) {
         traj_queue.pop();
@@ -145,7 +144,7 @@ void MADER::getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double horizon)
 
       /* If checked trajectory coincide with planned trajectory */
       if (t_end > traj.time_start || t_start < traj.time_end) {
-        ROS_INFO("Drone %d : pushing %d obstacle points", traj.id, (int)traj.control_points.rows());
+        ROS_INFO("[CA|A%d] pushing %d obstacle points", traj.id, (int)traj.control_points.rows());
         ROS_INFO("t_start: 0 , t_end: %f | traj: (%f, %f)", t_end.toSec() - t_start.toSec(),
                  traj.time_start.toSec() - t_start.toSec(),
                  traj.time_end.toSec() - t_start.toSec());
@@ -197,17 +196,21 @@ bool MADER::isSafeAfterOpt(const Bernstein::Bezier &traj) {
       double          d_k;
       pointsB.clear();
       Eigen::MatrixXd cpts = swarm_trajs_[k].front().control_points;
-      std::cout << "Loading points from B" << std::endl;
+      // std::cout << "Loading points from B" << std::endl;
       loadVertices(pointsB, cpts);
-      std::cout << "Time: ("
-                << swarm_trajs_[k].front().time_start.toSec() - ros::Time::now().toSec() << ", "
-                << swarm_trajs_[k].front().time_end.toSec() - ros::Time::now().toSec() << ")";
-      std::cout << "\tDrone " << drone_id_ << " is checking with drone " << index_to_drone_id_[k]
-                << "\tEgo Buffer size: " << pointsA.size()
-                << "  Obstacle Buffer size: " << pointsB.size() << std::endl;
+      ROS_INFO("[CA|A%i] time span (%f, %f)", index_to_drone_id_[k],
+               swarm_trajs_[k].front().time_start.toSec() - ros::Time::now().toSec(),
+               swarm_trajs_[k].front().time_end.toSec() - ros::Time::now().toSec());
+      // std::cout << "Time: ("
+      //           << swarm_trajs_[k].front().time_start.toSec() - ros::Time::now().toSec() << ", "
+      //           << swarm_trajs_[k].front().time_end.toSec() - ros::Time::now().toSec() << ")";
+      // std::cout << "\tDrone " << drone_id_ << " is checking with drone " << index_to_drone_id_[k]
+      //           << "\tEgo Buffer size: " << pointsA.size()
+      //           << "  Obstacle Buffer size: " << pointsB.size() << std::endl;
 
       if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
-        ROS_WARN("Drone %i will collides with drone %i", drone_id_, index_to_drone_id_[k]);
+        ROS_INFO("[CA|A%i] Cannot find linear separation plane", index_to_drone_id_[k]);
+        ROS_WARN("[CA] Drone %i will collides with drone %i", drone_id_, index_to_drone_id_[k]);
         is_checking_ = false;
         return false;
       }
@@ -253,9 +256,9 @@ void MADER::getAgentsTrajectory(std::vector<Eigen::Vector3d> &points, int idx_ag
         /* control point number: 0 2 */
         Eigen::Vector3d pt = cpts.row(2 * j);
         points.push_back(pt);
-        ROS_INFO_STREAM("[CA|Traj" << idx_agent << "] got trajectory at "
-                                   << t0.toSec() - traj_queue.front().time_start.toSec()
-                                   << pt.transpose());
+        ROS_INFO_STREAM("[CA|A" << index_to_drone_id_[idx_agent] << "] got trajectory at "
+                                << t0.toSec() - traj_queue.front().time_start.toSec()
+                                << " | pt: " << pt.transpose());
         t0 += ros::Duration(dt);
         if (t0 > traj_queue.front().time_end) {
           break;
@@ -269,7 +272,7 @@ void MADER::getAgentsTrajectory(std::vector<Eigen::Vector3d> &points, int idx_ag
 }
 
 /**
- * @brief get waypoints of the agent 'idx_agenq' at time 't'
+ * @brief get waypoints of the agent 'idx_agent' at time 't'
  * @param pts
  * @param idx_agent
  * @param t
@@ -280,8 +283,8 @@ void MADER::getWaypoints(std::vector<Eigen::Vector3d> &pts, int idx_agent, ros::
     if (traj_queue.front().time_start < t && traj_queue.front().time_end > t) {
       double dt = (t - traj_queue.front().time_start).toSec();
       pts.push_back(traj_queue.front().piece.getPos(dt));
-      ROS_INFO_STREAM("[CA|Traj" << idx_agent << "] got trajectory at " << dt << " "
-                                 << pts.back().transpose());
+      ROS_INFO_STREAM("[CA|A" << index_to_drone_id_[idx_agent] << "] got trajectory at " << dt
+                              << " | wpt: " << pts.back().transpose());
       break;
     } else {
       traj_queue.pop();

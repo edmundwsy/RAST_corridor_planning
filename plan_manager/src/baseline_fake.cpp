@@ -191,11 +191,9 @@ bool FakeBaselinePlanner::plan() {
   }
 
   auto t2 = ros::Time::now();
-  ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
-  ROS_INFO("A star search finished with return code %d", rst);
-
+  ROS_INFO("[Astar] cost: %f ms", (t2 - t1).toSec() * 1000);
   if (rst == NO_PATH) {
-    ROS_ERROR("No path found!");
+    ROS_ERROR("[Astar] No path found!");
     setEmptyTrajectory();
     return false;
   }
@@ -207,17 +205,16 @@ bool FakeBaselinePlanner::plan() {
   // std::vector<Eigen::Vector3d>             route     = a_star_->getPath(cfg_.corridor_tau);
   std::vector<Eigen::Vector3d>  route;
   std::vector<Eigen::MatrixX4d> hPolys;
-  std::vector<Eigen::Vector3d>  pc;
 
   route.resize(route_vel.size()); /* copy route_vel to route */
 
-  printf("route size: %i \n", route.size());
-  std::cout << "pos: " << odom_pos_.transpose() << std::endl;
+  std::cout << "odom_pos = \t" << odom_pos_.transpose() << std::endl;
   for (int i = 0; i < route.size(); i++) {
-    route[i] = route_vel[i].head(3);
+    route[i] = route_vel[i].head(3); /* copy position to route */
     std::cout << "route[" << i << "] = " << route[i].transpose() << std::endl;
   }
 
+  std::vector<Eigen::Vector3d> pc;
   pc.reserve(2000);
 
   Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, -1) + odom_pos_;
@@ -252,14 +249,13 @@ bool FakeBaselinePlanner::plan() {
     ros::Time t3 = ros::Time::now();
     firi::firi(bd, m_pc, route[i], route[i + 1], hPoly, 2);
     ros::Time t4 = ros::Time::now();
-    ROS_INFO("FIRI time used: %f ms", (t4 - t3).toSec() * 1000);
+    ROS_INFO("[FIRI] %ith corridor takes %f ms", i, (t4 - t3).toSec() * 1000);
     hPolys.push_back(hPoly);
-
     this->showObstaclePoints(pc);
   }
 
   t2 = ros::Time::now();
-  ROS_INFO("Generate %i corridors in %f ms", hPolys.size(), (t2 - t1).toSec() * 1000);
+  ROS_INFO("[CrdGen] cost: %f ms", (t2 - t1).toSec() * 1000);
   visualizer_->visualizePolytope(hPolys);
 
   /*----- Trajectory Optimization -----*/
@@ -293,13 +289,13 @@ bool FakeBaselinePlanner::plan() {
                          cfg_.opt_max_acc);
   if (!traj_optimizer_->optimize()) {
     t2 = ros::Time::now();
-    ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
+    ROS_INFO("[TrajOpt] cost: %f ms", (t2 - t1).toSec() * 1000);
     ROS_ERROR("Trajectory optimization failed!");
     setEmptyTrajectory();
     return false;
   }
   t2 = ros::Time::now();
-  ROS_INFO("TrajOpt takes: %f ms", (t2 - t1).toSec() * 1000);
+  ROS_INFO("[TrajOpt] cost: %f ms", (t2 - t1).toSec() * 1000);
 
   traj_optimizer_->getOptBezier(traj_);
 
@@ -307,19 +303,20 @@ bool FakeBaselinePlanner::plan() {
   t1 = ros::Time::now();
   if (!collision_avoider_->isSafeAfterOpt(traj_)) {
     ROS_ERROR("Trajectory collides after optimization!");
+    t2 = ros::Time::now();
+    ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
     setEmptyTrajectory(); /* set current position as traj to prevent planning failed */
     return false;
   }
   if (!collision_avoider_->isSafeAfterChk()) {
     ROS_ERROR("Trajectory commited while checking!");
     t2 = ros::Time::now();
-    ROS_INFO("MADER takes: %f ms", (t2 - t1).toSec() * 1000);
+    ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
     setEmptyTrajectory();
     return false;
   }
   t2 = ros::Time::now();
-  ROS_INFO("MADER takes: %f ms", (t2 - t1).toSec() * 1000);
-  ROS_INFO("Trajectory planning takes: %f ms", (t2 - t0).toSec() * 1000);
+  ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
   traj_start_time_ = ros::Time::now();
   return true;
 }

@@ -223,7 +223,8 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
     iter_num_ += 1;
 
     /* primitives <- Expand(n_c) */
-    double res = 1 / 2.0, time_res = 1 / 1.0, time_res_init = 1 / 20.0;
+    double res = 1 / 2.0;
+    // double time_res = 1 / 1.0, time_res_init = 1 / 20.0;
 
     Eigen::Matrix<double, 6, 1>  cur_state = cur_node->state;
     Eigen::Matrix<double, 6, 1>  pro_state;
@@ -583,9 +584,9 @@ std::vector<Eigen::Vector3d> FakeRiskHybridAstar::getPath(double delta_t) {
   PathNodePtr                 node = node_path_.back();  // TODO 0??
   Eigen::Matrix<double, 6, 1> x0, xt;
 
-  double t_counter = 0;
-  double t_node    = 0;        // time to next node
-  double t_sample  = delta_t;  // time to next sample
+  // double t_counter = 0;
+  double t_node   = 0;        // time to next node
+  double t_sample = delta_t;  // time to next sample
   state_list.push_back(node->state.head(3));
   while (node->getParent() != NULL) {
     Eigen::Vector3d ut       = node->input;
@@ -652,9 +653,9 @@ std::vector<Eigen::Matrix<double, 6, 1>> FakeRiskHybridAstar::getPathWithVel(dou
   PathNodePtr                 node = node_path_.back();  // TODO 0??
   Eigen::Matrix<double, 6, 1> x0, xt;
 
-  double t_counter = 0;
-  double t_node    = 0;        // time to next node
-  double t_sample  = delta_t;  // time to next sample
+  // double t_counter = 0;
+  double t_node   = 0;        // time to next node
+  double t_sample = delta_t;  // time to next sample
   state_list.push_back(node->state);
   while (node->getParent() != NULL) {
     Eigen::Vector3d ut       = node->input;

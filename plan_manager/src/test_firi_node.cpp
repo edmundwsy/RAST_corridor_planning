@@ -69,7 +69,7 @@ void generateCorridor(const Eigen::Vector3d &             pos_start,
 
   Eigen::MatrixX4d hPoly;
   auto             t1 = system_clock::now();
-  firi::firi(bd, m_pc, pos_start, pos_goal, hPoly);
+  firi::firi(bd, m_pc, pos_start, pos_goal, hPoly, 1, 1e-6);
   auto t2 = system_clock::now();
   std::cout << "===== FIRI time =====" << std::endl;
   auto duration = duration_cast<microseconds>(t2 - t1);
@@ -117,10 +117,11 @@ void pointCallback(const sensor_msgs::PointCloud2::ConstPtr &msg) {
   }
   if (astar_path_.size() > 0) {
     std::cout << "===== astar_path_ =====" << std::endl;
-    std::cout << astar_path_[flag_ + 0].transpose() << std::endl;
-    std::cout << astar_path_[flag_ + 3].transpose() << std::endl;
+    std::cout << flag_ + 0 << "|:" << astar_path_[flag_ + 0].transpose() << std::endl;
+    std::cout << flag_ + 3 << "|:" << astar_path_[flag_ + 3].transpose() << std::endl;
     generateCorridor(astar_path_[flag_ + 0], astar_path_[flag_ + 3], pc);
     visualizer_->visualizePolytope(hPolys_);
+    visualizer_->visualizeStartGoal(astar_path_[flag_ + 3]);
   }
   flag_ += 3;
   if (flag_ >= astar_path_.size()) {
@@ -135,7 +136,7 @@ void pathCallback(const visualization_msgs::Marker::ConstPtr &msg) {
   for (int i = 0; i < msg->points.size(); i++) {
     astar_path_.push_back(Eigen::Vector3d(msg->points[i].x, msg->points[i].y, msg->points[i].z));
   }
-  ROS_INFO("Received path size: %d", astar_path_.size());
+  ROS_INFO("Received path size: %i", astar_path_.size());
 }
 
 void odomCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {

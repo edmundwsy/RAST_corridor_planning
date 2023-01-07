@@ -50,6 +50,7 @@ class MADER {
   bool isSafeAfterChk() {
     if (have_received_traj_while_checking_) {
       have_received_traj_while_checking_ = false;  // reset
+      ROS_INFO("[CA] Commited during checking");
       return false;
     }
     return true;
