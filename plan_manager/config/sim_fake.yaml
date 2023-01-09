@@ -84,6 +84,6 @@ visualization:
 
 swarm:
   num_robots: 4
-  drone_size_x: 0.2
-  drone_size_y: 0.2
+  drone_size_x: 0.3
+  drone_size_y: 0.3
   drone_size_z: 0.4

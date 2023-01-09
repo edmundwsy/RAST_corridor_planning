@@ -1,5 +1,5 @@
 <launch>
-  <arg name="drone_id" default="0" />
+  <arg name="drone_id" default="2" />
 
   <node pkg="plan_manager" name="firi" type="test_firi" output="screen">
     <remap from="/path" to="/uav$(arg drone_id)/planner/vis_astar_path" />

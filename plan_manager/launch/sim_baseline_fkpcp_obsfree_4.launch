@@ -79,6 +79,6 @@
   </group>
 
 
-  <node pkg="rviz" name="rviz" type="rviz" args="-d $(find plan_manager)/rviz/sim_multi.rviz" />
+  <node pkg="rviz" name="rviz" type="rviz" args="-d $(find plan_manager)/rviz/demo.rviz" />
 
 </launch>
