@@ -86,7 +86,7 @@ class MADER {
 
   typedef std::shared_ptr<MADER> Ptr;
 
- private:
+ protected:
   ros::NodeHandle nh_;
   ros::Subscriber swarm_sub_;
   /* variables */

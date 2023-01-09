@@ -68,7 +68,7 @@ void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg)
 
   if (is_checking_) {
     have_received_traj_while_checking_ = true;
-    ROS_INFO("[CA|A%i] trajectory received during checking", k);
+    ROS_INFO("[CA|A%i] trajectory received during checking", id);
   } else {
     have_received_traj_while_optimizing_ = false;
   }

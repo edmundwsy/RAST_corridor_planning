@@ -31,6 +31,7 @@ include_directories(
 # # Declare a C++ library
 add_library(${PROJECT_NAME}
   src/mader.cpp
+  src/rmader.cpp
 )
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
