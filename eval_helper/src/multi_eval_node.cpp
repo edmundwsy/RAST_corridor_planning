@@ -9,13 +9,15 @@
  *
  */
 #include <iostream>
-#include "eval_helper/multi_eval.hpp"
+// #include "eval_helper/multi_eval.hpp"
+#include "eval_helper/multi_eval_child.hpp"
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "multi_eval_node");
   ros::NodeHandle nh("~");
 
-  MultiAgentEvaluation multi_eval;
+  // MultiAgentEvaluation multi_eval;
+  MultiAgentMinDistance multi_eval;
   multi_eval.init(nh);
 
   ros::spin();

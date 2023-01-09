@@ -66,7 +66,7 @@ class SingleTrajRecorder {
 };
 
 class MultiAgentEvaluation {
- private:
+ protected:
   int                                  num_agents_;
   std::vector<SingleTrajRecorder::Ptr> traj_recorders_;
 
