@@ -149,6 +149,7 @@ class Bezier {
   int             getNumPieces() const { return M_; }
   double          getDuration() const { return T_; }
   void            getCtrlPoints(Eigen::MatrixXd &cpts) const { cpts = cpts_; }
+  Eigen::MatrixXd getCtrlPoints() const { return cpts_; }
   Eigen::MatrixXd getVelCtrlPoints(int idx) const { return pieces_[idx].getVelCtrlPts(); }
   Eigen::MatrixXd getAccCtrlPoints(int idx) const { return pieces_[idx].getAccCtrlPts(); }
   void            calcPieces();
@@ -189,7 +190,7 @@ class Bezier {
   double getMaxAccRate() const;
 
   const BernsteinPiece &operator[](int i) const { return pieces_[i]; }
-  BernsteinPiece &      operator[](int i) { return pieces_[i]; }
+  BernsteinPiece       &operator[](int i) { return pieces_[i]; }
 
   typedef std::shared_ptr<Bezier> Ptr;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
