@@ -67,7 +67,7 @@ void FakeRiskVoxel::poseCallback(const geometry_msgs::PoseStamped::ConstPtr &pos
   pose_ = Eigen::Vector3f(pose_msg->pose.position.x, pose_msg->pose.position.y,
                           pose_msg->pose.position.z);
   q_    = Eigen::Quaternionf(pose_msg->pose.orientation.w, pose_msg->pose.orientation.x,
-                          pose_msg->pose.orientation.y, pose_msg->pose.orientation.z);
+                             pose_msg->pose.orientation.y, pose_msg->pose.orientation.z);
 }
 
 /**
@@ -79,7 +79,7 @@ void FakeRiskVoxel::odomCallback(const nav_msgs::Odometry::ConstPtr &odom_msg) {
   pose_ = Eigen::Vector3f(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y,
                           odom_msg->pose.pose.position.z);
   q_    = Eigen::Quaternionf(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x,
-                          odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z);
+                             odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z);
 }
 /**
  * @brief
@@ -87,6 +87,9 @@ void FakeRiskVoxel::odomCallback(const nav_msgs::Odometry::ConstPtr &odom_msg) {
  * @param cloud_msg
  */
 void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
+  /* ground truth starting time */
+  last_update_time_ = ros::Time::now();
+
   pcl::fromROSMsg(*cloud_msg, *cloud_);
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
   /* Remove points out of range */
@@ -142,17 +145,16 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
     }
   }
 
-  // ros::Time       tic = ros::Time::now();
-  Eigen::Vector3d robot_size;
-  coordinator_->getAgentsSize(robot_size);
-  int n = coordinator_->getNumAgents();
+  Eigen::Vector3d robot_size = coordinator_->getAgentsSize();
+  int             n          = coordinator_->getNumAgents();
   for (int idx = 0; idx < PREDICTION_TIMES; idx++) {
     std::vector<Eigen::Vector3d> waypoints;
     for (int i = 0; i < n - 1; i++) {
+      double t = last_update_time_.toSec() + time_resolution_ * idx;
       /* query coordinator to get the future waypoints from broadcast trajectory */
-      coordinator_->getWaypoints(waypoints, i,
-                                 ros::Time::now() + ros::Duration(time_resolution_ * idx));
-      /* Get waypoints at the beginning of each time step, and modify map accordingly */
+      coordinator_->getWaypoints(waypoints, i, t);
+      /* Get waypoints at the beginning of each time step, and modify map
+       * accordingly */
     }
     /* Transfer to local frame */
     for (auto &wp : waypoints) {
@@ -162,7 +164,6 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
   }
   // ros::Time toc = ros::Time::now();
   // std::cout << "adding obstacles takes: " << (toc - tic).toSec() * 1000 << "ms" << std::endl;
-  last_update_time_ = ros::Time::now();
 }
 
 /**
@@ -239,10 +240,17 @@ int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, double t) {
   if (risk_maps_[idx][ti] > risk_threshold_) return 1;
   return 0;
 }
+
+/**
+ * @brief publish the map in a fixed frequency
+ *
+ * @param event
+ */
 void FakeRiskVoxel::pubCallback(const ros::TimerEvent &event) {
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
   cloud->points.reserve(VOXEL_NUM);
-  if (is_publish_spatio_temporal_map_) {
+
+  if (is_publish_spatio_temporal_map_) { /* publish spatio-temporal map */
     for (int i = 0; i < VOXEL_NUM; i++) {
       Eigen::Vector3f pt = getVoxelPosition(i);
       pcl::PointXYZ   p;
@@ -255,7 +263,7 @@ void FakeRiskVoxel::pubCallback(const ros::TimerEvent &event) {
         }
       }
     }
-  } else {
+  } else { /* publish x-y-z map */
     for (int i = 0; i < VOXEL_NUM; i++) {
       Eigen::Vector3f pt = getVoxelPosition(i);
       pcl::PointXYZ   p;
@@ -305,18 +313,19 @@ void FakeRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
 /**
  * @brief get the obstacle points in the time interval and the cube
  * @param points : output
- * @param t_start : start time
- * @param t_end: end time
+ * @param t_start : global start time
+ * @param t_end: global end time
  * @param t_step: time step
  */
 void FakeRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
                                       double                        t_start,
                                       double                        t_end,
-                                      const Eigen::Vector3d &       lower_corner,
-                                      const Eigen::Vector3d &       higher_corner) {
-  points.clear();
-  int idx_start = floor(t_start / time_resolution_);
-  int idx_end   = ceil(t_end / time_resolution_);
+                                      const Eigen::Vector3d        &lower_corner,
+                                      const Eigen::Vector3d        &higher_corner) {
+  double t0 = last_update_time_.toSec();
+
+  int idx_start = floor((t_start - t0) / time_resolution_);
+  int idx_end   = ceil((t_end - t0) / time_resolution_);
   int lx        = (lower_corner[0] - pose_.x() + local_update_range_x_) / resolution_;
   int ly        = (lower_corner[1] - pose_.y() + local_update_range_y_) / resolution_;
   int lz        = (lower_corner[2] - pose_.z() + local_update_range_z_) / resolution_;
@@ -355,7 +364,7 @@ void FakeRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
  * @param t_index: the time index (indicating the number of predicted map)
  */
 void FakeRiskVoxel::addObstacles(const std::vector<Eigen::Vector3d> &centers,
-                                 const Eigen::Vector3d &             size,
+                                 const Eigen::Vector3d              &size,
                                  int                                 t_index) {
   for (auto &pt : centers) {
     float pt_x   = static_cast<float>(pt.x());
@@ -386,8 +395,8 @@ void FakeRiskVoxel::addObstacles(const std::vector<Eigen::Vector3d> &centers,
  * @param size: the size of the obstacle (axis-aligned bounding box)
  */
 void FakeRiskVoxel::addObstacles(const std::vector<Eigen::Vector3d> &centers,
-                                 const Eigen::Vector3d &             size,
-                                 const ros::Time &                   t) {
+                                 const Eigen::Vector3d              &size,
+                                 const ros::Time                    &t) {
   double dt = t.toSec() - last_update_time_.toSec(); /* TODO: use last update time */
   // double dt  = t.toSec() - ros::Time::now().toSec(); /* approximation: use current time */
   int idx = floor(dt / time_resolution_);

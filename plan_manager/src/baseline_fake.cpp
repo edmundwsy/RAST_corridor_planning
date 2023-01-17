@@ -172,7 +172,8 @@ void FakeBaselinePlanner::addAgentsTrajectoryToMap() {
 bool FakeBaselinePlanner::plan() {
   ROS_INFO("Planning...");
   ros::Time t0, t1;
-  t0 = ros::Time::now();
+  t0               = ros::Time::now();
+  traj_start_time_ = ros::Time::now(); /* time when trajectory starts */
   // /* ----- Add other agents to the DSP Map ----- */
   // addAgentsTrajectoryToMap();
   // t1 = ros::Time::now();
@@ -317,6 +318,6 @@ bool FakeBaselinePlanner::plan() {
   }
   t2 = ros::Time::now();
   ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
-  traj_start_time_ = ros::Time::now();
+  // traj_start_time_ = ros::Time::now();
   return true;
 }

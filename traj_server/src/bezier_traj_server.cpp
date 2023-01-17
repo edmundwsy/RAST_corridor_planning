@@ -124,8 +124,8 @@ void getYaw(const Eigen::Vector3d &v, double &yaw, double &yaw_dot) {
 void publishPVA(const Eigen::Vector3d &pos,
                 const Eigen::Vector3d &vel,
                 const Eigen::Vector3d &acc,
-                const double &         yaw,
-                const double &         yaw_dot) {
+                const double          &yaw,
+                const double          &yaw_dot) {
   trajectory_msgs::JointTrajectoryPoint pva_msg;
   pva_msg.positions.push_back(pos(0));
   pva_msg.positions.push_back(pos(1));
@@ -144,8 +144,8 @@ void publishPVA(const Eigen::Vector3d &pos,
 void publishCmd(const Eigen::Vector3d &pos,
                 const Eigen::Vector3d &vel,
                 const Eigen::Vector3d &acc,
-                const double &         yaw,
-                const double &         yaw_dot) {
+                const double          &yaw,
+                const double          &yaw_dot) {
   quadrotor_msgs::PositionCommand cmd_msg;
   cmd_msg.header.stamp    = _t_cur;
   cmd_msg.header.frame_id = "world";
@@ -174,8 +174,11 @@ void publishCmd(const Eigen::Vector3d &pos,
 void fillTrajQueue(const Bernstein::Bezier &traj) {
   double T = traj.getDuration() > _replan_thres ? _replan_thres : traj.getDuration();
 
-  double dt = 0.01;  // frequency 100Hz
-  for (double t = 0; t < T; t += dt) {
+  double dt     = 0.01;  // frequency 100Hz
+  double t      = (ros::Time::now() - _t_str).toSec();
+  double offset = 0.04;  // TODO: time offset between two segments
+  t += offset;
+  for (; t < T; t += dt) {
     double          yaw, yaw_dot;
     Eigen::Vector3d pos;
     Eigen::Vector3d vel;
@@ -221,7 +224,6 @@ void odomCallback(const geometry_msgs::PoseStampedPtr &msg) {
 
 /**
  * @brief recieve parametric Bezier trajectory
- *
  * @param msg
  */
 void bezierCallback(traj_utils::BezierTrajConstPtr msg) {
@@ -230,7 +232,11 @@ void bezierCallback(traj_utils::BezierTrajConstPtr msg) {
   int n_piece = msg->duration.size();  // number of pieces
   int R       = n_piece * (N + 1);     // number of control points
 
-  _t_str = msg->start_time;
+  _t_str          = msg->start_time;
+  ros::Time t_pub = msg->pub_time;
+  ros::Time t_rcv = ros::Time::now();
+  ROS_INFO("[TrajSrv] publish delay %f, received delay %f", (t_pub - _t_str).toSec(),
+           (t_rcv - t_pub).toSec());
 
   /* ----- get duration and time allocation ----- */
   _duration = 0.0;
@@ -257,23 +263,22 @@ void bezierCallback(traj_utils::BezierTrajConstPtr msg) {
     _traj.setTime(time_alloc);
     _traj.setControlPoints(cpts);
     /* If trajectory start time later than previous end time, add trajectory to the end */
-    if (_t_str >= _t_end && _is_triggered) { /* look ahead */
-      ROS_INFO("[TrajSrv] %f ... %f | %li | adding to the end", _t_end.toSec() - _t_init.toSec(),
+    if (_t_str >= _t_end && _is_triggered) {
+      _t_end = _t_str + ros::Duration(_duration);
+      ROS_INFO("[TrajSrv] %f | %f ... %f | %li | adding to the end",
+               ros::Time::now().toSec() - _t_init.toSec(), _t_end.toSec() - _t_init.toSec(),
                _t_str.toSec() - _t_init.toSec(), _traj_queue.size());
       fillTrajQueue(_traj);
 
       /* if start time earlier than end time of previous trajectory, reset the queue */
-    } else { /* emergency and before trigger */
-      ROS_INFO("[TrajSrv] %f -> %f| clearing and reloading", _t_str.toSec() - _t_init.toSec(),
-               _t_end.toSec() - _t_init.toSec());
+    } else {
+      _t_end = _t_str + ros::Duration(_duration);
+      ROS_INFO("[TrajSrv] %f | %f -> %f | reloading", ros::Time::now().toSec() - _t_init.toSec(),
+               _t_str.toSec() - _t_init.toSec(), _t_end.toSec() - _t_init.toSec());
       std::queue<TrajPoint> empty;
       std::swap(_traj_queue, empty);
       fillTrajQueue(_traj);
     }
-    _t_str = ros::Time::now();
-    _t_end = _t_str + ros::Duration(_duration);
-    ROS_INFO("[TrajSrv] traj start from %f to %f", _t_str.toSec() - _t_init.toSec(),
-             _t_end.toSec() - _t_init.toSec());
     _vis_ptr->visualizeTraj(_traj_queue);
     ROS_INFO("[TrajSrv] queue size %li", _traj_queue.size());
   }

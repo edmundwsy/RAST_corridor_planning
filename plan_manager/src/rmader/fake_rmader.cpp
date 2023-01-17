@@ -172,7 +172,8 @@ void FakeRmaderPlanner::addAgentsTrajectoryToMap() {
 bool FakeRmaderPlanner::plan() {
   ROS_INFO("Planning...");
   ros::Time t0, t1;
-  t0 = ros::Time::now();
+  t0       = ros::Time::now();
+  t_start_ = ros::Time::now();  // time when trajectory started (and odom applied)
   // /* ----- Add other agents to the DSP Map ----- */
   // addAgentsTrajectoryToMap();
   // t1 = ros::Time::now();
@@ -231,7 +232,9 @@ bool FakeRmaderPlanner::plan() {
     llc(1) = std::max(std::min(route[i](1), route[i + 1](1)) - cfg_.init_range, lower_corner(1));
     llc(2) = std::max(std::min(route[i](2), route[i + 1](2)) - cfg_.init_range, lower_corner(2));
     pc.clear();
-    map_->getObstaclePoints(pc, i * cfg_.corridor_tau, (i + 1) * cfg_.corridor_tau, llc, lhc);
+    double t1_glb = t_start_.toSec() + i * cfg_.corridor_tau;
+    double t2_glb = t_start_.toSec() + (i + 1) * cfg_.corridor_tau;
+    map_->getObstaclePoints(pc, t1_glb, t2_glb, llc, lhc);
     Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();  // initial corridor
     bd(0, 0)                       = 1.0;
     bd(1, 1)                       = 1.0;
@@ -310,7 +313,6 @@ bool FakeRmaderPlanner::plan() {
   }
   t2 = ros::Time::now();
   ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
-  traj_start_time_ = ros::Time::now();
   return true;
 }
 

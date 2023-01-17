@@ -22,15 +22,15 @@
 #include "separator.hpp"
 
 typedef Bernstein::BernsteinPiece Piece;
+typedef Bernstein::Bezier         Traj;
 
 struct SwarmTraj {
-  int              id;
-  double           duration;
-  ros::Time        time_received;
-  ros::Time        time_start;
-  ros::Time        time_end;
-  Eigen::MatrixX3d control_points;
-  Piece            piece;
+  int    id;
+  double duration;
+  double time_received;  // ros time
+  double time_start;     // ros time
+  double time_end;       // ros time
+  Traj   traj;
 };
 
 // we should give some hyperparameter to control the size of the cube
@@ -59,16 +59,17 @@ class MADER {
    * @brief get the size of the ego agent
    * @param size : size of the ego agent (x, y, z)
    */
-  void getAgentsSize(Eigen::Vector3d &size) { size = ego_size_; }
+  void            getAgentsSize(Eigen::Vector3d &size) { size = ego_size_; }
+  Eigen::Vector3d getAgentsSize() { return ego_size_; }
   void getAgentsTrajectory(std::vector<Eigen::Vector3d> &points, int idx_agent, double dt);
   void getObstaclePoints(std::vector<Eigen::Vector3d> &pts, double t);
   /**
    * @brief get waypoints of the agent 'idx_agenq' at time 't'
    * @param pts: points buffer
    * @param idx_agent: index of the agent
-   * @param t: ros::Time
+   * @param t: global time
    */
-  void getWaypoints(std::vector<Eigen::Vector3d> &pts, int idx_agent, ros::Time t);
+  void getWaypoints(std::vector<Eigen::Vector3d> &pts, int idx_agent, double t);
 
   /**
    * @brief input vertices of trajectory convex hull, get Minkowski sum of the convex
@@ -90,9 +91,9 @@ class MADER {
   ros::NodeHandle nh_;
   ros::Subscriber swarm_sub_;
   /* variables */
-  std::vector<std::queue<SwarmTraj>> swarm_trajs_;
-  std::map<int, int>                 drone_id_to_index_;
-  std::map<int, int>                 index_to_drone_id_;
+  std::vector<SwarmTraj> swarm_trajs_;
+  std::map<int, int>     drone_id_to_index_;
+  std::map<int, int>     index_to_drone_id_;
 
   bool is_planner_initialized_;
   bool have_received_traj_while_checking_;

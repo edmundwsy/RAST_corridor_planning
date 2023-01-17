@@ -25,7 +25,8 @@
   <arg name="is_pose_subscribed" value="false" />
 
   <!-- <node pkg="plan_manager" name="planner" type="baseline" output="screen"> -->
-  <node pkg="plan_manager" name="planner" type="rmader">
+  <!-- <node pkg="plan_manager" name="planner" type="rmader" launch-prefix="terminator -\-execute gdb -ex run -\-args"> -->
+      <node pkg="plan_manager" name="planner" type="rmader" >
     <!-- Topics -->
     <remap from="~pose" to="$(arg pose_topic)" />
     <remap from="~map/odom" to="$(arg odom_topic)" />

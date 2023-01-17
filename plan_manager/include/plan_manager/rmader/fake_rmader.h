@@ -131,7 +131,7 @@ class FakeRmaderPlanner {
   Eigen::Vector3d   getPos() const { return odom_pos_; }
   Bernstein::Bezier getTrajectory() const { return traj_; }
 
-  void getTrajStartTime(ros::Time &start_time) const { start_time = traj_start_time_; }
+  void getTrajStartTime(ros::Time &start_time) const { start_time = t_start_; }
 
   typedef std::shared_ptr<FakeRmaderPlanner> Ptr;
 
@@ -146,7 +146,7 @@ class FakeRmaderPlanner {
   ros::NodeHandle  nh_;
   ros::Subscriber  click_sub_, pose_sub_, swarm_traj_sub_;
   ros::Publisher   obstacle_pub_;
-  ros::Time        traj_start_time_;
+  ros::Time        t_start_;
   RmaderParameters cfg_;
 
   Eigen::Vector3d    odom_pos_; /** quadrotor's current position */

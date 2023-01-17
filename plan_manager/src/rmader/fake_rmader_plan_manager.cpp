@@ -99,7 +99,7 @@ void FakeRobustFiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
           Trajectory traj = _planner->getTrajectory();
           publishTrajectory(traj);
           broadcastTrajectory(traj);
-          ROS_WARN("%f", _traj_start_time.toSec());
+          ROS_INFO("[FSM] Trajectory starts at %f", _traj_start_time.toSec());
         }
 
         if (_is_exec_triggered) { /* execute trajectory */
@@ -284,6 +284,7 @@ void FakeRobustFiniteStateMachine::publishTrajectory(const Trajectory& traj) {
   msg.drone_id   = _drone_id;
   msg.traj_id    = _traj_idx;
   msg.start_time = _traj_start_time;
+  msg.pub_time   = ros::Time::now();
   msg.order      = N;
 
   int piece_num = traj.getNumPieces();

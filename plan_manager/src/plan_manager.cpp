@@ -262,6 +262,7 @@ void FiniteStateMachine::publishTrajectory() {
   msg.drone_id   = _drone_id;
   msg.traj_id    = _traj_idx;
   msg.start_time = _traj_start_time;
+  msg.pub_time   = ros::Time::now();
   msg.order      = N;
 
   int piece_num = traj.getNumPieces();

@@ -35,14 +35,14 @@ void RMADER::init() {
   index_to_drone_id_.clear();
 
   /* Assign traj_id to k in swarm_trajs_ */
-  int j = 0;
-  for (int i = 0; i < num_robots_; i++) {
-    if (i != drone_id_) {
-      drone_id_to_index_[i] = j;
-      index_to_drone_id_[j] = i;
-      j++;
-    }
-  }
+  // int j = 0;
+  // for (int i = 0; i < num_robots_; i++) {
+  //   if (i != drone_id_) {
+  //     drone_id_to_index_[i] = j;
+  //     index_to_drone_id_[j] = i;
+  //     j++;
+  //   }
+  // }
 
   /* Pre-allocate Ego Cube */
   ego_cube_.col(0) = Eigen::Vector3d(drone_size_x_ / 2, drone_size_y_ / 2, drone_size_z_ / 2);
@@ -71,33 +71,23 @@ bool RMADER::collisionCheck(const Bernstein::Bezier &traj) {
   loadVertices(pointsA, cpts);
 
   /* checkin: check other trajectories */
-  for (int k = 0; k < swarm_trajs_.size(); k++) { /* iterate all robots in the buffer */
-    if (!swarm_trajs_[k].empty()) {               /* if the buffer is not empty */
-      while (swarm_trajs_[k].front().time_end < ros::Time::now()) {
-        swarm_trajs_[k].pop();
-        if (swarm_trajs_[k].empty()) {
-          break;
-        }
-      }
-    }
+  for (auto &traj : swarm_trajs_) {
+    double          t0 = ros::Time::now().toSec();  // TODO: t0 is not accurate
+    Eigen::Vector3d n_k;
+    double          d_k;
+    pointsB.clear();
+    Eigen::MatrixXd cpts = traj.traj.getCtrlPoints();
+    // std::cout << "Loading points from B" << std::endl;
+    loadVertices(pointsB, cpts);
+    ROS_INFO("[CA|A%i] time span (%f, %f)", traj.id, traj.time_start - t0, traj.time_end - t0);
 
-    if (!swarm_trajs_[k].empty()) {
-      Eigen::Vector3d n_k;
-      double          d_k;
-      pointsB.clear();
-      Eigen::MatrixXd cpts = swarm_trajs_[k].front().control_points;
-      loadVertices(pointsB, cpts);
-      ROS_INFO("[CA|A%i] time span (%f, %f)", index_to_drone_id_[k],
-               swarm_trajs_[k].front().time_start.toSec() - ros::Time::now().toSec(),
-               swarm_trajs_[k].front().time_end.toSec() - ros::Time::now().toSec());
-
-      if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
-        ROS_INFO("[CA|A%i] Cannot find linear separation plane", index_to_drone_id_[k]);
-        ROS_WARN("[CA] Drone %i will collides with drone %i", drone_id_, index_to_drone_id_[k]);
-        return false;
-      }
+    if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
+      ROS_INFO("[CA|A%i] Cannot find linear separation plane", traj.id);
+      ROS_WARN("[CA] Drone %i will collides with drone %i", drone_id_, traj.id);
+      return false;
     }
   }
+
   return true;
 }
 
@@ -130,81 +120,4 @@ bool RMADER::isSafeAfterDelayCheck(const Bernstein::Bezier &traj) {
   }
   ROS_WARN("[CA] Drone %i passed the delay check", drone_id_);
   return true;
-
-  /* TODO: delay check every 2~5ms */
-  // TODO(1.9): modify the plan_manager to achieve delay check.
-  // TODO(1.9): a new thread is required. ? not necessary?
 }
-
-// /**
-//  * @brief input vertices of trajectory convex hull, get Minkowski sum of the convex
-//  * hull and ego polytope, and push these vertices into the buffer `pts`
-//  * @param pts : points buffer to be filled
-//  * @param cpts: control points (vertices of trajectory convex hull)
-//  */
-// void RMADER::loadVertices(std::vector<Eigen::Vector3d> &pts, Eigen::MatrixXd &cpts) {
-//   for (int i = 0; i < cpts.rows(); i++) {
-//     /* Add trajectory control point */
-//     Eigen::Vector3d pt = cpts.row(i);
-//     for (int j = 0; j < 8; j++) {
-//       pts.push_back(pt + ego_cube_.col(j));
-//     }
-//   }
-// }
-
-// /**
-//  * @brief DEPRECATED
-//  * @param points  trajectory waypoints to be filled
-//  * @param i : index of the agent
-//  * @param tf
-//  */
-// void RMADER::getAgentsTrajectory(std::vector<Eigen::Vector3d> &points, int idx_agent, double dt)
-// {
-//   ros::Time t0 = ros::Time::now() + ros::Duration(dt);
-
-//   std::queue<SwarmTraj> traj_queue = swarm_trajs_[idx_agent];
-//   while (!traj_queue.empty()) {
-//     Eigen::MatrixXd cpts = traj_queue.front().control_points;
-
-//     if (traj_queue.front().time_start < t0 && traj_queue.front().time_end > t0) {
-//       /* Adding trajectory points to the buffer */
-//       /* Here we use control points as an approximation */
-//       for (int j = 0; j < 2; j++) {
-//         /* control point number: 0 2 */
-//         Eigen::Vector3d pt = cpts.row(2 * j);
-//         points.push_back(pt);
-//         ROS_INFO_STREAM("[CA|A" << index_to_drone_id_[idx_agent] << "] got trajectory at "
-//                                 << t0.toSec() - traj_queue.front().time_start.toSec()
-//                                 << " | pt: " << pt.transpose());
-//         t0 += ros::Duration(dt);
-//         if (t0 > traj_queue.front().time_end) {
-//           break;
-//         }
-//       }
-//     } else {
-//       traj_queue.pop();
-//       continue;
-//     }
-//   }
-// }
-
-// /**
-//  * @brief get waypoints of the agent 'idx_agenq' at time 't'
-//  * @param pts
-//  * @param idx_agent
-//  * @param t
-//  */
-// void RMADER::getWaypoints(std::vector<Eigen::Vector3d> &pts, int idx_agent, ros::Time t) {
-//   std::queue<SwarmTraj> traj_queue = swarm_trajs_[idx_agent];
-//   while (!traj_queue.empty()) {
-//     if (traj_queue.front().time_start < t && traj_queue.front().time_end > t) {
-//       double dt = (t - traj_queue.front().time_start).toSec();
-//       pts.push_back(traj_queue.front().piece.getPos(dt));
-//       ROS_INFO_STREAM("[CA|A" << index_to_drone_id_[idx_agent] << "] got trajectory at " << dt
-//                               << " | wpt: " << pts.back().transpose());
-//       break;
-//     } else {
-//       traj_queue.pop();
-//     }
-//   }
-// }

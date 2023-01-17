@@ -130,8 +130,8 @@ void BaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>& poi
 
 bool BaselinePlanner::plan() {
   ROS_INFO("Planning...");
-  ros::Time t0 = ros::Time::now();
-
+  ros::Time t0     = ros::Time::now();
+  traj_start_time_ = ros::Time::now(); /* time when current odom is applied */
   /*----- Path Searching on DSP Static -----*/
   std::cout << "/*----- Path Searching on DSP Static -----*/" << std::endl;
   a_star_->reset();
@@ -274,5 +274,5 @@ bool BaselinePlanner::plan() {
   t2 = ros::Time::now();
   ROS_INFO("MADER takes: %f ms", (t2 - t1).toSec() * 1000);
   ROS_INFO("Trajectory planning takes: %f ms", (t2 - t0).toSec() * 1000);
-  traj_start_time_ = ros::Time::now();
+  // traj_start_time_ = ros::Time::now();
 }
