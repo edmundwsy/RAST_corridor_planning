@@ -53,6 +53,7 @@
     <remap from="/position_cmd" to="controller/pos_cmd" />
     <remap from="~odom" to="$(arg pose_topic)" />
     <param name="tf" value="true" />
+    <param name="offset" value="-0.07" />
     <param name="replan_time_threshold" value="1.2" />
   </node>
 

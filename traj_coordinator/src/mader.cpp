@@ -51,6 +51,7 @@ void MADER::init() {
   ego_cube_.col(5) = Eigen::Vector3d(-drone_size_x_ / 2, -drone_size_y_ / 2, drone_size_z_ / 2);
   ego_cube_.col(6) = Eigen::Vector3d(-drone_size_x_ / 2, drone_size_y_ / 2, -drone_size_z_ / 2);
   ego_cube_.col(7) = Eigen::Vector3d(-drone_size_x_ / 2, -drone_size_y_ / 2, -drone_size_z_ / 2);
+  ROS_INFO("[CA] Robust MADER initialized");
 }
 
 /**
@@ -176,21 +177,26 @@ bool MADER::isSafeAfterOpt(const Traj &traj) {
 
   /* checkin: check other trajectories */
   for (auto &traj : swarm_trajs_) {
+    if (traj.id == drone_id_) {
+      continue;
+    }
     double          t0 = ros::Time::now().toSec();  // TODO: t0 is not accurate
     Eigen::Vector3d n_k;
     double          d_k;
     pointsB.clear();
-    Eigen::MatrixXd cpts = traj.traj.getCtrlPoints();
-    // std::cout << "Loading points from B" << std::endl;
-    loadVertices(pointsB, cpts);
-    ROS_INFO("[CA|A%i] time span (%f, %f)", traj.id, traj.time_start - t0, traj.time_end - t0);
+    if (traj.time_start < t0 && t0 < traj.time_end) {
+      Eigen::MatrixXd cpts = traj.traj.getCtrlPoints();
+      loadVertices(pointsB, cpts);
+      ROS_INFO("[CA|A%i] time span (%f, %f)", traj.id, traj.time_start - t0, traj.time_end - t0);
 
-    if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
-      ROS_INFO("[CA|A%i] Cannot find linear separation plane", traj.id);
-      ROS_WARN("[CA] Drone %i will collides with drone %i", drone_id_, traj.id);
-      is_checking_ = false;
-      return false;
+      if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
+        ROS_INFO("[CA|A%i] Cannot find linear separation plane", traj.id);
+        ROS_WARN("[CA] Drone %i will collides with drone %i", drone_id_, traj.id);
+        is_checking_ = false;
+        return false;
+      }
     }
+    // std::cout << "Loading points from B" << std::endl;
   }
   is_checking_ = false;
   return true;
@@ -225,7 +231,7 @@ void MADER::getAgentsTrajectory(std::vector<Eigen::Vector3d> &points, int idx_ag
       std::find_if(swarm_trajs_.begin(), swarm_trajs_.end(),
                    [=](const SwarmTraj &tmp) { return tmp.id == idx_agent; });
 
-  if (obs_ptr == swarm_trajs_.end()) {
+  if (obs_ptr == swarm_trajs_.end() || idx_agent == drone_id_) {
     return;
   }
   Eigen::MatrixXd cpts = obs_ptr->traj.getCtrlPoints();
@@ -254,7 +260,7 @@ void MADER::getWaypoints(std::vector<Eigen::Vector3d> &pts, int idx_agent, doubl
       std::find_if(swarm_trajs_.begin(), swarm_trajs_.end(),
                    [=](const SwarmTraj &tmp) { return tmp.id == idx_agent; });
 
-  if (ptr == swarm_trajs_.end()) {
+  if (ptr == swarm_trajs_.end() || idx_agent == drone_id_) {
     return;
   }
 
@@ -269,6 +275,7 @@ void MADER::getWaypoints(std::vector<Eigen::Vector3d> &pts, int idx_agent, doubl
                             << " | pt: " << pt.transpose());
     return;
   } else {
+    pts.push_back(ptr->traj.getPos(ptr->traj.getDuration())); /* push last point */
     ROS_INFO("[CA|A%i] failed to get trajectory at time, ts: %f, te: %f", idx_agent,
              ptr->time_start - t0, ptr->time_end - t0);
   }

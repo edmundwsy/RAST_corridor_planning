@@ -149,7 +149,7 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
   int             n          = coordinator_->getNumAgents();
   for (int idx = 0; idx < PREDICTION_TIMES; idx++) {
     std::vector<Eigen::Vector3d> waypoints;
-    for (int i = 0; i < n - 1; i++) {
+    for (int i = 0; i < n; i++) {
       double t = last_update_time_.toSec() + time_resolution_ * idx;
       /* query coordinator to get the future waypoints from broadcast trajectory */
       coordinator_->getWaypoints(waypoints, i, t);

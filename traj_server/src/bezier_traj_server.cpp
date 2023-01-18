@@ -36,6 +36,8 @@ ros::Time         _t_end;  // end time
 ros::Time         _t_cur;  // current time
 ros::Time         _t_init;
 double            _duration;  // duration of the trajectory in seconds
+double _offset;  // offset of the trajectory in seconds (to account for the time it takes to load
+                 // the trajectory)
 
 double _last_yaw    = 0;  // previous yaw value
 double _last_yawdot = 0;  // previous yawdot value
@@ -174,10 +176,9 @@ void publishCmd(const Eigen::Vector3d &pos,
 void fillTrajQueue(const Bernstein::Bezier &traj) {
   double T = traj.getDuration() > _replan_thres ? _replan_thres : traj.getDuration();
 
-  double dt     = 0.01;  // frequency 100Hz
-  double t      = (ros::Time::now() - _t_str).toSec();
-  double offset = 0.04;  // TODO: time offset between two segments
-  t += offset;
+  double dt = 0.01;  // frequency 100Hz
+  double t  = (ros::Time::now() - _t_str).toSec();
+  t += _offset;
   for (; t < T; t += dt) {
     double          yaw, yaw_dot;
     Eigen::Vector3d pos;
@@ -337,6 +338,7 @@ void PubCallback(const ros::TimerEvent &e) {
 int main(int argc, char **argv) {
   ros::init(argc, argv, "poly_traj_server");
   ros::NodeHandle nh("~");
+  nh.param("offset", _offset, 0.00);
   ros::Timer      cmd_timer   = nh.createTimer(ros::Duration(0.01), PubCallback);
   ros::Subscriber traj_sub    = nh.subscribe("trajectory", 1, bezierCallback);
   ros::Subscriber trigger_sub = nh.subscribe("/traj_start_trigger", 10, triggerCallback);

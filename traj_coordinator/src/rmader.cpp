@@ -30,7 +30,7 @@ void RMADER::init() {
   have_received_traj_while_checking_   = false;
   have_received_traj_while_optimizing_ = false;
 
-  swarm_trajs_.resize(num_robots_ - 1);
+  swarm_trajs_.reserve(num_robots_ - 1);
   drone_id_to_index_.clear();
   index_to_drone_id_.clear();
 
@@ -53,6 +53,7 @@ void RMADER::init() {
   ego_cube_.col(5) = Eigen::Vector3d(-drone_size_x_ / 2, -drone_size_y_ / 2, drone_size_z_ / 2);
   ego_cube_.col(6) = Eigen::Vector3d(-drone_size_x_ / 2, drone_size_y_ / 2, -drone_size_z_ / 2);
   ego_cube_.col(7) = Eigen::Vector3d(-drone_size_x_ / 2, -drone_size_y_ / 2, -drone_size_z_ / 2);
+  ROS_INFO("[CA] Robust MADER initialized");
 }
 
 /**
@@ -76,15 +77,17 @@ bool RMADER::collisionCheck(const Bernstein::Bezier &traj) {
     Eigen::Vector3d n_k;
     double          d_k;
     pointsB.clear();
-    Eigen::MatrixXd cpts = traj.traj.getCtrlPoints();
-    // std::cout << "Loading points from B" << std::endl;
-    loadVertices(pointsB, cpts);
-    ROS_INFO("[CA|A%i] time span (%f, %f)", traj.id, traj.time_start - t0, traj.time_end - t0);
+    if (traj.time_start < t0 && t0 < traj.time_end) {
+      Eigen::MatrixXd cpts = traj.traj.getCtrlPoints();
+      // std::cout << "Loading points from B" << std::endl;
+      loadVertices(pointsB, cpts);
+      ROS_INFO("[CA|A%i] time span (%f, %f)", traj.id, traj.time_start - t0, traj.time_end - t0);
 
-    if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
-      ROS_INFO("[CA|A%i] Cannot find linear separation plane", traj.id);
-      ROS_WARN("[CA] Drone %i will collides with drone %i", drone_id_, traj.id);
-      return false;
+      if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
+        ROS_INFO("[CA|A%i] Cannot find linear separation plane", traj.id);
+        ROS_WARN("[CA] Drone %i will collides with drone %i", drone_id_, traj.id);
+        return false;
+      }
     }
   }
 
