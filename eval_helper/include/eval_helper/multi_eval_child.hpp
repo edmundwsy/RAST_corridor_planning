@@ -14,7 +14,7 @@
 
 #include "eval_helper/multi_eval.hpp"
 
-class MultiAgentMinDistance : public MultiAgentEvaluation {
+class MultiAgentMinDistance : public MultiAgentLogger {
  protected:
   double global_min_dist_;
 
