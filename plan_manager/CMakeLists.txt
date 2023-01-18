@@ -1,9 +1,13 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(plan_manager)
-set(CMAKE_BUILD_TYPE "Release")
-add_compile_options(-std=c++14)
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g -lpthread")
 
+set(CMAKE_BUILD_TYPE "Release")
+
+# set(CMAKE_BUILD_TYPE "Debug")
+add_compile_options(-std=c++14)
+
+# set(CMAKE_CXX_FLAGS_DEBUG "-O0 -Wall -g -ggdb")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g -lpthread")
 find_package(PCL 1.7 REQUIRED)
 find_package(Eigen3 REQUIRED)
 set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
@@ -48,6 +52,13 @@ add_library(${PROJECT_NAME}
   # src/mader_deconfliction.cpp
   src/baseline_fake.cpp # Debug
   src/fake_plan_manager.cpp # Debug
+  <<<<<<< Updated upstream
+  =======
+
+  # robust mader
+  src/rmader/fake_rmader.cpp
+  src/rmader/fake_rmader_plan_manager.cpp
+  >>>>>>> Stashed changes
 )
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
@@ -64,3 +75,6 @@ target_link_libraries(fake_baseline ${catkin_LIBRARIES} ${PROJECT_NAME})
 
 add_executable(test_firi src/test_firi_node.cpp)
 target_link_libraries(test_firi ${catkin_LIBRARIES} ${PROJECT_NAME})
+
+add_executable(rmader src/rmader/fake_rmader_node.cpp)
+target_link_libraries(rmader ${catkin_LIBRARIES} ${PROJECT_NAME})

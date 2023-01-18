@@ -6,12 +6,12 @@ planner:
   max_vel: 3.0
   max_acc: 5.0
   max_differentiated_current_a: 3.0
-  corridor_tau: 0.3
+  corridor_tau: 0.2
 
 fsm:
   goal_tolerance: 1.0
   replan_tolerance: 1.0
-  replan_duration: 0.25
+  replan_duration: 0.20
 
 search:
   max_tau: 1.6 # Astar search time horizon
