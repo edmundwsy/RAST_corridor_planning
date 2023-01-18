@@ -134,7 +134,7 @@ void FakeRmaderPlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>& p
  * set current position as the trajectory
  */
 void FakeRmaderPlanner::setEmptyTrajectory() {
-  traj_ = Bernstein::Bezier(1.0);
+  traj_ = Bernstein::Bezier(cfg_.corridor_tau);
 
   Eigen::Matrix<double, 5, 3> cpts;
   cpts.row(0) = odom_pos_;

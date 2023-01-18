@@ -1,17 +1,17 @@
 /**
- * @file plan_manager.cpp
+ * @file fake_rmader_plan_manager.cpp
  * @author Siyuan Wu (siyuanwu99@gmail.com)
  * @brief
  * @version 1.0
- * @date 2022-11-01
+ * @date 2023-01-09
  *
- * @copyright Copyright (c) 2022
+ * @copyright Copyright (c) 2023
  *
  */
 
-#include <plan_manager/plan_manager.h>
+#include <plan_manager/rmader/fake_plan_manager.h>
 
-void FiniteStateMachine::run() {
+void FakeRobustFiniteStateMachine::run() {
   _nh.param("drone_id", _drone_id, 0);
   _nh.param("goal_x", _goal[0], 0.0);
   _nh.param("goal_y", _goal[1], 0.0);
@@ -21,14 +21,14 @@ void FiniteStateMachine::run() {
   _nh.param("fsm/replan_duration", _cfgs.replan_duration, 0.1);
 
   /* Initialize planner */
-  _planner.reset(new BaselinePlanner(_nh, BaselineParameters(_nh)));
+  _planner.reset(new FakeRmaderPlanner(_nh, RmaderParameters(_nh)));
   _planner->init();
 
   /* ROS publishers */
   _traj_pub           = _nh.advertise<traj_utils::BezierTraj>("trajectory", 1);
   _broadcast_traj_pub = _nh.advertise<traj_utils::BezierTraj>("/broadcast_traj", 1);
   _trigger_sub =
-      _nh.subscribe("/traj_start_trigger", 1, &FiniteStateMachine::TriggerCallback, this);
+      _nh.subscribe("/traj_start_trigger", 1, &FakeRobustFiniteStateMachine::TriggerCallback, this);
 
   _is_goal_received       = false;
   _is_exec_triggered      = false;
@@ -44,7 +44,8 @@ void FiniteStateMachine::run() {
 
   _status = FSM_STATUS::INIT; /* Initialize state machine */
   ROS_INFO("[FSM] Initialization complete");
-  _fsm_timer = _nh.createTimer(ros::Duration(0.1), &FiniteStateMachine::FSMCallback, this);
+  _fsm_timer =
+      _nh.createTimer(ros::Duration(0.1), &FakeRobustFiniteStateMachine::FSMCallback, this);
 }
 
 /** ***********************************************************************************************
@@ -63,7 +64,7 @@ void FiniteStateMachine::run() {
  * - EXIT: exit the planner
  * @param event
  */
-void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
+void FakeRobustFiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
   double risk = 0;
   switch (_status) {
     /* initialize */
@@ -94,8 +95,11 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
         // bool is_safe    = isTrajectorySafe(_traj);
         bool is_safe = true;         /** TODO: time delay !!! */
         if (is_success && is_safe) { /* publish trajectory */
-          publishTrajectory();
-          ROS_WARN("[FSM] %f", _traj_start_time.toSec());
+          _planner->getTrajStartTime(_traj_start_time);
+          Trajectory traj = _planner->getTrajectory();
+          publishTrajectory(traj);
+          broadcastTrajectory(traj);
+          ROS_INFO("[FSM] Trajectory starts at %f", _traj_start_time.toSec());
         }
 
         if (_is_exec_triggered) { /* execute trajectory */
@@ -139,28 +143,47 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
       } else {
         _planner->setGoal(_goal);
 
-        ros::Time t1         = ros::Time::now();
-        bool      is_success = _planner->plan();
-        ros::Time t2         = ros::Time::now();
-        ROS_INFO("[FSM] cost: %f ms", (t2 - t1).toSec() * 1000);
+        ros::Time t1 = ros::Time::now();
+        /* RMADER 1. Optimization and Check */
+        bool is_success = _planner->plan();
+        if (!is_success) {
+          _prev_plan_time = ros::Time::now();
+          ROS_WARN("[FSM] Replanning failed");
+          FSMChangeState(FSM_STATUS::EXEC_TRAJ);
+          break;
+        }
 
-        // bool is_safe    = true;  // TODO: isTrajectorySafe(_traj);
-        // bool is_safe    = isTrajectorySafe(_traj);
+        /* RMADER 2. Broadcast traj_new */
+        Trajectory traj_new = _planner->getTrajectory();
+        _planner->getTrajStartTime(_traj_start_time);
+        broadcastTrajectory(traj_new);
+
+        /* RMADER 3. Delay check */
+        bool is_safe = _planner->delayCheck(traj_new);
+
+        ros::Time t2 = ros::Time::now();
+        ROS_INFO("[FSM] cost: %f ms", (t2 - t1).toSec() * 1000);
+        if (!is_safe) {
+          ROS_WARN("[FSM] Replanning failed");
+          FSMChangeState(FSM_STATUS::EXEC_TRAJ);
+          break;
+        }
+
+        /* RMADER 4. Broadcast new trajectory */
+        _prev_plan_time = ros::Time::now();
+        _planner->getTrajStartTime(_traj_start_time);
+        broadcastTrajectory(traj_new);
+        publishTrajectory(traj_new);
+        _prev_start_time = _traj_start_time;
 
         bool is_finished = isGoalReached(_planner->getPos());
         std::cout << termcolor::bright_red << "Target: " << _goal.transpose() << " now "
                   << _planner->getPos().transpose() << std::endl;
-        _planner->getTrajStartTime(_traj_start_time);
-        publishTrajectory();
-        if (is_success && !is_finished) { /* publish trajectory */
-          _prev_plan_time = ros::Time::now();
-          FSMChangeState(FSM_STATUS::EXEC_TRAJ);
+
+        if (isGoalReached(_planner->getPos())) {
+          FSMChangeState(FSM_STATUS::GOAL_REACHED);
         } else {
-          if (is_finished) {
-            FSMChangeState(FSM_STATUS::GOAL_REACHED);
-          } else {
-            ROS_WARN("[FSM] Replanning failed");
-          }
+          FSMChangeState(FSM_STATUS::EXEC_TRAJ);
         }
       }
       break;
@@ -202,7 +225,7 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
  * @brief change the state of the finite state machine
  * @param state
  */
-void FiniteStateMachine::FSMChangeState(FSM_STATUS new_state) {
+void FakeRobustFiniteStateMachine::FSMChangeState(FSM_STATUS new_state) {
   FSMPrintState(new_state);
   _status = new_state;
 }
@@ -211,7 +234,7 @@ void FiniteStateMachine::FSMChangeState(FSM_STATUS new_state) {
  * @brief print the current state of the finite state machine via termcolor
  * This function is used for debugging purposes
  */
-void FiniteStateMachine::FSMPrintState(FSM_STATUS new_state) {
+void FakeRobustFiniteStateMachine::FSMPrintState(FSM_STATUS new_state) {
   static string state_str[8] = {"INIT",      "WAIT_TARGET", "NEW_PLAN",     "REPLAN",
                                 "EXEC_TRAJ", "EMERGENCY",   "GOAL_REACHED", "EXIT"};
   std::cout << termcolor::dark << termcolor::on_bright_green << "[UAV" << _drone_id
@@ -225,7 +248,7 @@ void FiniteStateMachine::FSMPrintState(FSM_STATUS new_state) {
  *
  * @param msg
  */
-void FiniteStateMachine::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
+void FakeRobustFiniteStateMachine::TriggerCallback(const geometry_msgs::PoseStampedPtr& msg) {
   if (_is_exec_triggered) {
     ROS_INFO("[FSM] Execution has already triggered");
     return;
@@ -253,11 +276,10 @@ void FiniteStateMachine::TriggerCallback(const geometry_msgs::PoseStampedPtr& ms
  * Utility Functions
  * ********************************************************/
 
-void FiniteStateMachine::publishTrajectory() {
+void FakeRobustFiniteStateMachine::publishTrajectory(const Trajectory& traj) {
   _traj_idx++;
-  Trajectory traj = _planner->getTrajectory(); /* TODO: reduce copy */
-  int        N    = traj.getOrder();
-  TrajMsg    msg;
+  int     N = traj.getOrder();
+  TrajMsg msg;
 
   msg.drone_id   = _drone_id;
   msg.traj_id    = _traj_idx;
@@ -286,4 +308,34 @@ void FiniteStateMachine::publishTrajectory() {
   _broadcast_traj_pub.publish(msg);
 }
 
-bool FiniteStateMachine::isTrajectorySafe() { return true; }
+void FakeRobustFiniteStateMachine::broadcastTrajectory(const Trajectory& traj) {
+  _traj_idx++;
+  int     N = traj.getOrder();
+  TrajMsg msg;
+
+  msg.drone_id   = _drone_id;
+  msg.traj_id    = _traj_idx;
+  msg.start_time = _traj_start_time;
+  msg.order      = N;
+
+  int piece_num = traj.getNumPieces();
+
+  msg.duration.resize(piece_num);
+  for (int i = 0; i < piece_num; i++) {
+    msg.duration[i] = traj[i].getDuration();
+  }
+
+  Eigen::MatrixXd cpts;
+  traj.getCtrlPoints(cpts);
+  int R = cpts.rows();
+  msg.cpts.resize(R);
+  for (int i = 0; i < R; i++) {
+    msg.cpts[i].x = cpts(i, 0);
+    msg.cpts[i].y = cpts(i, 1);
+    msg.cpts[i].z = cpts(i, 2);
+  }
+
+  _broadcast_traj_pub.publish(msg);
+}
+
+bool FakeRobustFiniteStateMachine::isTrajectorySafe() { return true; }
