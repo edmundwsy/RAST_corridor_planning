@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   nav_msgs
+  quadrotor_msgs
 )
 
 find_package(Eigen3 REQUIRED)

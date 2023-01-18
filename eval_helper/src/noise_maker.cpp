@@ -18,6 +18,8 @@
 
 ros::Publisher noisy_odom_pub_, noisy_pose_pub_;
 
+/* TODO: add noise to ground truth obstacle */
+
 /** noise */
 int                              seed_;
 double                           mu_x_, mu_y_, mu_z_;
