@@ -136,6 +136,24 @@ class MultiAgentLogger {
     for (auto& recorder : traj_recorders_) {
       recorder->printLog();
     }
+    printRelativeDistance();
+  }
+
+  void printRelativeDistance() {
+    std::vector<Eigen::Vector3d> positions;
+    for (auto& recorder : traj_recorders_) {
+      positions.push_back(recorder->getPosition());
+    }
+    double min_dist = 1000.0;
+    for (int i = 0; i < num_agents_; i++) {
+      for (int j = i + 1; j < num_agents_; j++) {
+        double distance = (positions[i] - positions[j]).norm();
+        if (distance < min_dist) {
+          min_dist = distance;
+        }
+      }
+    }
+    ROS_INFO("Minimum distance: %f", min_dist);
   }
 };
 

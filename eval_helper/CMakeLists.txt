@@ -37,3 +37,6 @@ target_link_libraries(noise_maker ${catkin_LIBRARIES})
 
 add_executable(multi_eval src/multi_eval_node.cpp)
 target_link_libraries(multi_eval ${catkin_LIBRARIES})
+
+add_executable(trigger src/trigger.cpp)
+target_link_libraries(trigger ${catkin_LIBRARIES})
