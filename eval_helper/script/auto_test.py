@@ -68,12 +68,12 @@ def stopNode(node_name):
 def startAll(arg):
     # Start the planner
     os.system("gnome-terminal -- bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_launch))
-    time.sleep(1)
+    time.sleep(0.5)
     # Start the recorder
     os.system(
         "gnome-terminal -- bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_recorder)
     )
-    time.sleep(1)
+    time.sleep(2)
     # Start planning
     os.system("gnome-terminal -- bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_trigger))
 
@@ -107,22 +107,27 @@ def findAndRecord(args, save_path):
     ctrl_efforts = np.array([calculate.get_sum_control_efforts(d) for d in data])
     flight_times = np.array([calculate.get_avg_flight_time(d) for d in data])
 
+    # arr_to_write = np.hstack([ctrl_efforts, flight_times]).reshape(1, -1)
     arr_to_write = np.hstack([ctrl_efforts, flight_times])
-    np.savetxt(save_path, arr_to_write, fmt="%f", delimiter=",")
-    print("Data saved to " + save_path)
-    return
+    return arr_to_write
 
 
 def run(arg):
     save_path = arg.save_path + arg.world + "_measurement_noise_" + ".csv"
     cleanROSLog()
     time.sleep(0.5)
-    with open(save_path, "a+") as result:
-        writer = csv.writer(result)
-        ctr_eft_headers = ["ctrl_effort_uav" + str(i) for i in range(arg.num_agents)]
-        flt_tim_headers = ["flight_time_uav" + str(i) for i in range(arg.num_agents)]
-        headers = ctr_eft_headers + flt_tim_headers
-        writer.writerow(headers)
+    if not os.path.exists(save_path):
+        with open(save_path, "w+") as result:
+            writer = csv.writer(result)
+            ctr_eft_headers = [
+                "ctrl_effort_uav" + str(i) for i in range(arg.num_agents)
+            ]
+            flt_tim_headers = [
+                "flight_time_uav" + str(i) for i in range(arg.num_agents)
+            ]
+            # TODO: min dist to obs, min dist to agents
+            headers = ctr_eft_headers + flt_tim_headers
+            writer.writerow(headers)
 
     startAll(arg)
 
@@ -146,10 +151,25 @@ def run(arg):
     time.sleep(1)
     stopAll()
 
-    findAndRecord(args, save_path)
+    arr = findAndRecord(args, save_path)
+    if arr is not None:
+        with open(save_path, "a") as result:
+            csv_row = ["{:.4f}".format(a) for a in arr]
+            csv_text = ", ".join(csv_row) + "\n"
+            result.write(csv_text)
+        print("Data saved to " + save_path)
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
     run(args)
-    # print(findAndRecord(args))
+    # save_path = args.save_path + args.world + "_measurement_noise_" + ".csv"
+    # print(findAndRecord(args, save_path))
+    #
+    # arr = findAndRecord(args, save_path)
+    # if arr is not None:
+    #     with open(save_path, "a") as result:
+    #         csv_row = ["{:.4f}".format(a) for a in arr]
+    #         csv_text = ", ".join(csv_row) + "\n"
+    #         result.write(csv_text)
+    #     print("Data saved to " + save_path)

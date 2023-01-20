@@ -67,7 +67,7 @@ def get_min_distance():
 def get_sum_control_efforts(d):
     a = d[:, 7:10]
     t = d[:, 0]
-    dt = np.diff(t).reshape(-1, 1)
+    dt = np.diff(t).reshape(-1, 1) + 1e-6
     d = np.diff(a, axis=0) / dt
     c = np.square(d).sum(axis=1).dot(dt)
     return np.sum(c)

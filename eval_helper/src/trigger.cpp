@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
 
   ros::Publisher trigger_pub = nh.advertise<geometry_msgs::PoseStamped>("/traj_start_trigger", 1);
 
-  for (int i = 0; i < 30; i++) {
+  for (int i = 0; i < 40; i++) {
     trigger_pub.publish(ps);
     ros::Duration(0.01).sleep();
   }
