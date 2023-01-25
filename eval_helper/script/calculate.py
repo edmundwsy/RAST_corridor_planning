@@ -20,10 +20,12 @@ file_path = os.path.join(file_root, file_name)
 def read_file(path, data):
     with open(path, "r") as f:
         for line in f.readlines():
-            if "[uav" in line:
+            if re.search(r"\[uav\d\] t", line):
+                # print(line)
+                # if "[uav" in line:
                 id = int(re.search(r"uav(\d)", line).group(1))
                 t = re.search(r"t: (\d+\.?\d*),", line).group(1)
-                if float(t) == 0:
+                if float(t) <= 1e-3:
                     continue
 
                 pos_group = re.search(
@@ -40,6 +42,9 @@ def read_file(path, data):
                 )
                 yaw = re.search(r"yaw: ([-+]?\d+\.?\d*),", line).group(1)
                 yaw_rate = re.search(r"yaw_rate: ([-+]?\d+\.?\d*)", line).group(1)
+                min_obs_dist = re.search(r"min_d_obs: ([-+]?\d+\.?\d*)", line).group(1)
+                min_uav_dist = re.search(r"min_d_uav: ([-+]?\d+\.?\d*)", line).group(1)
+
                 data[id].append(
                     np.array(
                         [
@@ -55,6 +60,8 @@ def read_file(path, data):
                             float(acc_group.group(3)),
                             float(yaw),
                             float(yaw_rate),
+                            float(min_obs_dist),
+                            float(min_uav_dist),
                         ]
                     )
                 )
@@ -132,6 +139,21 @@ def get_data(n, file_path):
     return data
 
 
+def plot_reciprocal_distance(data):
+    t = data[:, 0]
+    d = data[:, 13]
+    print(d.transpose())
+    plt.plot(t, d)
+    plt.show()
+
+
+def plot_obstacle_distance(data):
+    t = data[:, 0]
+    d = data[:, 12]
+    plt.plot(t, d)
+    plt.show()
+
+
 if __name__ == "__main__":
     num_agents = 4
     data = [[] for _ in range(num_agents)]
@@ -139,11 +161,14 @@ if __name__ == "__main__":
     read_file(file_path, data)
     for (i, d) in enumerate(data):
         data_np = np.array(d)
+        print(data_np.shape)
         data[i] = data_np
 
     # plot_x_t(data[1], 1)
     # plot_a_t(data[1])
-    plot_v_t(data[1])
+    # plot_v_t(data[1])
+    plot_reciprocal_distance(data[0])
+    plot_obstacle_distance(data[0])
     # plot_y_t(data[1])
     print("sum control efforts:", get_sum_control_efforts(data[1]))
     print("avg flight time:", get_avg_flight_time(data[1]))
