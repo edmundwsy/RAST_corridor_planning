@@ -18,13 +18,14 @@ import numpy as np
 import calculate
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--world", type=str, default="world", help="world name")
+parser.add_argument("--world", type=str, default="_4uav_19obs", help="world name")
 parser.add_argument("--num_agents", type=int, default="4", help="number of agents")
 parser.add_argument("--save_path", type=str, default="results", help="folder name")
 parser.add_argument("--waiting_time", type=float, default="20", help="waiting time")
 parser.add_argument(
     "--node_name", type=str, default="/uav0/planner", help="key planning node name"
 )
+parser.add_argument("--no-run", action="store_true")
 
 parser.add_argument(
     "--cmd_source",
@@ -107,49 +108,77 @@ def findAndRecord(args, save_path):
     ctrl_efforts = np.array([calculate.get_sum_control_efforts(d) for d in data])
     flight_times = np.array([calculate.get_avg_flight_time(d) for d in data])
 
-    # arr_to_write = np.hstack([ctrl_efforts, flight_times]).reshape(1, -1)
-    arr_to_write = np.hstack([ctrl_efforts, flight_times])
+    n_cld_obs = np.array([calculate.get_collision_occurance(d, 12) for d in data])
+    d_cld_obs = np.array([np.min(d[0, 12]) for d in data])
+
+    n_cld_uav = np.array([calculate.get_collision_occurance(d, 13) for d in data])
+    d_cld_uav = np.array([np.min(d[0, 13]) for d in data])
+
+    arr_to_write = np.hstack(
+        [ctrl_efforts, flight_times, n_cld_uav, d_cld_uav, n_cld_obs, d_cld_obs]
+    )
     return arr_to_write
 
 
 def run(arg):
-    save_path = arg.save_path + arg.world + "_measurement_noise_" + ".csv"
-    cleanROSLog()
-    time.sleep(0.5)
-    if not os.path.exists(save_path):
-        with open(save_path, "w+") as result:
-            writer = csv.writer(result)
-            ctr_eft_headers = [
-                "ctrl_effort_uav" + str(i) for i in range(arg.num_agents)
-            ]
-            flt_tim_headers = [
-                "flight_time_uav" + str(i) for i in range(arg.num_agents)
-            ]
-            # TODO: min dist to obs, min dist to agents
-            headers = ctr_eft_headers + flt_tim_headers
-            writer.writerow(headers)
+    save_path = arg.save_path + arg.world + "_ground_truth" + ".csv"
 
-    startAll(arg)
+    if not arg.no_run:
+        cleanROSLog()
+        time.sleep(0.5)
+        if not os.path.exists(save_path):
+            with open(save_path, "w+") as result:
+                writer = csv.writer(result)
+                ctr_eft_headers = [
+                    "ctrl_effort_uav" + str(i) for i in range(arg.num_agents)
+                ]
+                flt_tim_headers = [
+                    "flight_time_uav" + str(i) for i in range(arg.num_agents)
+                ]
+                n_cls_obs_headers = [
+                    "num_collide_obs" + str(i) for i in range(arg.num_agents)
+                ]
+                n_cls_uav_headers = [
+                    "num_collide_uav" + str(i) for i in range(arg.num_agents)
+                ]
+                min_dist_uav_headers = [
+                    "min_dist_uav" + str(i) for i in range(arg.num_agents)
+                ]
+                min_dist_obs_headers = [
+                    "min_dist_obs" + str(i) for i in range(arg.num_agents)
+                ]
+                # TODO: min dist to obs, min dist to agents
+                headers = (
+                    ctr_eft_headers
+                    + flt_tim_headers
+                    + n_cls_uav_headers
+                    + min_dist_uav_headers
+                    + n_cls_obs_headers
+                    + min_dist_obs_headers
+                )
+                writer.writerow(headers)
 
-    counter = 0
-    while counter < arg.waiting_time:  # Wait time max: 60s
-        num_closed = 0
-        for i in range(arg.num_agents):
-            node_name = re.sub(r"\d", str(i), arg.node_name)
-            if checkIfNodeRunning(node_name):
-                num_closed += 1
+        startAll(arg)
 
-        if num_closed == arg.num_agents:
-            print("All agents are not running. Break. ")
-            break
+        counter = 0
+        while counter < arg.waiting_time:  # Wait time max: 60s
+            num_closed = 0
+            for i in range(arg.num_agents):
+                node_name = re.sub(r"\d", str(i), arg.node_name)
+                if checkIfNodeRunning(node_name):
+                    num_closed += 1
 
-        counter = counter + 1
+            if num_closed == arg.num_agents:
+                print("All agents are not running. Break. ")
+                break
+
+            counter = counter + 1
+            time.sleep(1)
+
+        " Stop "
+        stopNode("node_name")
         time.sleep(1)
-
-    " Stop "
-    stopNode("node_name")
-    time.sleep(1)
-    stopAll()
+        stopAll()
 
     arr = findAndRecord(args, save_path)
     if arr is not None:
@@ -163,6 +192,7 @@ def run(arg):
 if __name__ == "__main__":
     args = parser.parse_args()
     run(args)
+    # print(args.no_run)
     # save_path = args.save_path + args.world + "_measurement_noise_" + ".csv"
     # print(findAndRecord(args, save_path))
     #

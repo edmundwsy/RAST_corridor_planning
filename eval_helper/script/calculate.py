@@ -67,10 +67,6 @@ def read_file(path, data):
                 )
 
 
-def get_min_distance():
-    pass
-
-
 def get_sum_control_efforts(d):
     a = d[:, 7:10]
     t = d[:, 0]
@@ -86,6 +82,15 @@ def get_avg_flight_time(d):
     i_f = len(v) - (np.flip(v) != 0).argmax()
     tf = d[i_f, 0]
     return tf - t0
+
+
+def get_collision_occurance(d, idx):
+    dist = d[:, idx]
+    danger_idx = np.where(dist < 0.0)[0]
+    if len(danger_idx) == 0:
+        return 0
+    n_collision = np.sum(np.diff(danger_idx) > 1) + 1
+    return n_collision
 
 
 def plot_x_t(data, idx):
@@ -167,7 +172,9 @@ if __name__ == "__main__":
     # plot_x_t(data[1], 1)
     # plot_a_t(data[1])
     # plot_v_t(data[1])
-    plot_reciprocal_distance(data[0])
+    n_collide = np.array([get_collision_occurance(d, 12) for d in data])
+    print(n_collide)
+    # plot_reciprocal_distance(data[0])
     plot_obstacle_distance(data[0])
     # plot_y_t(data[1])
     print("sum control efforts:", get_sum_control_efforts(data[1]))
