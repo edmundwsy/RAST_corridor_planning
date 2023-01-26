@@ -208,6 +208,8 @@ void FakeRobustFiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
       _is_goal_received  = false;  // reset goal
       _is_exec_triggered = false;
       _waypoints.pop();
+      ROS_INFO("[FSM] Goal reached");
+      ros::shutdown();
       // _traj.clear();
       FSMChangeState(FSM_STATUS::WAIT_TARGET);
       break;

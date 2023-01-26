@@ -115,7 +115,7 @@ void FakeBaselinePlanner::showAstarPath() {
 
 void FakeBaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>& points) {
   pcl::PointCloud<pcl::PointXYZ> cloud;
-  for (int i = 0; i < points.size(); i++) {
+  for (int i = 0; i < int(points.size()); i++) {
     pcl::PointXYZ p;
     p.x = points[i](0);
     p.y = points[i](1);

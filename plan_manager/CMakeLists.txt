@@ -52,13 +52,10 @@ add_library(${PROJECT_NAME}
   # src/mader_deconfliction.cpp
   src/baseline_fake.cpp # Debug
   src/fake_plan_manager.cpp # Debug
-  <<<<<<< Updated upstream
-  =======
 
   # robust mader
   src/rmader/fake_rmader.cpp
   src/rmader/fake_rmader_plan_manager.cpp
-  >>>>>>> Stashed changes
 )
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}

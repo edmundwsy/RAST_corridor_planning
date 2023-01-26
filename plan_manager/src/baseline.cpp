@@ -114,7 +114,7 @@ void BaselinePlanner::showAstarPath() {
 
 void BaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>& points) {
   pcl::PointCloud<pcl::PointXYZ> cloud;
-  for (int i = 0; i < points.size(); i++) {
+  for (int i = 0; i < int(points.size()); i++) {
     pcl::PointXYZ p;
     p.x = points[i](0);
     p.y = points[i](1);
@@ -164,9 +164,9 @@ bool BaselinePlanner::plan() {
 
   route.resize(route_vel.size()); /* copy route_vel to route */
 
-  printf("route size: %d \n", route.size());
+  printf("route size: %i \n", int(route.size()));
   std::cout << "pos: " << odom_pos_.transpose() << std::endl;
-  for (int i = 0; i < route.size(); i++) {
+  for (int i = 0; i < int(route.size()); i++) {
     route[i] = route_vel[i].head(3);
     std::cout << "route[" << i << "] = " << route[i].transpose() << std::endl;
   }
@@ -177,7 +177,7 @@ bool BaselinePlanner::plan() {
   Eigen::Vector3d higher_corner = Eigen::Vector3d(4, 4, 1) + odom_pos_;
 
   t1 = ros::Time::now();
-  for (int i = 0; i < route.size() - 1; i++) {
+  for (int i = 0; i < int(route.size()) - 1; i++) {
     /* Get a local bounding box */
     Eigen::Vector3d llc, lhc; /* local lower corner and higher corner */
     lhc(0) = std::min(std::max(route[i](0), route[i + 1](0)) + cfg_.init_range, higher_corner(0));
@@ -215,7 +215,7 @@ bool BaselinePlanner::plan() {
   }
 
   t2 = ros::Time::now();
-  ROS_INFO("Generate %i corridors in %f ms", hPolys.size(), (t2 - t1).toSec() * 1000);
+  ROS_INFO("Generate %i corridors in %f ms", int(hPolys.size()), (t2 - t1).toSec() * 1000);
   this->showObstaclePoints(pc);
   visualizer_->visualizePolytope(hPolys);
 
