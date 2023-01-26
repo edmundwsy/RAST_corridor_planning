@@ -99,11 +99,11 @@ class Bezier {
  private:
   typedef std::vector<BernsteinPiece> Pieces;
   Pieces                              pieces_;
-  Eigen::MatrixX3d                    cpts_;  // control points, (M(N+1))x3 matrix
   int                                 N_;     // order
   int                                 M_;     // number of pieces
   double                              T_;     // total time
   std::vector<double>                 t_;     // time interval for each piece
+  Eigen::MatrixX3d                    cpts_;  // control points, (M(N+1))x3 matrix
 
  public:
   Bezier() {}

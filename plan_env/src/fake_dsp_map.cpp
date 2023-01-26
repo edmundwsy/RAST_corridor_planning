@@ -26,7 +26,7 @@ void FakeRiskVoxel::init(ros::NodeHandle &nh) {
   nh_.param("map/local_update_range_y", local_update_range_y_, 5.0F);
   nh_.param("map/local_update_range_z", local_update_range_z_, 4.0F);
   nh_.param("map/risk_threshold", risk_threshold_, 0.2F);
-  nh_.param("map/static_clearance", clearance_, 0.3F);
+  nh_.param("map/clearance", clearance_, 0.3F);
   nh_.param("map/time_resolution", time_resolution_, 0.2F);
   nh_.param("map/publish_spatio_temporal", is_publish_spatio_temporal_map_, false);
 
@@ -118,33 +118,82 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
     }
   }
 
-  for (auto &point : cloud_filtered->points) {
-    Eigen::Vector3f pt = Eigen::Vector3f(point.x, point.y, point.z) - pose_;
+  /* update map fuse perception and ground truth information */
+  // for (auto &point : cloud_filtered->points) {
+  //   Eigen::Vector3f pt = Eigen::Vector3f(point.x, point.y, point.z) - pose_;
+  //
+  //   /* add observed points to the first layer of map */
+  //   if (isInRange(pt)) {
+  //     int idx = getVoxelIndex(pt);
+  //
+  //     risk_maps_[idx][0] = 1.0F;
+  //   }
+  //
+  //   /* add ground truth obstacles to other layers of map */
+  //   for (auto &cyl : gt_cylinders_) {
+  //     Eigen::Vector3f pt_cyl       = Eigen::Vector3f(cyl.x, cyl.y, pt.z() + pose_.z());
+  //     Eigen::Vector3f pt_cyl_to_pt = pt + pose_ - pt_cyl;
+  //
+  //     /* get observed point's distance to ground truth position, move these points to desired
+  //      * position in the future maps*/
+  //     float dist = pt_cyl_to_pt.norm();
+  //     if (dist < cyl.w) { /* point is assigned to cylinder */
+  //       Eigen::Vector3f vel = Eigen::Vector3f(cyl.vx, cyl.vy, 0.0F);
+  //       for (int k = 1; k < PREDICTION_TIMES; k++) {
+  //         Eigen::Vector3f pt_pred = pt + vel * time_resolution_ * k;
+  //         if (isInRange(pt_pred)) {
+  //           int idx            = getVoxelIndex(pt_pred);
+  //           risk_maps_[idx][k] = 1.0F;
+  //         }
+  //       }
+  //       break;
+  //     }
+  //   }
+  // }
 
-    if (isInRange(pt)) {
-      int idx = getVoxelIndex(pt);
+  /* inflation */
+  for (auto &cyl : gt_cylinders_) {
+    Eigen::Vector3f vel    = Eigen::Vector3f(cyl.vx, cyl.vy, 0.0F);
+    Eigen::Vector3f pt_cyl = Eigen::Vector3f(cyl.x, cyl.y, 0.0F) - pose_;
+    /* get the maximum inflation distance */
+    float d = cyl.w / 2 + clearance_;
+    float h = cyl.h;
 
-      risk_maps_[idx][0] = 1.0F;
-    }
-
-    for (auto &cyl : gt_cylinders_) {
-      Eigen::Vector3f pt_cyl       = Eigen::Vector3f(cyl.x, cyl.y, pt.z() + pose_.z());
-      Eigen::Vector3f pt_cyl_to_pt = pt + pose_ - pt_cyl;
-      Eigen::Vector3f vel          = Eigen::Vector3f(cyl.vx, cyl.vy, 0.0F);
-      float           dist         = pt_cyl_to_pt.norm();
-      if (dist < cyl.w) { /* point is assigned to cylinder */
-        for (int k = 1; k < PREDICTION_TIMES; k++) {
-          Eigen::Vector3f pt_pred = pt + vel * time_resolution_ * k;
-          if (isInRange(pt_pred)) {
-            int idx            = getVoxelIndex(pt_pred);
-            risk_maps_[idx][k] = 1.0F;
-          }
-        }
+    for (int j = 0; j < PREDICTION_TIMES; j++) {
+      /* get index of the bottom-center cylinder in the map */
+      Eigen::Vector3f pt_j = pt_cyl + vel * time_resolution_ * j;
+      if (!isInRange(pt_j)) {
         break;
       }
+
+      for (float x = -d; x <= d; x += VOXEL_RESOLUTION) {
+        for (float y = -d; y <= d; y += VOXEL_RESOLUTION) {
+          for (float z = 0; z <= h; z += VOXEL_RESOLUTION) {
+            Eigen::Vector3f pt = pt_j + Eigen::Vector3f(x, y, z);
+
+            if (isInRange(pt)) {
+              int idx            = getVoxelIndex(pt);
+              risk_maps_[idx][j] = 1.0F;
+            }
+          }
+        }
+      }
+      // int d = ceil((cyl.w / 2 + clearance_) / VOXEL_RESOLUTION);
+      // for (int xx = -d; xx <= d; xx++) {
+      //   for (int yy = -d; yy <= d; yy++) {
+      //     for (int zz = 0; zz < int(cyl.h / VOXEL_RESOLUTION); zz++) {
+      //       int idx_tmp = idx + zz * MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM +
+      //                     yy * MAP_LENGTH_VOXEL_NUM + xx;
+      //       if (idx_tmp >= 0 && idx_tmp < VOXEL_NUM) {
+      //         risk_maps_[idx_tmp][j] = 1.0F;
+      //       }
+      //     }
+      //   }
+      // }
     }
   }
 
+  /* add other agents to the map */
   Eigen::Vector3d robot_size = coordinator_->getAgentsSize();
   int             n          = coordinator_->getNumAgents();
   for (int idx = 0; idx < PREDICTION_TIMES; idx++) {

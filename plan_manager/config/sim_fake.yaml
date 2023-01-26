@@ -70,7 +70,7 @@ map:
   local_map_margin: 10
   ground_height: -0.01
 
-  clearance: 0.2
+  clearance: 0.0
 
   publish_spatio_temporal: true
   virtual_ceil_height: 2.9

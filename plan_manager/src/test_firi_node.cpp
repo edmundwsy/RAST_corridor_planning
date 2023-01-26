@@ -42,8 +42,8 @@ std::vector<Eigen::Vector3d>  astar_path_;
 
 Eigen::Vector3d pos_start(0, 0, 0);
 
-void generateCorridor(const Eigen::Vector3d &             pos_start,
-                      const Eigen::Vector3d &             pos_goal,
+void generateCorridor(const Eigen::Vector3d              &pos_start,
+                      const Eigen::Vector3d              &pos_goal,
                       const std::vector<Eigen::Vector3d> &pc) {
   Eigen::Vector3d llc, lhc; /* local lower corner and higher corner */
   lhc(0) = std::min(std::max(pos_start(0), pos_goal(0)) + range_, pos_(0) + higher_corner_(0));
@@ -109,7 +109,7 @@ void showObstaclePoints(const std::vector<Eigen::Vector3d> &points) {
 void pointCallback(const sensor_msgs::PointCloud2::ConstPtr &msg) {
   pcl::PointCloud<pcl::PointXYZ> cloud;
   pcl::fromROSMsg(*msg, cloud);
-  ROS_INFO("Received point cloud size: %d", cloud.size());
+  ROS_INFO("Received point cloud size: %d", int(cloud.size()));
 
   pc.clear();
   for (int i = 0; i < cloud.size(); i++) {
@@ -124,7 +124,7 @@ void pointCallback(const sensor_msgs::PointCloud2::ConstPtr &msg) {
     visualizer_->visualizeStartGoal(astar_path_[flag_ + 3]);
   }
   flag_ += 3;
-  if (flag_ >= astar_path_.size()) {
+  if (flag_ >= int(astar_path_.size())) {
     flag_ = 0;
   }
 }
@@ -133,10 +133,10 @@ void pathCallback(const visualization_msgs::Marker::ConstPtr &msg) {
   flag_ = 0;
   hPolys_.clear();
   astar_path_.clear();
-  for (int i = 0; i < msg->points.size(); i++) {
+  for (int i = 0; i < int(msg->points.size()); i++) {
     astar_path_.push_back(Eigen::Vector3d(msg->points[i].x, msg->points[i].y, msg->points[i].z));
   }
-  ROS_INFO("Received path size: %i", astar_path_.size());
+  ROS_INFO("Received path size: %i", (int)(astar_path_.size()));
 }
 
 void odomCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
