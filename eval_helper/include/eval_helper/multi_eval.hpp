@@ -24,13 +24,13 @@
 #include <string>
 
 struct Obstacle {
-  double          width;
+  double          radius;
   double          height;
   Eigen::Vector3d pos;
   Eigen::Vector2d vel;
   Obstacle() {}
   Obstacle(double width, double height, Eigen::Vector3d pos, Eigen::Vector2d vel)
-      : width(width), height(height), pos(std::move(pos)), vel(std::move(vel)) {}
+      : radius(width), height(height), pos(std::move(pos)), vel(std::move(vel)) {}
 };
 
 /**
@@ -166,7 +166,7 @@ class MultiAgentLogger {
       double vx, vy, px, py, w, h;
       px = mk.points[0].x;
       py = mk.points[0].y;
-      w  = mk.scale.x;
+      w  = mk.scale.x / 2;
       h  = mk.points[0].z;
       vx = mk.points[1].x - mk.points[0].x;
       vy = mk.points[1].y - mk.points[0].y;
@@ -212,7 +212,7 @@ class MultiAgentLogger {
       Eigen::Vector3d p_obs = obs.pos;
       p_obs[2]              = pos.z();
 
-      double d = (p_obs - pos).norm() - obs.width;
+      double d = (p_obs - pos).norm() - obs.radius;
       if (d < min_d_obs) {
         min_d_obs = d;
       }

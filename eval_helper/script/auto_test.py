@@ -19,6 +19,7 @@ import calculate
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--world", type=str, default="_4uav_19obs", help="world name")
+parser.add_argument("--iters", type=int, default="1", help="number of agents")
 parser.add_argument("--num_agents", type=int, default="4", help="number of agents")
 parser.add_argument("--save_path", type=str, default="results", help="folder name")
 parser.add_argument("--waiting_time", type=float, default="20", help="waiting time")
@@ -50,7 +51,7 @@ def startPlanner():
 
 
 def checkIfNodeRunning(node_name):
-    pid = os.popen("pidof " + node_name).read()
+    pid = os.popen("rosnode list | grep " + node_name).read()
     # print('pid of ' + node_name + ' is ' + pid)
     return pid
 
@@ -109,10 +110,10 @@ def findAndRecord(args, save_path):
     flight_times = np.array([calculate.get_avg_flight_time(d) for d in data])
 
     n_cld_obs = np.array([calculate.get_collision_occurance(d, 12) for d in data])
-    d_cld_obs = np.array([np.min(d[0, 12]) for d in data])
+    d_cld_obs = np.array([np.min(d[:, 12]) for d in data])
 
     n_cld_uav = np.array([calculate.get_collision_occurance(d, 13) for d in data])
-    d_cld_uav = np.array([np.min(d[0, 13]) for d in data])
+    d_cld_uav = np.array([np.min(d[:, 13]) for d in data])
 
     arr_to_write = np.hstack(
         [ctrl_efforts, flight_times, n_cld_uav, d_cld_uav, n_cld_obs, d_cld_obs]
@@ -162,18 +163,18 @@ def run(arg):
 
         counter = 0
         while counter < arg.waiting_time:  # Wait time max: 60s
-            num_closed = 0
+            failed_list = np.zeros(arg.num_agents)
             for i in range(arg.num_agents):
                 node_name = re.sub(r"\d", str(i), arg.node_name)
-                if checkIfNodeRunning(node_name):
-                    num_closed += 1
+                if checkIfNodeRunning(node_name) == "":
+                    failed_list[i] += 1
+                    print("Agents {} are not running. Break. ".format(i))
 
-            if num_closed == arg.num_agents:
-                print("All agents are not running. Break. ")
-                break
-
-            counter = counter + 1
+            counter += 1
             time.sleep(1)
+
+            if np.min(failed_list) > 0:
+                break
 
         " Stop "
         stopNode("node_name")
@@ -191,7 +192,8 @@ def run(arg):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    run(args)
+    for i in range(args.iters):
+        run(args)
     # print(args.no_run)
     # save_path = args.save_path + args.world + "_measurement_noise_" + ".csv"
     # print(findAndRecord(args, save_path))

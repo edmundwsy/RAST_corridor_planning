@@ -80,7 +80,7 @@ def get_avg_flight_time(d):
     v = np.square(d[:, 4:7]).sum(axis=1)
     t0 = d[0, 0]
     i_f = len(v) - (np.flip(v) != 0).argmax()
-    tf = d[i_f, 0]
+    tf = d[i_f - 1, 0]
     return tf - t0
 
 
