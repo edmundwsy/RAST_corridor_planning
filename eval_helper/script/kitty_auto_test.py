@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
+
 """
 Date: 2022-03-02
 Author: Gang Chen
 Email: 947089399@qq.com
 ---
-thesis-planner
+thesis-planner | kitty
 """
 
 import os
@@ -35,7 +36,7 @@ parser.add_argument("--no-run", action="store_true")
 parser.add_argument(
     "--cmd_source",
     type=str,
-    default="source /home/siyuan/workspace/thesis_workspace/devel/setup.zsh",
+    default="source /home/siyuan/workspace/thesis_workspace/devel/setup.bash",
 )
 parser.add_argument(
     "--cmd_recorder",
@@ -61,7 +62,7 @@ def checkIfNodeRunning(node_name):
 
 
 def cleanROSLog():
-    os.system("gnome-terminal -- bash -c '%s; rosclean purge -y'" % "source ~/.bashrc")
+    os.system("kitty @ launch bash -c '%s; rosclean purge -y'" % "source ~/.bashrc")
 
 
 def stopNode(node_name):
@@ -73,15 +74,13 @@ def stopNode(node_name):
 
 def startAll(arg):
     # Start the planner
-    os.system("gnome-terminal -- bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_launch))
+    os.system("kitty @ launch bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_launch))
     time.sleep(0.5)
     # Start the recorder
-    os.system(
-        "gnome-terminal -- bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_recorder)
-    )
+    os.system("kitty @ launch bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_recorder))
     time.sleep(2)
     # Start planning
-    os.system("gnome-terminal -- bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_trigger))
+    os.system("kitty @ launch bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_trigger))
 
 
 def stopAll():
@@ -209,4 +208,4 @@ if __name__ == "__main__":
     #         csv_row = ["{:.4f}".format(a) for a in arr]
     #         csv_text = ", ".join(csv_row) + "\n"
     #         result.write(csv_text)
-    #     print("Data saved to " + save_path)
+    #     prin

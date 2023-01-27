@@ -145,16 +145,16 @@ def get_data(n, file_path):
 
 
 def plot_reciprocal_distance(data):
-    t = data[:, 0]
-    d = data[:, 13]
-    print(d.transpose())
+    t = data[1:, 0]
+    d = data[1:, 13]
+    # print(d.transpose())
     plt.plot(t, d)
     plt.show()
 
 
 def plot_obstacle_distance(data):
-    t = data[:, 0]
-    d = data[:, 12]
+    t = data[1:, 0]
+    d = data[1:, 12]
     plt.plot(t, d)
     plt.show()
 
@@ -174,8 +174,9 @@ if __name__ == "__main__":
     # plot_v_t(data[1])
     n_collide = np.array([get_collision_occurance(d, 12) for d in data])
     print(n_collide)
-    # plot_reciprocal_distance(data[0])
+    plot_reciprocal_distance(data[0])
     plot_obstacle_distance(data[0])
     # plot_y_t(data[1])
+    print("reciprocal distance: ", np.min(data[1][:, 13]))
     print("sum control efforts:", get_sum_control_efforts(data[1]))
     print("avg flight time:", get_avg_flight_time(data[1]))
