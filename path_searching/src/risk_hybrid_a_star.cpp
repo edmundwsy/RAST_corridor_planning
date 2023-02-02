@@ -120,8 +120,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
                                   bool            dynamic,
                                   double          time_start) {
   Eigen::Vector3f map_center_f;
-  grid_map_->getMapCenter(map_center_f);
-  map_center_ = map_center_f.cast<double>();
+  map_center_ = grid_map_->getMapCenter().cast<double>();
   start_vel_  = start_v;
   start_acc_  = start_a;
 

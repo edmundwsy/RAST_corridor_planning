@@ -11,6 +11,8 @@
 
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <pcl/filters/passthrough.h>
+#include <pcl/point_types.h>
 // #include <path_searching/risk_hybrid_a_star.h>
 #include <path_searching/fake_risk_hybrid_a_star.h>
 // #include <plan_env/risk_voxel.h>
@@ -24,6 +26,7 @@
 ros::Subscriber click_sub_;
 ros::Publisher  path_pub_;
 ros::Publisher  t_path_pub_;
+ros::Publisher  voxel_pub_;
 
 FakeRiskVoxel::Ptr       grid_map_;
 FakeRiskHybridAstar::Ptr a_star_;
@@ -34,6 +37,23 @@ Eigen::Vector3d              start_acc_ = Eigen::Vector3d::Zero();
 Eigen::Vector3d              end_acc_   = Eigen::Vector3d::Zero();
 std::vector<Eigen::Vector3d> path_;
 double                       sample_duration_ = 0.2;
+
+void visualizeObstacles(const std::vector<Eigen::Vector4d> &points) {
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  cloud->points.reserve(points.size());
+  for (auto &pt : points) {
+    pcl::PointXYZ p;
+    p.x = pt[0]; /* x */
+    p.y = pt[1]; /* y */
+    p.z = pt[3]; /* t */
+    cloud->points.push_back(p);
+  }
+  sensor_msgs::PointCloud2 cloud_msg;
+  pcl::toROSMsg(*cloud, cloud_msg);
+  cloud_msg.header.stamp    = ros::Time::now();
+  cloud_msg.header.frame_id = "world";
+  voxel_pub_.publish(cloud_msg);
+}
 
 void visualizePath(const std::vector<Eigen::Vector3d> &path) {
   visualization_msgs::Marker marker;
@@ -130,6 +150,9 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
     rst = a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, false, true, 0);
   }
 
+  std::vector<Eigen::Vector4d> occupied_obs = a_star_->getTraversedObstacles();
+  visualizeObstacles(occupied_obs);
+
   if (rst > 2) {
     path_ = a_star_->getPath(sample_duration_);
     std::cout << "Path size: " << path_.size() << std::endl;
@@ -169,7 +192,7 @@ int main(int argc, char **argv) {
   grid_map_.reset(new FakeRiskVoxel());
   grid_map_->init(nh);
   Eigen::Vector3f posf = start_pos_.cast<float>();
-  // grid_map_->setMapCenter(posf);
+  grid_map_->setMapCenter(posf);
   ROS_INFO("Map initialized!");
 
   a_star_.reset(new FakeRiskHybridAstar());
@@ -180,6 +203,7 @@ int main(int argc, char **argv) {
   click_sub_  = nh.subscribe("/move_base_simple/goal", 1, clickCallback);
   path_pub_   = nh.advertise<visualization_msgs::Marker>("/path", 1);
   t_path_pub_ = nh.advertise<visualization_msgs::Marker>("/t_path", 1);
+  voxel_pub_  = nh.advertise<sensor_msgs::PointCloud2>("/voxel", 1, true);
 
   ros::AsyncSpinner spinner(4);
   spinner.start();

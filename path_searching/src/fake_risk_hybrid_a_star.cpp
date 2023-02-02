@@ -121,9 +121,9 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
                                       bool            init,
                                       bool            dynamic,
                                       double          time_start) {
+  occupied_voxels_.clear();
   Eigen::Vector3f map_center_f;
-  grid_map_->getMapCenter(map_center_f);
-  map_center_ = map_center_f.cast<double>();
+  map_center_ = grid_map_->getMapCenter().cast<double>();
   start_vel_  = start_v;
   start_acc_  = start_a;
 
@@ -180,6 +180,7 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
     if (reach_horizon || near_end || exceed_time) {
       terminate_node = cur_node;
       retrievePath(terminate_node);
+      std::cout << "retrievePath success " << std::endl;
       if (near_end) {
         // Check whether shot traj exist
         estimateHeuristic(cur_node->state, end_state, time_to_goal);
@@ -297,10 +298,13 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
           stateTransit(cur_state, xt, um, dt);
           pos      = xt.head(3);
           double t = cur_node->time + dt;
-          // std::cout << "pos:" << pos.transpose() << " t: " << t << std::endl;
-          if (grid_map_->getInflateOccupancy(pos - map_center_, t) == 1) {
+          if (grid_map_->getInflateOccupancy(pos, t) == 1) {
             is_occ = true;
             break;
+          } else {
+            Eigen::Vector4d obs;
+            obs << pos, t;
+            occupied_voxels_.push_back(obs);
           }
         }
         if (is_occ) {
@@ -495,11 +499,8 @@ bool FakeRiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
       return false;
     }
 
-    // if (edt_environment_->evaluateCoarseEDT(coord, -1.0) <= margin_) {
-    //   return false;
-    // }
-    if (grid_map_->getInflateOccupancy(coord) == 1) {
-      return false;
+    if (grid_map_->getInflateOccupancy(coord + map_center_) == 1) {
+      return false; /* collision */
     }
   }
   coef_shot_    = coef;
@@ -581,7 +582,7 @@ std::vector<Eigen::Vector3d> FakeRiskHybridAstar::getPath(double delta_t) {
   std::vector<Eigen::Vector3d> state_list;
 
   /* ---------- get traj of searching ---------- */
-  PathNodePtr                 node = node_path_.back();  // TODO 0??
+  PathNodePtr                 node = node_path_.back();
   Eigen::Matrix<double, 6, 1> x0, xt;
 
   // double t_counter = 0;

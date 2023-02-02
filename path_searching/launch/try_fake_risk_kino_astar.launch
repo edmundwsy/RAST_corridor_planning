@@ -1,8 +1,8 @@
-<launch>
+<launch> <!-- TODO: BUGS in A star search -->
 
   <arg name="init_x" value="-4.0" />
   <arg name="init_y" value="0.0" />
-  <arg name="init_z" value="1.0" />
+  <arg name="init_z" value="0.0" />
   <arg name="vel_x" value="1.0" />
   <arg name="vel_y" value="0.5" />
   <arg name="vel_z" value="0.0" />
@@ -18,8 +18,8 @@
   <arg name="fy" value="387.229248046875"/>
 
 
-  <node pkg="path_searching" name="astar" type="risk_a_star_node" output="screen">
-    <!-- <node pkg="path_searching" name="astar" type="kinodyn_a_star_node" output="screen"> -->
+  <!-- <node pkg="path_searching" name="astar" type="fake_risk_a_star_node" output="screen" launch-prefix="terminator -\-execute gdb -ex run -\-args"> -->
+  <node pkg="path_searching" name="astar" type="fake_risk_a_star_node" output="screen">
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />
@@ -35,11 +35,13 @@
     <!-- Resolutions -->
     <param name="map/resolution" value="0.10" />
     <param name="map/risk_threshold" value="0.10" />
-    <param name="map/local_update_range_x" value="6.5" />
-    <param name="map/local_update_range_y" value="6.5" />
+    <param name="map/local_update_range_x" value="4.0" />
+    <param name="map/local_update_range_y" value="4.0" />
     <param name="map/local_update_range_z" value="3.5" />
+    <param name="map/clearance" value="0.1" />
+    <param name="map/publish_spatio_temporal" value="true" />
 
-    <param name="search/max_tau" value="0.6" type="double"/>
+    <param name="search/max_tau" value="2.0" type="double"/>
     <!-- useless -->
     <param name="search/init_max_tau" value="0.8" type="double"/>
     <!-- useless -->
@@ -69,24 +71,17 @@
     <param name="map/frame_id" value="world" />
     <param name="map/test" value="true" />
     <param name="ObstacleShape/seed" value="-1" />
-    <param name="map/obs_num" value="10" />
+    <param name="map/obs_num" value="22" />
     <param name="ObstacleShape/lower_rad" value="0.5" />
     <param name="ObstacleShape/upper_rad" value="0.8" />
     <param name="ObstacleShape/lower_hei" value="4.0" />
     <param name="ObstacleShape/upper_hei" value="4.0" />
-    <param name="ObstacleShape/upper_vel" value="0.1" />
+    <param name="ObstacleShape/upper_vel" value="0.3" />
     <param name="ObstacleShape/set_cylinder" value="true" />
     <param name="sensing/radius" value="5.0" />
     <param name="sensing/rate" value="10.0" />
   </node>
 
-  <node pkg="poscmd_2_odom" name="poscmd_2_odom" type="poscmd_2_odom" output="screen">
-    <param name="init_x" value="$(arg init_x)" />
-    <param name="init_y" value="$(arg init_y)" />
-    <param name="init_z" value="$(arg init_z)" />
-    <remap from="~command" to="planning/pos_cmd" />
-    <remap from="~odometry" to="/odom" />
-  </node>
   <!--
   <node pkg="local_sensing_node" type="pcl_render_node" name="pcl_render_node">
     <rosparam command="load" file="$(find local_sensing_node)/params/camera.yaml" />
