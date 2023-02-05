@@ -6,6 +6,7 @@
   <arg name="obs_num" value="19" />
   <!-- Number of obstacles -->
   <arg name="num_robots" value="4" />
+  <arg name="rviz" default="True" />
 
   <include file="$(find plan_manager)/launch/simulator/simulator_fake.launch">
     <arg name="map_size_x" value="$(arg map_size_x)" />
@@ -78,7 +79,8 @@
     </include>
   </group>
 
-
+<group if="$(arg rviz)">
   <node pkg="rviz" name="rviz" type="rviz" args="-d $(find plan_manager)/rviz/demo.rviz" />
+</group>
 
 </launch>

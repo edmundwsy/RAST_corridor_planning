@@ -64,6 +64,7 @@ class FakeRiskHybridAstar : public AStar {
   Eigen::Matrix<double, 6, 6>  phi_;  // state transit matrix
   Eigen::MatrixXd              coef_shot_;
   std::vector<Eigen::Vector4d> occupied_voxels_;
+  std::vector<Eigen::Vector4d> visited_voxels_;
 
   /* helper */
   int             timeToIndex(double time);
@@ -106,7 +107,8 @@ class FakeRiskHybridAstar : public AStar {
 
   std::vector<Eigen::Vector3d>             getPath(double delta_t);
   std::vector<Eigen::Matrix<double, 6, 1>> getPathWithVel(double delta_t);
-  std::vector<Eigen::Vector4d>             getTraversedObstacles() { return occupied_voxels_; }
+  std::vector<Eigen::Vector4d>             getTraversedObstacles() { return visited_voxels_; }
+  std::vector<Eigen::Vector4d>             getOccupiedObstacles() { return occupied_voxels_; }
 
   void getSamples(double&                       ts,
                   std::vector<Eigen::Vector3d>& point_set,

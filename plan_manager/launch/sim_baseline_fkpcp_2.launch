@@ -15,7 +15,7 @@
   </include>
 
   <group ns="uav0">
-    <include file="$(find plan_manager)/launch/simulator/drone_fake_perception.xml">
+    <include file="$(find plan_manager)/launch/simulator/dbg_drone_fake_perception.xml">
       <arg name="drone_id" value="0" />
       <arg name="num_robots" value="$(arg num_robots)" />
       <arg name="map_size_x" value="$(arg map_size_x)" />

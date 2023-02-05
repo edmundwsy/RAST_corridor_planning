@@ -27,6 +27,7 @@ ros::Subscriber click_sub_;
 ros::Publisher  path_pub_;
 ros::Publisher  t_path_pub_;
 ros::Publisher  voxel_pub_;
+ros::Publisher  occupied_pub_;
 
 FakeRiskVoxel::Ptr       grid_map_;
 FakeRiskHybridAstar::Ptr a_star_;
@@ -38,7 +39,7 @@ Eigen::Vector3d              end_acc_   = Eigen::Vector3d::Zero();
 std::vector<Eigen::Vector3d> path_;
 double                       sample_duration_ = 0.2;
 
-void visualizeObstacles(const std::vector<Eigen::Vector4d> &points) {
+void visualizeObstacles(const std::vector<Eigen::Vector4d> &points, ros::Publisher &pub) {
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
   cloud->points.reserve(points.size());
   for (auto &pt : points) {
@@ -52,7 +53,7 @@ void visualizeObstacles(const std::vector<Eigen::Vector4d> &points) {
   pcl::toROSMsg(*cloud, cloud_msg);
   cloud_msg.header.stamp    = ros::Time::now();
   cloud_msg.header.frame_id = "world";
-  voxel_pub_.publish(cloud_msg);
+  pub.publish(cloud_msg);
 }
 
 void visualizePath(const std::vector<Eigen::Vector3d> &path) {
@@ -122,6 +123,7 @@ void visualizeTemporalPath(const std::vector<Eigen::Vector3d> &path, double dt) 
       pt.y = last.y();
       pt.z = t;
       marker.points.push_back(pt);
+      std::cout << "x: " << pt.x << " y: " << pt.y << " t: " << pt.z << std::endl;
       t += dt;
       last = p;
       pt.x = last.x();
@@ -150,8 +152,11 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
     rst = a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, false, true, 0);
   }
 
-  std::vector<Eigen::Vector4d> occupied_obs = a_star_->getTraversedObstacles();
-  visualizeObstacles(occupied_obs);
+  std::vector<Eigen::Vector4d> visited_voxels = a_star_->getTraversedObstacles();
+  std::vector<Eigen::Vector4d> occupied_voxels     = a_star_->getOccupiedObstacles();
+  visualizeObstacles(visited_voxels, voxel_pub_);
+  visualizeObstacles(occupied_voxels, occupied_pub_);
+
 
   if (rst > 2) {
     path_ = a_star_->getPath(sample_duration_);
@@ -204,6 +209,7 @@ int main(int argc, char **argv) {
   path_pub_   = nh.advertise<visualization_msgs::Marker>("/path", 1);
   t_path_pub_ = nh.advertise<visualization_msgs::Marker>("/t_path", 1);
   voxel_pub_  = nh.advertise<sensor_msgs::PointCloud2>("/voxel", 1, true);
+  occupied_pub_  = nh.advertise<sensor_msgs::PointCloud2>("/occupied", 1, true);
 
   ros::AsyncSpinner spinner(4);
   spinner.start();

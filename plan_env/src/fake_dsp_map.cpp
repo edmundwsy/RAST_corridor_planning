@@ -89,6 +89,7 @@ void FakeRiskVoxel::odomCallback(const nav_msgs::Odometry::ConstPtr &odom_msg) {
 void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
   /* ground truth starting time */
   last_update_time_ = ros::Time::now();
+  ros::Time tic     = last_update_time_;
 
   pcl::fromROSMsg(*cloud_msg, *cloud_);
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
@@ -151,68 +152,111 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
   //   }
   // }
 
-  /* inflation */
-  for (auto &cyl : gt_cylinders_) {
-    Eigen::Vector3f vel    = Eigen::Vector3f(cyl.vx, cyl.vy, 0.0F);
-    Eigen::Vector3f pt_cyl = Eigen::Vector3f(cyl.x, cyl.y, 0.0F) - pose_;
-    /* get the maximum inflation distance */
-    float d = cyl.w / 2 + clearance_;
-    float h = cyl.h;
+  ros::Time t0 = ros::Time::now();
+  /* add points to map and inflation */
+  for (auto &points : cloud_filtered->points) {
+    Eigen::Vector3f pt = Eigen::Vector3f(points.x, points.y, points.z) - pose_;
+    if (isInRange(pt)) {
+      risk_maps_[getVoxelIndex(pt)][0] = 1.0F;
+    }
+  }
+  // ros::Time t1 = ros::Time::now();
+  // ROS_INFO("add points to map time: %f", (t1 - t0).toSec());
 
-    for (int j = 0; j < PREDICTION_TIMES; j++) {
-      /* get index of the bottom-center cylinder in the map */
-      Eigen::Vector3f pt_j = pt_cyl + vel * time_resolution_ * j;
-      if (!isInRange(pt_j)) {
-        break;
+  /* create convolution kernel */
+  int                          inf_steps = (2 * clearance_) / VOXEL_RESOLUTION + 1;
+  std::vector<Eigen::Vector3f> inf_pts(std::pow(inf_steps, 3));
+
+  int n = 0;
+  for (float xx = -clearance_; xx <= clearance_; xx += VOXEL_RESOLUTION) {
+    for (float yy = -clearance_; yy <= clearance_; yy += VOXEL_RESOLUTION) {
+      for (float zz = -clearance_; zz <= clearance_; zz += VOXEL_RESOLUTION) {
+        inf_pts[n++] = Eigen::Vector3f(xx, yy, zz);
       }
+    }
+  }
+  // ros::Time t2 = ros::Time::now();
+  // ROS_INFO("convolution time: %f", (t2 - t1).toSec());
 
-      for (float x = -d; x <= d; x += VOXEL_RESOLUTION) {
-        for (float y = -d; y <= d; y += VOXEL_RESOLUTION) {
-          for (float z = 0; z <= h; z += VOXEL_RESOLUTION) {
-            Eigen::Vector3f pt = pt_j + Eigen::Vector3f(x, y, z);
+  std::vector<int> obs_idx_list(VOXEL_NUM);
+  for (int i = 0; i < VOXEL_NUM; i++) {
+    if (risk_maps_[i][0] > risk_threshold_) {
+      obs_idx_list.push_back(i);
+    }
+  }
 
-            if (isInRange(pt)) {
-              int idx            = getVoxelIndex(pt);
-              risk_maps_[idx][j] = 1.0F;
-            }
+  for (auto &i : obs_idx_list) {
+    /* inflate points */
+    Eigen::Vector3f pt_obstacle = getVoxelRelPosition(i);
+    for (auto &pt : inf_pts) {
+      Eigen::Vector3f p   = pt + pt_obstacle;
+      int             idx = getVoxelIndex(p);
+      if (!isInRange(p) || idx > VOXEL_NUM) {
+        continue;
+      }
+      // idx     = idx > VOXEL_NUM ? VOXEL_NUM - 1 : idx;
+      /*  TODO:temporal code to prevent overflow
+      REASON: pose_ update while inflation after range check
+      */
+      risk_maps_[idx][0] = 1.0F;
+    }
+  }
+  // ros::Time t3 = ros::Time::now();
+  // ROS_INFO("inflate time: %f", (t3 - t2).toSec());
+
+  /* read ground truth and construct future maps */
+  obs_idx_list.clear();
+  for (int i = 0; i < VOXEL_NUM; i++) {
+    if (risk_maps_[i][0] > risk_threshold_) {
+      obs_idx_list.push_back(i);
+    }
+  }
+
+  for (auto &i : obs_idx_list) {
+    Eigen::Vector3f pt        = getVoxelPosition(i);
+    int             obs_count = 0;
+    for (auto &cyl : gt_cylinders_) {
+      Eigen::Vector3f pt_cyl = Eigen::Vector3f(cyl.x, cyl.y, pt.z());
+      if (!isInRange(pt_cyl - pose_)) continue;
+      float dist = (pt - pt_cyl).norm();
+      if (dist <= cyl.w + clearance_) {
+        Eigen::Vector3f vel = Eigen::Vector3f(cyl.vx, cyl.vy, 0.0F);
+        for (int k = 1; k < PREDICTION_TIMES; k++) {
+          Eigen::Vector3f pt_pred = pt + vel * time_resolution_ * k - pose_;
+          if (isInRange(pt_pred)) {
+            risk_maps_[getVoxelIndex(pt_pred)][k] = 1.0F;
           }
         }
+        obs_count++;
+        if (obs_count > 4) break;
       }
-      // int d = ceil((cyl.w / 2 + clearance_) / VOXEL_RESOLUTION);
-      // for (int xx = -d; xx <= d; xx++) {
-      //   for (int yy = -d; yy <= d; yy++) {
-      //     for (int zz = 0; zz < int(cyl.h / VOXEL_RESOLUTION); zz++) {
-      //       int idx_tmp = idx + zz * MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM +
-      //                     yy * MAP_LENGTH_VOXEL_NUM + xx;
-      //       if (idx_tmp >= 0 && idx_tmp < VOXEL_NUM) {
-      //         risk_maps_[idx_tmp][j] = 1.0F;
-      //       }
-      //     }
-      //   }
-      // }
     }
   }
+  // ros::Time t4 = ros::Time::now();
+  // ROS_INFO("construct future map time: %f", (t4 - t3).toSec());
 
   /* add other agents to the map */
-  Eigen::Vector3d robot_size = coordinator_->getAgentsSize();
-  int             n          = coordinator_->getNumAgents();
-  for (int idx = 0; idx < PREDICTION_TIMES; idx++) {
-    std::vector<Eigen::Vector3d> waypoints;
-    for (int i = 0; i < n; i++) {
-      double t = last_update_time_.toSec() + time_resolution_ * idx;
-      /* query coordinator to get the future waypoints from broadcast trajectory */
-      coordinator_->getWaypoints(waypoints, i, t);
-      /* Get waypoints at the beginning of each time step, and modify map
-       * accordingly */
+  if (is_multi_agents_) {
+    Eigen::Vector3d robot_size = coordinator_->getAgentsSize();
+    int             n          = coordinator_->getNumAgents();
+    for (int idx = 0; idx < PREDICTION_TIMES; idx++) {
+      std::vector<Eigen::Vector3d> waypoints;
+      for (int i = 0; i < n; i++) {
+        double t = last_update_time_.toSec() + time_resolution_ * idx;
+        /* query coordinator to get the future waypoints from broadcast trajectory */
+        coordinator_->getWaypoints(waypoints, i, t);
+        /* Get waypoints at the beginning of each time step, and modify map
+         * accordingly */
+      }
+      /* Transfer to local frame */
+      for (auto &wp : waypoints) {
+        wp = wp - pose_.cast<double>();
+      }
+      addObstacles(waypoints, robot_size, idx);
     }
-    /* Transfer to local frame */
-    for (auto &wp : waypoints) {
-      wp = wp - pose_.cast<double>();
-    }
-    addObstacles(waypoints, robot_size, idx);
+    ros::Time toc = ros::Time::now();
+    std::cout << "adding obstacles takes: " << (toc - tic).toSec() * 1000 << "ms" << std::endl;
   }
-  // ros::Time toc = ros::Time::now();
-  // std::cout << "adding obstacles takes: " << (toc - tic).toSec() * 1000 << "ms" << std::endl;
 }
 
 /**
@@ -221,9 +265,7 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
  */
 void FakeRiskVoxel::groundTruthStateCallback(
     const visualization_msgs::MarkerArray::ConstPtr &state_msg) {
-  // std::cout << "ground truth state callback" << std::endl;
   int n = state_msg->markers.size();
-  // std::cout << "number of markers: " << n << std::endl;
   gt_cylinders_.clear();
   gt_cylinders_.resize(n);
 
@@ -243,7 +285,7 @@ void FakeRiskVoxel::groundTruthStateCallback(
  * @return -1: out of range, 0: not in obstacle, 1: in obstacle
  */
 int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos) {
-  Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
+  Eigen::Vector3f pf  = pos.cast<float>() - pose_;  // point in the local frame
   int             idx = getVoxelIndex(pf);
   // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM <<
   // "\trange"
@@ -255,12 +297,12 @@ int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos) {
 
 /**
  * @brief
- * @param pos
+ * @param pos in world frame
  * @param t : int
  * @return
  */
 int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, int t) {
-  Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
+  Eigen::Vector3f pf  = pos.cast<float>() - pose_;  // point in the local frame
   int             idx = getVoxelIndex(pf);
   // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM <<
   // "\trange"
@@ -273,34 +315,35 @@ int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, int t) {
 
 /**
  * @brief
- * @param pos
- * @param t : double
+ * @param pos in world frame
+ * @param t : double TODO: TIME MISMATCH
  * @return
  */
 int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, double t) {
-  int             ti  = t / time_resolution_;
-  Eigen::Vector3f pf  = pos.cast<float>();  // point in the local frame
+  int tc = ceil(t / time_resolution_);
+  tc     = tc > PREDICTION_TIMES ? PREDICTION_TIMES : tc;
+  int tf = floor(t / time_resolution_);
+  tf     = tf > PREDICTION_TIMES ? PREDICTION_TIMES : tf;
+
+  Eigen::Vector3f pf  = pos.cast<float>() - pose_;  // point in the local frame
   int             idx = getVoxelIndex(pf);
-  // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM <<
-  // "\trange"
-  //           << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][0] << std::endl;
+  // std::cout << "pf: " << pf.transpose() << " " << pos.transpose() << "\t ti: " << t << " " << ti
+  //           << "\trange" << this->isInRange(pf) << "\trisk:" << risk_maps_[idx][ti] << std::endl;
   if (!this->isInRange(pf)) return -1;
-  if (t > PREDICTION_TIMES) return -1;
-  if (risk_maps_[idx][ti] > risk_threshold_) return 1;
+  if (risk_maps_[idx][tc] > risk_threshold_) return 1;
+  if (risk_maps_[idx][tf] > risk_threshold_) return 1;
   return 0;
 }
 
 /**
- * @brief publish the map in a fixed frequency
- *
- * @param event
- */
+ *@brief publish the map in a fixed frequency **@param event * /
+ **/
 void FakeRiskVoxel::pubCallback(const ros::TimerEvent &event) {
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
   cloud->points.reserve(VOXEL_NUM);
 
-  if (is_publish_spatio_temporal_map_) { /* publish spatio-temporal map */
-    for (int i = 0; i < VOXEL_NUM; i++) {
+  if (is_publish_spatio_temporal_map_) {  /* publish spatio-temporal map */
+    for (int i = 0; i < VOXEL_NUM; i++) { /* publish x-y-t map */
       Eigen::Vector3f pt = getVoxelPosition(i);
       pcl::PointXYZ   p;
       for (int j = 0; j < PREDICTION_TIMES; j++) {
@@ -332,6 +375,11 @@ void FakeRiskVoxel::pubCallback(const ros::TimerEvent &event) {
   cloud_pub_.publish(cloud_msg);
 }
 
+/**
+ * @brief return obstacle points in the world frame
+ *
+ * @param points points in world frame
+ */
 void FakeRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points) {
   points.clear();
   for (int i = 0; i < VOXEL_NUM; i++) {
@@ -361,7 +409,7 @@ void FakeRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
 
 /**
  * @brief get the obstacle points in the time interval and the cube
- * @param points : output
+ * @param points : points in world frame
  * @param t_start : global start time
  * @param t_end: global end time
  * @param t_step: time step
@@ -375,30 +423,30 @@ void FakeRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
 
   int idx_start = floor((t_start - t0) / time_resolution_);
   int idx_end   = ceil((t_end - t0) / time_resolution_);
-  int lx        = (lower_corner[0] - pose_.x() + local_update_range_x_) / resolution_;
-  int ly        = (lower_corner[1] - pose_.y() + local_update_range_y_) / resolution_;
-  int lz        = (lower_corner[2] - pose_.z() + local_update_range_z_) / resolution_;
-  int hx        = (higher_corner[0] - pose_.x() + local_update_range_x_) / resolution_;
-  int hy        = (higher_corner[1] - pose_.y() + local_update_range_y_) / resolution_;
-  int hz        = (higher_corner[2] - pose_.z() + local_update_range_z_) / resolution_;
+  std::cout << "idx_start" << idx_start << "idx_end" << idx_end << std::endl;
+
+  int lx = (lower_corner[0] - pose_.x() + local_update_range_x_) / resolution_;
+  int ly = (lower_corner[1] - pose_.y() + local_update_range_y_) / resolution_;
+  int lz = (lower_corner[2] - pose_.z() + local_update_range_z_) / resolution_;
+  int hx = (higher_corner[0] - pose_.x() + local_update_range_x_) / resolution_;
+  int hy = (higher_corner[1] - pose_.y() + local_update_range_y_) / resolution_;
+  int hz = (higher_corner[2] - pose_.z() + local_update_range_z_) / resolution_;
 
   hx = std::min(hx, MAP_LENGTH_VOXEL_NUM - 1);
   hy = std::min(hy, MAP_WIDTH_VOXEL_NUM - 1);
   hz = std::min(hz, MAP_HEIGHT_VOXEL_NUM - 1);
+  lx = std::max(lx, 0);
+  ly = std::max(ly, 0);
+  lz = std::max(lz, 0);
 
   for (int z = lz; z <= hz; z++) {
     for (int y = ly; y <= hy; y++) {
       for (int x = lx; x <= hx; x++) {
         int i = x + y * MAP_LENGTH_VOXEL_NUM + z * MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM;
-        for (int j = idx_start; j < idx_end; j++) {  // TODO: debug
+        for (int j = idx_start; j < idx_end; j++) {
           if (risk_maps_[i][j] > risk_threshold_) {
-            Eigen::Vector3d pt = Eigen::Vector3d(x * resolution_ - local_update_range_x_,
-                                                 y * resolution_ - local_update_range_y_,
-                                                 z * resolution_ - local_update_range_z_) +
-                                 pose_.cast<double>();
-            points.push_back(pt);
-            // Eigen::Vector3f pt = getVoxelPosition(i);
-            // points.push_back(pt.cast<double>());
+            Eigen::Vector3f pt = getVoxelPosition(i);
+            points.push_back(pt.cast<double>());
           }
         }
       }

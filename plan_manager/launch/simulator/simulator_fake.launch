@@ -29,6 +29,7 @@
 		<param name="ObstacleShape/upper_rad" value="1.0"/>
 		<param name="ObstacleShape/lower_hei" value="4.0"/>
 		<param name="ObstacleShape/upper_hei" value="4.0"/>
+        <param name="ObstacleShape/upper_vel" value="0.1" />
 		<param name="ObstacleShape/set_cylinder" value="true"/>
 
 		<param name="sensing/radius" value="5.0"/>

@@ -87,29 +87,31 @@ class RiskVoxel {
   void init(ros::NodeHandle &nh);
   void publishOccMap();
 
-  inline void getMapCenter(Eigen::Vector3f &center) { center = pose_; }
+  inline Eigen::Vector3f    getMapCenter() const { return pose_; }
+  inline Eigen::Quaternionf getQuaternion() const { return q_; }
+
   inline void getQuaternion(Eigen::Quaternionf &q) { q = q_; }
   inline void setMapCenter(const Eigen::Vector3f &center) { pose_ = center; }
   inline void setQuaternion(const Eigen::Quaternionf &q) { q_ = q; }
   inline int  getVoxelIndex(const Eigen::Vector3f &pos);
 
   void pubCallback(const ros::TimerEvent &event);
-  void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cloud_msg,
+  void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr   &cloud_msg,
                          const geometry_msgs::PoseStamped::ConstPtr &pose_msg);
   void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
-                         const nav_msgs::Odometry::ConstPtr &      odom_msg);
+                         const nav_msgs::Odometry::ConstPtr       &odom_msg);
 
   void filterPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_in,
-                        pcl::PointCloud<pcl::PointXYZ>::Ptr &      cloud_out,
-                        float *                                    valid_clouds,
-                        int &                                      valid_clouds_num);
+                        pcl::PointCloud<pcl::PointXYZ>::Ptr       &cloud_out,
+                        float                                     *valid_clouds,
+                        int                                       &valid_clouds_num);
   void getObstaclePoints(std::vector<Eigen::Vector3d> &points);
   void getObstaclePoints(std::vector<Eigen::Vector3d> &points, double t_start, double t_end);
   void getObstaclePoints(std::vector<Eigen::Vector3d> &points,
                          double                        t_start,
                          double                        t_end,
-                         const Eigen::Vector3d &       lc,
-                         const Eigen::Vector3d &       hc);
+                         const Eigen::Vector3d        &lc,
+                         const Eigen::Vector3d        &hc);
   int  getInflateOccupancy(const Eigen::Vector3d &pos);
   int  getInflateOccupancy(const Eigen::Vector3d &pos, int t);
   int  getInflateOccupancy(const Eigen::Vector3d &pos, double t);

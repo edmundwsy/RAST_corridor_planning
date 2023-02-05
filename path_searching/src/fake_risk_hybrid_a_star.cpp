@@ -122,6 +122,7 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
                                       bool            dynamic,
                                       double          time_start) {
   occupied_voxels_.clear();
+  visited_voxels_.clear();
   Eigen::Vector3f map_center_f;
   map_center_ = grid_map_->getMapCenter().cast<double>();
   start_vel_  = start_v;
@@ -298,13 +299,16 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
           stateTransit(cur_state, xt, um, dt);
           pos      = xt.head(3);
           double t = cur_node->time + dt;
-          if (grid_map_->getInflateOccupancy(pos, t) == 1) {
+          if (grid_map_->getInflateOccupancy(pos, t) != 0) {
             is_occ = true;
+            Eigen::Vector4d obs;
+            obs << pos, t;
+            occupied_voxels_.push_back(obs);
             break;
           } else {
             Eigen::Vector4d obs;
             obs << pos, t;
-            occupied_voxels_.push_back(obs);
+            visited_voxels_.push_back(obs);
           }
         }
         if (is_occ) {
