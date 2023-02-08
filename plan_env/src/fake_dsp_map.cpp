@@ -236,6 +236,7 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
   // ROS_INFO("construct future map time: %f", (t4 - t3).toSec());
 
   /* add other agents to the map */
+  tic = ros::Time::now();
   if (is_multi_agents_) {
     Eigen::Vector3d robot_size = coordinator_->getAgentsSize();
     int             n          = coordinator_->getNumAgents();
@@ -316,7 +317,7 @@ int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, int t) {
 /**
  * @brief
  * @param pos in world frame
- * @param t : double TODO: TIME MISMATCH
+ * @param t : double FIXME: TIME MISMATCH
  * @return
  */
 int FakeRiskVoxel::getInflateOccupancy(const Eigen::Vector3d pos, double t) {

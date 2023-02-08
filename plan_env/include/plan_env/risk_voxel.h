@@ -12,6 +12,7 @@
 #define RISK_VOXEL_H
 
 #include <plan_env/dsp_dynamic.h>
+#include <traj_coordinator/mader.hpp>
 
 #include <ros/ros.h>
 #include <Eigen/Dense>
@@ -39,6 +40,7 @@ class RiskVoxel {
   ros::Publisher  risk_pub_;
   ros::Publisher  obstacle_pub_; /* Debug */
   ros::Timer      pub_timer_;
+  ros::Time       last_update_time_;
 
   /* Data */
   dsp_map::DSPMap::Ptr                dsp_map_;
@@ -57,6 +59,10 @@ class RiskVoxel {
   float local_update_range_z_;
   float risk_threshold_;
   float clearance_;
+
+  /* Multi Agents */
+  bool       is_multi_agents_ = false;
+  MADER::Ptr coordinator_;
 
   /* Message filters */
   bool is_pose_sub_ = false;
@@ -78,22 +84,30 @@ class RiskVoxel {
 
   /* Utilities */
   inline bool            isInRange(const Eigen::Vector3f &p);
+  inline int             getVoxelIndex(const Eigen::Vector3f &pos);
   inline Eigen::Vector3f getVoxelPosition(int index);
+  inline Eigen::Vector3f getVoxelRelPosition(int index);
+  inline Eigen::Vector3i getVoxelRelIndex(const Eigen::Vector3f &pos);
 
  public:
   RiskVoxel() {}
   ~RiskVoxel() {}
 
   void init(ros::NodeHandle &nh);
+  void setCoordinator(MADER::Ptr ptr) {
+    is_multi_agents_ = true;
+    coordinator_     = ptr;
+  }
   void publishOccMap();
 
-  inline Eigen::Vector3f    getMapCenter() const { return pose_; }
-  inline Eigen::Quaternionf getQuaternion() const { return q_; }
+  inline void            setMapCenter(const Eigen::Vector3f &center) { pose_ = center; }
+  inline Eigen::Vector3f getMapCenter() const { return pose_; }
 
-  inline void getQuaternion(Eigen::Quaternionf &q) { q = q_; }
-  inline void setMapCenter(const Eigen::Vector3f &center) { pose_ = center; }
-  inline void setQuaternion(const Eigen::Quaternionf &q) { q_ = q; }
-  inline int  getVoxelIndex(const Eigen::Vector3f &pos);
+  inline void               setQuaternion(const Eigen::Quaternionf &q) { q_ = q; }
+  inline Eigen::Quaternionf getQuaternion() const { return q_; }
+  inline void               getQuaternion(Eigen::Quaternionf &q) const { q = q_; }
+
+  ros::Time getMapTime() const { return last_update_time_; }
 
   void pubCallback(const ros::TimerEvent &event);
   void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr   &cloud_msg,
@@ -115,6 +129,13 @@ class RiskVoxel {
   int  getInflateOccupancy(const Eigen::Vector3d &pos);
   int  getInflateOccupancy(const Eigen::Vector3d &pos, int t);
   int  getInflateOccupancy(const Eigen::Vector3d &pos, double t);
+
+  void addObstacles(const std::vector<Eigen::Vector3d> &centers,
+                    const Eigen::Vector3d              &size,
+                    int                                 t_index);
+  void addObstacles(const std::vector<Eigen::Vector3d> &centers,
+                    const Eigen::Vector3d              &size,
+                    const ros::Time                    &t);
 
   typedef std::shared_ptr<RiskVoxel> Ptr;
 };
@@ -153,4 +174,26 @@ inline Eigen::Vector3f RiskVoxel::getVoxelPosition(int index) {
                          z * resolution_ - local_update_range_z_) +
          pose_;
 }
+
+/**
+ * @brief get voxel index in local frame
+ *
+ * @param pos index in global frame
+ */
+inline Eigen::Vector3i RiskVoxel::getVoxelRelIndex(const Eigen::Vector3f &pos) {
+  int x = (pos[0] + local_update_range_x_) / resolution_;
+  int y = (pos[1] + local_update_range_y_) / resolution_;
+  int z = (pos[2] + local_update_range_z_) / resolution_;
+  return Eigen::Vector3i(x, y, z);
+}
+
+inline Eigen::Vector3f RiskVoxel::getVoxelRelPosition(int index) {
+  int x = index % MAP_LENGTH_VOXEL_NUM;
+  int y = (index / MAP_LENGTH_VOXEL_NUM) % MAP_WIDTH_VOXEL_NUM;
+  int z = index / (MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM);
+  return Eigen::Vector3f(x * resolution_ - local_update_range_x_,
+                         y * resolution_ - local_update_range_y_,
+                         z * resolution_ - local_update_range_z_);
+}
+
 #endif /* RISK_VOXEL_H */

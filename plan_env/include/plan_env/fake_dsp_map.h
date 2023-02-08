@@ -66,6 +66,8 @@ class FakeRiskVoxel : public RiskVoxel {
   int  getInflateOccupancy(const Eigen::Vector3d pos, int t);
   int  getInflateOccupancy(const Eigen::Vector3d pos, double t);
 
+  ros::Time getMapTime() { return last_update_time_; }
+
   inline void setMapCenter(const Eigen::Vector3f &center) { pose_ = center; }
   inline void setQuaternion(const Eigen::Quaternionf &q) { q_ = q; }
   typedef std::shared_ptr<FakeRiskVoxel> Ptr;
