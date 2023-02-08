@@ -74,7 +74,8 @@ void FakeRiskHybridAstar::setParam(ros::NodeHandle& nh) {
   nh.param("search/allocate_num", allocate_num_, -1);
   nh.param("search/check_num", check_num_, -1);
   nh.param("search/optimistic", optimistic_, true);
-  nh.param("search/tolerance", tolerance_, 1); /* 终点误差容忍度 */
+  nh.param("search/tolerance", tolerance_, 1);    /* 终点误差容忍度 */
+  nh.param("search/is_test", is_testing_, false); /* if testing mode, record traversed voxels */
   tie_breaker_ = 1.0 + 1.0 / 10000;
 
   double vel_margin;
@@ -299,18 +300,26 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
           stateTransit(cur_state, xt, um, dt);
           pos      = xt.head(3);
           double t = cur_node->time + dt;
-          if (grid_map_->getInflateOccupancy(pos, t) != 0) {
-            is_occ = true;
-            Eigen::Vector4d obs;
-            obs << pos, t;
-            occupied_voxels_.push_back(obs);
-            break;
+          if (is_testing_) {
+            if (grid_map_->getInflateOccupancy(pos, t) != 0) {
+              is_occ = true;
+              Eigen::Vector4d obs;
+              obs << pos, t;
+              occupied_voxels_.push_back(obs);
+              break;
+            } else {
+              Eigen::Vector4d obs;
+              obs << pos, t;
+              visited_voxels_.push_back(obs);
+            }
           } else {
-            Eigen::Vector4d obs;
-            obs << pos, t;
-            visited_voxels_.push_back(obs);
+            if (grid_map_->getInflateOccupancy(pos, t) != 0) {
+              is_occ = true;
+              break;
+            }
           }
         }
+
         if (is_occ) {
           if (init_search) std::cout << "safe" << std::endl;
           continue;
@@ -578,7 +587,7 @@ std::vector<double> FakeRiskHybridAstar::quartic(double a, double b, double c, d
 }
 
 /**
- * @brief
+ * @brief TODO: add time offset
  * @param delta_t : sample time
  * @return
  */

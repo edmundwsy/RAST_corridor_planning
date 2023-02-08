@@ -18,7 +18,6 @@
   <arg name="fy" value="387.229248046875"/>
 
 
-  <!-- <node pkg="path_searching" name="astar" type="fake_risk_a_star_node" output="screen" launch-prefix="terminator -\-execute gdb -ex run -\-args"> -->
   <node pkg="path_searching" name="astar" type="fake_risk_a_star_node" output="screen">
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
@@ -35,28 +34,25 @@
     <!-- Resolutions -->
     <param name="map/resolution" value="0.10" />
     <param name="map/risk_threshold" value="0.10" />
-    <param name="map/local_update_range_x" value="4.0" />
-    <param name="map/local_update_range_y" value="4.0" />
+    <param name="map/local_update_range_x" value="4.5" />
+    <param name="map/local_update_range_y" value="4.5" />
     <param name="map/local_update_range_z" value="3.5" />
-    <param name="map/clearance" value="0.1" />
+    <param name="map/clearance" value="0.15" />
     <param name="map/publish_spatio_temporal" value="true" />
 
-    <param name="search/max_tau" value="2.0" type="double"/>
-    <!-- useless -->
-    <param name="search/init_max_tau" value="0.8" type="double"/>
-    <!-- useless -->
+    <param name="search/is_test" value="true" type="bool"/>
     <param name="search/max_vel" value="3" type="double"/>
-    <param name="search/max_acc" value="3" type="double"/>
+    <param name="search/max_acc" value="6" type="double"/>
     <param name="search/w_time" value="10.0" type="double"/>
     <param name="search/horizon" value="3.0" type="double"/>
     <param name="search/lambda_heu" value="5.0" type="double"/>
     <param name="search/resolution_astar" value="0.1" type="double"/>
     <param name="search/time_resolution" value="0.2" type="double"/>
     <param name="sample_duration" value="0.2" type="double"/>
-    <param name="search/margin" value="0.4" type="double"/>
+    <param name="search/margin" value="0.1" type="double"/>
     <!-- TODO -->
     <param name="search/allocate_num" value="100000" type="int"/>
-    <param name="search/check_num" value="5" type="int"/>
+    <param name="search/check_num" value="10" type="int"/>
   </node>
 
   <node pkg="map_generator" name="map_generator" type="dynamic_forest_seq">
@@ -71,12 +67,12 @@
     <param name="map/frame_id" value="world" />
     <param name="map/test" value="true" />
     <param name="ObstacleShape/seed" value="-1" />
-    <param name="map/obs_num" value="22" />
-    <param name="ObstacleShape/lower_rad" value="0.5" />
+    <param name="map/obs_num" value="12" />
+    <param name="ObstacleShape/lower_rad" value="0.3" />
     <param name="ObstacleShape/upper_rad" value="0.8" />
     <param name="ObstacleShape/lower_hei" value="4.0" />
     <param name="ObstacleShape/upper_hei" value="4.0" />
-    <param name="ObstacleShape/upper_vel" value="0.3" />
+    <param name="ObstacleShape/upper_vel" value="0.2" />
     <param name="ObstacleShape/set_cylinder" value="true" />
     <param name="sensing/radius" value="5.0" />
     <param name="sensing/rate" value="10.0" />

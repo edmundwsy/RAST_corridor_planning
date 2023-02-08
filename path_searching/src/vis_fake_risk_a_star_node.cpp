@@ -141,22 +141,28 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   end_pos_(2) = 1;
   ROS_INFO("End position: (%f, %f, %f)", end_pos_(0), end_pos_(1), end_pos_(2));
   a_star_->reset();
-  auto      t1 = ros::Time::now();
+  auto   t1      = ros::Time::now();
+  auto   tm      = grid_map_->getMapTime();
+  double delta_t = (t1 - tm).toSec();
+  ROS_INFO("Time interval to last map updates: %f ms", delta_t * 1000);
   ASTAR_RET rst =
-      a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, true, true, 0);
+      a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, true, true, delta_t);
   auto t2 = ros::Time::now();
   ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
 
   if (rst == 0) {
+    auto   t1      = ros::Time::now();
+    auto   tm      = grid_map_->getMapTime();
+    double delta_t = (t1 - tm).toSec();
     a_star_->reset();
-    rst = a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, false, true, 0);
+    rst = a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, false, true,
+                          delta_t);
   }
 
-  std::vector<Eigen::Vector4d> visited_voxels = a_star_->getTraversedObstacles();
-  std::vector<Eigen::Vector4d> occupied_voxels     = a_star_->getOccupiedObstacles();
+  std::vector<Eigen::Vector4d> visited_voxels  = a_star_->getTraversedObstacles();
+  std::vector<Eigen::Vector4d> occupied_voxels = a_star_->getOccupiedObstacles();
   visualizeObstacles(visited_voxels, voxel_pub_);
   visualizeObstacles(occupied_voxels, occupied_pub_);
-
 
   if (rst > 2) {
     path_ = a_star_->getPath(sample_duration_);
@@ -205,11 +211,11 @@ int main(int argc, char **argv) {
   a_star_->setEnvironment(grid_map_);
   a_star_->init(start_pos_, Eigen::Vector3d(10, 10, 4));
 
-  click_sub_  = nh.subscribe("/move_base_simple/goal", 1, clickCallback);
-  path_pub_   = nh.advertise<visualization_msgs::Marker>("/path", 1);
-  t_path_pub_ = nh.advertise<visualization_msgs::Marker>("/t_path", 1);
-  voxel_pub_  = nh.advertise<sensor_msgs::PointCloud2>("/voxel", 1, true);
-  occupied_pub_  = nh.advertise<sensor_msgs::PointCloud2>("/occupied", 1, true);
+  click_sub_    = nh.subscribe("/move_base_simple/goal", 1, clickCallback);
+  path_pub_     = nh.advertise<visualization_msgs::Marker>("/path", 1);
+  t_path_pub_   = nh.advertise<visualization_msgs::Marker>("/t_path", 1);
+  voxel_pub_    = nh.advertise<sensor_msgs::PointCloud2>("/voxel", 1, true);
+  occupied_pub_ = nh.advertise<sensor_msgs::PointCloud2>("/occupied", 1, true);
 
   ros::AsyncSpinner spinner(4);
   spinner.start();

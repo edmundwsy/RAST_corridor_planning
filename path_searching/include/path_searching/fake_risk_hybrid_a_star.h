@@ -27,6 +27,7 @@
 class FakeRiskHybridAstar : public AStar {
  private:
   /* ---------- search parameter ---------- */
+  bool   is_testing_;
   bool   optimistic_;
   int    allocate_num_;  // number of nodes to be allocated in path_node_pool_
   int    check_num_;
