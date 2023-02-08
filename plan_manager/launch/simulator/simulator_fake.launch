@@ -22,6 +22,7 @@
 		<param name="map/z_size" value="$(arg map_size_z)" />
 		<param name="map/resolution" value="0.10"/>
 		<param name="map/frame_id" value="world" />
+        <param name="map/test" value="false" />
 
 		<param name="ObstacleShape/seed" value="-1"/>
 		<param name="map/obs_num" value="$(arg obs_num)"/>

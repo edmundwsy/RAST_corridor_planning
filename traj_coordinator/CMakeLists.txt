@@ -1,7 +1,7 @@
 
 cmake_minimum_required(VERSION 3.0.2)
 project(traj_coordinator)
-set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_BUILD_TYPE "Release")
 add_compile_options(-std=c++14)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g -lpthread")
 
