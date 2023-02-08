@@ -128,24 +128,72 @@ void BaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>& poi
   obstacle_pub_.publish(cloud_msg);
 }
 
+/**
+ * @brief get empty trajectory
+ * set current position as the trajectory
+ */
+void BaselinePlanner::setEmptyTrajectory() {
+  traj_ = Bernstein::Bezier(cfg_.corridor_tau);
+
+  Eigen::Matrix<double, 5, 3> cpts;
+  cpts.row(0) = odom_pos_;
+  cpts.row(1) = odom_pos_;
+  cpts.row(2) = odom_pos_;
+  cpts.row(3) = odom_pos_;
+  cpts.row(4) = odom_pos_;
+
+  traj_.setControlPoints(cpts);
+}
+
+/**
+ * @brief add agents trajectory to map
+ * get agents trajectory from collision avoider
+ * add agents trajectory to map
+ */
+void BaselinePlanner::addAgentsTrajectoryToMap() {
+  int             n = collision_avoider_->getNumAgents();
+  Eigen::Vector3d robot_size;
+  collision_avoider_->getAgentsSize(robot_size);
+  std::vector<Eigen::Vector3d> obs_points;
+  for (int i = 0; i < n - 1; i++) {
+    obs_points.clear();
+    collision_avoider_->getAgentsTrajectory(obs_points, i, 0.2);
+    if (obs_points.size() > 0) {
+      for (int j = 0; j < obs_points.size(); j++) {
+        std::vector<Eigen::Vector3d> pts;
+        pts.push_back(obs_points[j] - odom_pos_);
+        map_->addObstacles(pts, robot_size, ros::Time::now() + ros::Duration(0.2 * j));
+      }
+    }
+  }
+}
+
 bool BaselinePlanner::plan() {
   ROS_INFO("Planning...");
-  ros::Time t0     = ros::Time::now();
-  traj_start_time_ = ros::Time::now(); /* time when current odom is applied */
+  ros::Time t0, t1;
+  t0       = ros::Time::now();
+  t_start_ = ros::Time::now(); /* time when current odom is applied */
+
   /*----- Path Searching on DSP Static -----*/
   std::cout << "/*----- Path Searching on DSP Static -----*/" << std::endl;
+  t1 = ros::Time::now();
+
   a_star_->reset();
-  auto      t1  = ros::Time::now();
+  double t_after_map; /* Time latencey between last map updates and Astar */
+  t_after_map = (ros::Time::now() - map_->getMapTime()).toSec();
+  ROS_INFO("[Astar] start position on map: %f | %i", t_after_map,
+           int(t_after_map / cfg_.corridor_tau));
+
   ASTAR_RET rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_,
-                                  Eigen::Vector3d(0, 0, 0), true, true, 0);
+                                  Eigen::Vector3d(0, 0, 0), true, true, t_after_map);
   if (rst == 0) {
     a_star_->reset();
+    t_after_map = (ros::Time::now() - map_->getMapTime()).toSec();
     rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_, Eigen::Vector3d(0, 0, 0),
-                          false, true, 0);
+                          false, true, t_after_map);
   }
 
-  auto t2 = ros::Time::now();
-  ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
+  ROS_INFO("Time used: %f ms", (ros::Time::now() - t1).toSec() * 1000);
   ROS_INFO("A star search finished with return code %d", rst);
 
   if (rst == NO_PATH) {
@@ -160,17 +208,14 @@ bool BaselinePlanner::plan() {
   // std::vector<Eigen::Vector3d>             route     = a_star_->getPath(cfg_.corridor_tau);
   std::vector<Eigen::Vector3d>  route;
   std::vector<Eigen::MatrixX4d> hPolys;
-  std::vector<Eigen::Vector3d>  pc;
 
   route.resize(route_vel.size()); /* copy route_vel to route */
 
-  printf("route size: %i \n", int(route.size()));
-  std::cout << "pos: " << odom_pos_.transpose() << std::endl;
   for (int i = 0; i < int(route.size()); i++) {
     route[i] = route_vel[i].head(3);
-    std::cout << "route[" << i << "] = " << route[i].transpose() << std::endl;
   }
 
+  std::vector<Eigen::Vector3d> pc;
   pc.reserve(2000);
 
   Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, -1) + odom_pos_;
@@ -187,12 +232,10 @@ bool BaselinePlanner::plan() {
     llc(1) = std::max(std::min(route[i](1), route[i + 1](1)) - cfg_.init_range, lower_corner(1));
     llc(2) = std::max(std::min(route[i](2), route[i + 1](2)) - cfg_.init_range, lower_corner(2));
 
-    map_->getObstaclePoints(pc, i * cfg_.corridor_tau, (i + 1) * cfg_.corridor_tau, llc, lhc);
-    // map_->getObstaclePoints(pc, 0, 1.2);
-    // std::cout << "t: " << i * cfg_.corridor_tau << " | " << (i + 1) * cfg_.corridor_tau
-    //           << std::endl;
-    // std::cout << "pc size: " << pc.size() << std::endl;
-    collision_avoider_->getObstaclePoints(pc, 1.0);
+    pc.clear();
+    double t1_ros = t_start_.toSec() + i * cfg_.corridor_tau;
+    double t2_ros = t1_ros + cfg_.corridor_tau;
+    map_->getObstaclePoints(pc, t1_ros, t2_ros, llc, lhc);
 
     Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();  // initial corridor
     bd(0, 0)                       = 1.0;
@@ -203,7 +246,8 @@ bool BaselinePlanner::plan() {
     bd(5, 2)                       = -1.0;
     bd.block<3, 1>(0, 3)           = -lhc;
     bd.block<3, 1>(3, 3)           = llc;
-    Eigen::MatrixX4d                                                hPoly;
+    Eigen::MatrixX4d hPoly;
+
     Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> m_pc(pc[0].data(), 3,
                                                                          pc.size());
 
@@ -212,11 +256,11 @@ bool BaselinePlanner::plan() {
     ros::Time t4 = ros::Time::now();
     ROS_INFO("FIRI time used: %f ms", (t4 - t3).toSec() * 1000);
     hPolys.push_back(hPoly);
+    this->showObstaclePoints(pc);
   }
 
-  t2 = ros::Time::now();
-  ROS_INFO("Generate %i corridors in %f ms", int(hPolys.size()), (t2 - t1).toSec() * 1000);
-  this->showObstaclePoints(pc);
+  ROS_INFO("Generate %i corridors in %f ms", int(hPolys.size()),
+           (ros::Time::now() - t1).toSec() * 1000);
   visualizer_->visualizePolytope(hPolys);
 
   /*----- Trajectory Optimization -----*/
@@ -225,8 +269,8 @@ bool BaselinePlanner::plan() {
   // std::cout << "route size: " << route.size() << std::endl;
 
   /* Goal position and time allocation */
-  Eigen::Vector3d local_goal_pos = route_vel[route_vel.size() - 1].head(3);
-  Eigen::Vector3d local_goal_vel = route_vel[route_vel.size() - 1].tail(3);
+  Eigen::Vector3d local_goal_pos = route_vel.back().head(3);
+  Eigen::Vector3d local_goal_vel = route_vel.back().tail(3);
 
   std::vector<double> time_alloc;
   time_alloc.resize(hPolys.size(), cfg_.corridor_tau);
@@ -249,13 +293,11 @@ bool BaselinePlanner::plan() {
   traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.opt_max_vel,
                          cfg_.opt_max_acc);
   if (!traj_optimizer_->optimize()) {
-    t2 = ros::Time::now();
-    ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
+    ROS_INFO("Time used: %f ms", (ros::Time::now() - t1).toSec() * 1000);
     ROS_ERROR("Trajectory optimization failed!");
     return false;
   }
-  t2 = ros::Time::now();
-  ROS_INFO("TrajOpt takes: %f ms", (t2 - t1).toSec() * 1000);
+  ROS_INFO("TrajOpt takes: %f ms", (ros::Time::now() - t1).toSec() * 1000);
 
   traj_optimizer_->getOptBezier(traj_);
 
@@ -263,16 +305,15 @@ bool BaselinePlanner::plan() {
   t1 = ros::Time::now();
   if (!collision_avoider_->isSafeAfterOpt(traj_)) {
     ROS_ERROR("Trajectory collides after optimization!");
+    ROS_INFO("[MADER] cost: %f ms", (ros::Time::now() - t1).toSec() * 1000);
+    setEmptyTrajectory(); /* set current position as traj to prevent planning failed */
     return false;
   }
   if (!collision_avoider_->isSafeAfterChk()) {
     ROS_ERROR("Trajectory commited while checking!");
-    t2 = ros::Time::now();
-    ROS_INFO("MADER takes: %f ms", (t2 - t1).toSec() * 1000);
+    ROS_INFO("MADER takes: %f ms", (ros::Time::now() - t1).toSec() * 1000);
+    setEmptyTrajectory(); /* set current position as traj to prevent planning failed */
     return false;
   }
-  t2 = ros::Time::now();
-  ROS_INFO("MADER takes: %f ms", (t2 - t1).toSec() * 1000);
-  ROS_INFO("Trajectory planning takes: %f ms", (t2 - t0).toSec() * 1000);
-  // traj_start_time_ = ros::Time::now();
+  ROS_INFO("MADER takes: %f ms", (ros::Time::now() - t1).toSec() * 1000);
 }

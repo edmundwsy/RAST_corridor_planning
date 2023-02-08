@@ -39,7 +39,7 @@
 struct BaselineParameters {
   /* data */
   double max_vel        = 3.0;
-  double max_acc        = 4.0;
+  double max_acc        = 6.0;
   double opt_max_vel    = 3.0;
   double opt_max_acc    = 4.0;
   double delta_corridor = 0.3;

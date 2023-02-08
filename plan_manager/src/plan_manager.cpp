@@ -1,4 +1,4 @@
-/**
+/* /**
  * @file plan_manager.cpp
  * @author Siyuan Wu (siyuanwu99@gmail.com)
  * @brief
@@ -150,10 +150,10 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
         bool is_finished = isGoalReached(_planner->getPos());
         std::cout << termcolor::bright_red << "Target: " << _goal.transpose() << " now "
                   << _planner->getPos().transpose() << std::endl;
-        _planner->getTrajStartTime(_traj_start_time);
-        publishTrajectory();
-        if (is_success && !is_finished) { /* publish trajectory */
+        if (is_success && !is_finished) {
           _prev_plan_time = ros::Time::now();
+          _planner->getTrajStartTime(_traj_start_time);
+          publishTrajectory();
           FSMChangeState(FSM_STATUS::EXEC_TRAJ);
         } else {
           if (is_finished) {

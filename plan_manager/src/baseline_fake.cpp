@@ -172,8 +172,8 @@ void FakeBaselinePlanner::addAgentsTrajectoryToMap() {
 bool FakeBaselinePlanner::plan() {
   ROS_INFO("Planning...");
   ros::Time t0, t1;
-  t0               = ros::Time::now();
-  t_start_         = ros::Time::now();  // time when trajectory started (and odom applied)
+  t0       = ros::Time::now();
+  t_start_ = ros::Time::now();  // time when trajectory started (and odom applied)
   // /* ----- Add other agents to the DSP Map ----- */
   // addAgentsTrajectoryToMap();
   // t1 = ros::Time::now();
@@ -182,13 +182,20 @@ bool FakeBaselinePlanner::plan() {
   /*----- Path Searching on DSP Dynamic -----*/
   std::cout << "/*----- Path Searching on DSP Static -----*/" << std::endl;
   a_star_->reset();
-  t1            = ros::Time::now();
+  t1             = ros::Time::now();
+  t0             = map_->getMapTime();
+  double t_after_map = (t1 - t0).toSec();
+  ROS_INFO("[Astar] start position on map: %f | %i", t_after_map,
+           int((t1 - t0).toSec() / cfg_.corridor_tau));
   ASTAR_RET rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_,
-                                  Eigen::Vector3d(0, 0, 0), true, true, 0);
+                                  Eigen::Vector3d(0, 0, 0), true, true, t_after_map);
   if (rst == 0) {
+    t1             = ros::Time::now();
+    t0             = map_->getMapTime();
+    double t_after_map = (t1 - t0).toSec();
     a_star_->reset();
     rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_, Eigen::Vector3d(0, 0, 0),
-                          false, true, 0);
+                          false, true, t_after_map);
   }
 
   auto t2 = ros::Time::now();
