@@ -9,7 +9,13 @@ import numpy as np
 import sys
 import os
 import re
+import argparse
 import matplotlib.pyplot as plt
+
+cal_parser = argparse.ArgumentParser()
+cal_parser.add_argument("--id", type=int, default="0")
+cal_parser.add_argument("--num_agents", type=int, default="4")
+
 
 file_root = "/home/siyuan/.ros/log/latest/"
 file_name = "multi_eval-1-stdout.log"
@@ -107,6 +113,7 @@ def plot_v_t(data):
     vz = data[:, 6]
     v = np.sqrt(vx**2 + vy**2 + vz**2)
     plt.plot(t, v)
+    plt.title("Velocity")
     plt.show()
 
 
@@ -148,7 +155,9 @@ def plot_reciprocal_distance(data):
     t = data[1:, 0]
     d = data[1:, 13]
     # print(d.transpose())
+    plt.plot([t[0], t[-1]], [0, 0], "r--")
     plt.plot(t, d)
+    plt.title("reciprocal distance")
     plt.show()
 
 
@@ -156,11 +165,15 @@ def plot_obstacle_distance(data):
     t = data[1:, 0]
     d = data[1:, 12]
     plt.plot(t, d)
+    plt.plot([t[0], t[-1]], [0, 0], "r--")
+    plt.title("distance to obstacle")
     plt.show()
 
 
 if __name__ == "__main__":
-    num_agents = 4
+    args = cal_parser.parse_args()
+
+    num_agents = args.num_agents
     data = [[] for _ in range(num_agents)]
 
     read_file(file_path, data)
@@ -174,9 +187,10 @@ if __name__ == "__main__":
     # plot_v_t(data[1])
     n_collide = np.array([get_collision_occurance(d, 12) for d in data])
     print(n_collide)
-    plot_reciprocal_distance(data[0])
-    plot_obstacle_distance(data[0])
+    plot_reciprocal_distance(data[args.id])
+    plot_obstacle_distance(data[args.id])
+    plot_v_t(data[args.id])
     # plot_y_t(data[1])
-    print("reciprocal distance: ", np.min(data[1][:, 13]))
-    print("sum control efforts:", get_sum_control_efforts(data[1]))
-    print("avg flight time:", get_avg_flight_time(data[1]))
+    print("reciprocal distance: ", np.min(data[args.id][:, 13]))
+    print("sum control efforts:", get_sum_control_efforts(data[args.id]))
+    print("avg flight time:", get_avg_flight_time(data[args.id]))
