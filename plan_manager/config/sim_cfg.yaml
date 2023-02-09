@@ -4,20 +4,20 @@ planner:
   risk_threshold_replan: 1.0
   replan_time_threshold: 1.2 # make sure > 1.0 because planner replans every seconds
   max_vel: 3.0
-  max_acc: 3.0
+  max_acc: 5.0
   max_differentiated_current_a: 3.0
-  corridor_tau: 0.4
+  corridor_tau: 0.2
 
 fsm:
-  goal_tolerance: 2.5
+  goal_tolerance: 1.0
   replan_tolerance: 1.0
   replan_duration: 0.5
 
 search:
-  max_tau: 0.6
+  max_tau: 1.6
   init_max_tau: 0.8
-  max_vel: 1.5
-  max_acc: 1.5
+  max_vel: 3.0
+  max_acc: 6.0
   w_time: 10.0
   horizon: 5.0
   lambda_heu: 5.0
@@ -41,7 +41,7 @@ optimizer:
   delta_corridor: 0.4
 
   max_vel_optimization: 3 # Constraint in optimization. A little larger than max_vel
-  max_acc_optimization: 5 # Constraint in optimization. A little larger than max_acc
+  max_acc_optimization: 10 # Constraint in optimization. A little larger than max_acc
 
 map:
   voxel_size_x: 65
@@ -72,7 +72,7 @@ map:
   local_map_margin: 10
   ground_height: -0.01
 
-  clearance: 0.2
+  clearance: 0.15
 
   virtual_ceil_height: 2.9
   visualization_truncate_height: 1.8
@@ -82,3 +82,9 @@ map:
 
 visualization:
   rviz_map_center_locked: false
+
+swarm:
+  num_robots: 4
+  drone_size_x: 0.3
+  drone_size_y: 0.3
+  drone_size_z: 0.4

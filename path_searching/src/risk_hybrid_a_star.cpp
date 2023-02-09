@@ -220,7 +220,8 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     iter_num_ += 1;
 
     /* primitives <- Expand(n_c) */
-    double res = 1 / 2.0, time_res = 1 / 1.0, time_res_init = 1 / 20.0;
+    double res = 1 / 2.0;
+    // time_res = 1 / 1.0, time_res_init = 1 / 20.0;
 
     Eigen::Matrix<double, 6, 1>  cur_state = cur_node->state;
     Eigen::Matrix<double, 6, 1>  pro_state;
@@ -294,7 +295,8 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
           pos      = xt.head(3);
           double t = cur_node->time + dt;
           // std::cout << "pos:" << pos.transpose() << " t: " << t << std::endl;
-          if (grid_map_->getInflateOccupancy(pos - map_center_, t) == 1) {
+          if (grid_map_->getInflateOccupancy(pos - map_center_, t) ==
+              1) {  // TODO: world pos is better
             is_occ = true;
             break;
           }
@@ -577,12 +579,12 @@ std::vector<Eigen::Vector3d> RiskHybridAstar::getPath(double delta_t) {
   std::vector<Eigen::Vector3d> state_list;
 
   /* ---------- get traj of searching ---------- */
-  PathNodePtr                 node = node_path_.back();  // TODO 0??
+  PathNodePtr                 node = node_path_.back();
   Eigen::Matrix<double, 6, 1> x0, xt;
 
-  double t_counter = 0;
-  double t_node    = 0;        // time to next node
-  double t_sample  = delta_t;  // time to next sample
+  // double t_counter = 0;
+  double t_node   = 0;        // time to next node
+  double t_sample = delta_t;  // time to next sample
   state_list.push_back(node->state.head(3));
   while (node->getParent() != NULL) {
     Eigen::Vector3d ut       = node->input;
@@ -649,9 +651,9 @@ std::vector<Eigen::Matrix<double, 6, 1>> RiskHybridAstar::getPathWithVel(double 
   PathNodePtr                 node = node_path_.back();  // TODO 0??
   Eigen::Matrix<double, 6, 1> x0, xt;
 
-  double t_counter = 0;
-  double t_node    = 0;        // time to next node
-  double t_sample  = delta_t;  // time to next sample
+  // double t_counter = 0;
+  double t_node   = 0;        // time to next node
+  double t_sample = delta_t;  // time to next sample
   state_list.push_back(node->state);
   while (node->getParent() != NULL) {
     Eigen::Vector3d ut       = node->input;

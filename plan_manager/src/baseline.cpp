@@ -181,7 +181,7 @@ bool BaselinePlanner::plan() {
   a_star_->reset();
   double t_after_map; /* Time latencey between last map updates and Astar */
   t_after_map = (ros::Time::now() - map_->getMapTime()).toSec();
-  ROS_INFO("[Astar] start position on map: %f | %i", t_after_map,
+  ROS_INFO("[Astar] start position on map: dt: %f | map index: %i", t_after_map,
            int(t_after_map / cfg_.corridor_tau));
 
   ASTAR_RET rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_,
@@ -213,6 +213,12 @@ bool BaselinePlanner::plan() {
 
   for (int i = 0; i < int(route.size()); i++) {
     route[i] = route_vel[i].head(3);
+  }
+
+  // print a star results
+  std::cout << "odom_pos = \t" << odom_pos_.transpose() << std::endl;
+  for (int i = 0; i < route.size(); i++) {
+    std::cout << "route[" << i << "] = " << route[i].transpose() << std::endl;
   }
 
   std::vector<Eigen::Vector3d> pc;

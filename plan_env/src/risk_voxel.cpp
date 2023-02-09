@@ -22,8 +22,8 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
   nh_.param("map/local_update_range_y", local_update_range_y_, 5.0F);
   nh_.param("map/local_update_range_z", local_update_range_z_, 4.0F);
   nh_.param("map/risk_threshold", risk_threshold_, 0.2F);
+  nh_.param("map/clearance", clearance_, 0.3F);
   nh_.param("map/time_resolution", time_resolution_, 0.2F);
-  nh_.param("map/static_clearance", clearance_, 0.3F);
   nh_.param("map/publish_spatio_temporal", is_publish_spatio_temporal_map_, false);
 
   resolution_ = VOXEL_RESOLUTION;
@@ -66,6 +66,8 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
   obstacle_pub_ = nh.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 1, true);
   /* publish point clouds in 20 Hz */
   pub_timer_ = nh.createTimer(ros::Duration(0.10), &RiskVoxel::pubCallback, this);
+
+  last_update_time_ = ros::Time::now();
 }
 
 /**
@@ -116,7 +118,8 @@ void RiskVoxel::cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr   &cl
   q_    = Eigen::Quaternionf(pose_msg->pose.orientation.w, pose_msg->pose.orientation.x,
                              pose_msg->pose.orientation.y, pose_msg->pose.orientation.z);
   // Eigen::Matrix3f R = q_.toRotationMatrix();
-  double t = cloud_msg->header.stamp.toSec();
+  double t          = cloud_msg->header.stamp.toSec();
+  last_update_time_ = ros::Time::now();
 
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in(new pcl::PointCloud<pcl::PointXYZ>());
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>());
@@ -144,12 +147,13 @@ void RiskVoxel::cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr   &cl
  */
 void RiskVoxel::cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
                                   const nav_msgs::Odometry::ConstPtr       &odom_msg) {
-  pose_ = Eigen::Vector3f(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y,
-                          odom_msg->pose.pose.position.z);
-  q_    = Eigen::Quaternionf(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x,
-                             odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z);
+  Eigen::Vector3f(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y,
+                  odom_msg->pose.pose.position.z);
+  q_ = Eigen::Quaternionf(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x,
+                          odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z);
   // Eigen::Matrix3f R = q_.toRotationMatrix();
-  double t = cloud_msg->header.stamp.toSec();
+  double t          = cloud_msg->header.stamp.toSec();
+  last_update_time_ = ros::Time::now();
 
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in(new pcl::PointCloud<pcl::PointXYZ>());
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>());
@@ -429,7 +433,7 @@ void RiskVoxel::addObstacles(const std::vector<Eigen::Vector3d> &centers,
 void RiskVoxel::addObstacles(const std::vector<Eigen::Vector3d> &centers,
                              const Eigen::Vector3d              &size,
                              const ros::Time                    &t) {
-  double dt = t.toSec() - last_update_time_.toSec(); /* TODO: use last update time */
+  double dt = t.toSec() - last_update_time_.toSec();
   // double dt  = t.toSec() - ros::Time::now().toSec(); /* approximation: use current time */
   int idx = floor(dt / time_resolution_);
   if (idx >= PREDICTION_TIMES) {
