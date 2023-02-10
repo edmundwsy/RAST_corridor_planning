@@ -159,7 +159,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     expanded_nodes_.insert(cur_node->getIndex(), cur_node);
   }
 
-  PathNodePtr neighbor       = NULL;
+  // PathNodePtr neighbor       = NULL;
   PathNodePtr terminate_node = NULL;
   bool        init_search    = init;
 
@@ -171,7 +171,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     bool near_end      = abs(cur_node->getIndex(0) - end_index(0)) <= tolerance_ &&
                     abs(cur_node->getIndex(1) - end_index(1)) <= tolerance_ &&
                     abs(cur_node->getIndex(2) - end_index(2)) <= tolerance_;
-    bool exceed_time = cur_node->time >= 1.2;  // TODO
+    bool exceed_time = cur_node->time >= max_tau_;
 
     /* If ReachGoal(n_c) or AnalyticExpand(n_c_) */
     if (reach_horizon || near_end || exceed_time) {
@@ -645,8 +645,6 @@ std::vector<Eigen::Vector3d> RiskHybridAstar::getPath(double delta_t) {
  * @return
  */
 std::vector<Eigen::Matrix<double, 6, 1>> RiskHybridAstar::getPathWithVel(double delta_t) {
-  std::vector<Eigen::Matrix<double, 6, 1>> state_list;
-
   /* ---------- get traj of searching ---------- */
   PathNodePtr                 node = node_path_.back();  // TODO 0??
   Eigen::Matrix<double, 6, 1> x0, xt;
@@ -654,6 +652,9 @@ std::vector<Eigen::Matrix<double, 6, 1>> RiskHybridAstar::getPathWithVel(double 
   // double t_counter = 0;
   double t_node   = 0;        // time to next node
   double t_sample = delta_t;  // time to next sample
+
+  std::vector<Eigen::Matrix<double, 6, 1>> state_list;
+  state_list.reserve(10);
   state_list.push_back(node->state);
   while (node->getParent() != NULL) {
     Eigen::Vector3d ut       = node->input;

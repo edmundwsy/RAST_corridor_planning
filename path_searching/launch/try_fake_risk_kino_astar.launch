@@ -1,4 +1,4 @@
-<launch> <!-- TODO: BUGS in A star search -->
+<launch>  <!-- TODO: BUGS in A star search -->
 
   <arg name="init_x" value="-4.0" />
   <arg name="init_y" value="0.0" />
@@ -38,7 +38,7 @@
     <param name="map/local_update_range_y" value="4.5" />
     <param name="map/local_update_range_z" value="3.5" />
     <param name="map/clearance" value="0.15" />
-    <param name="map/publish_spatio_temporal" value="true" />
+    <param name="map/booleans/pub_spatio_temporal" value="true" />
 
     <param name="search/is_test" value="true" type="bool"/>
     <param name="search/max_vel" value="3" type="double"/>
