@@ -21,14 +21,14 @@ void FakeRiskVoxel::init(ros::NodeHandle &nh) {
   nh_ = nh;
 
   /* parameters */
-  nh_.param("map/is_pose_sub", is_pose_sub_, false);
+  nh_.param("map/booleans/sub_pose", is_pose_sub_, false);
   nh_.param("map/local_update_range_x", local_update_range_x_, 5.0F);
   nh_.param("map/local_update_range_y", local_update_range_y_, 5.0F);
   nh_.param("map/local_update_range_z", local_update_range_z_, 4.0F);
   nh_.param("map/risk_threshold", risk_threshold_, 0.2F);
   nh_.param("map/clearance", clearance_, 0.3F);
   nh_.param("map/time_resolution", time_resolution_, 0.2F);
-  nh_.param("map/publish_spatio_temporal", is_publish_spatio_temporal_map_, false);
+  nh_.param("map/booleans/pub_spatio_temporal", is_publish_spatio_temporal_map_, false);
 
   resolution_           = 0.1F;
   local_update_range_x_ = MAP_LENGTH_VOXEL_NUM / 2 * resolution_;
@@ -152,7 +152,7 @@ void FakeRiskVoxel::groundTruthMapCallback(const sensor_msgs::PointCloud2::Const
   //   }
   // }
 
-  ros::Time t0 = ros::Time::now();
+  // ros::Time t0 = ros::Time::now();
   /* add points to map and inflation */
   for (auto &points : cloud_filtered->points) {
     Eigen::Vector3f pt = Eigen::Vector3f(points.x, points.y, points.z) - pose_;

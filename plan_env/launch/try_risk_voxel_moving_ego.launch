@@ -25,6 +25,7 @@
     <param name="map/local_update_range_x" value="5.5" />
     <param name="map/local_update_range_y" value="5.5" />
     <param name="map/local_update_range_z" value="4.5" />
+    <param name="map/booleans/sub_pose" value="true" />
 
     <param name="map/voxel_size_x" value="65" />
     <!-- change .h files  -->
@@ -35,11 +36,10 @@
 
     <!-- Fake Perception -->
     <remap from="~map/state" to="/ground_truth_state" />
-
     <remap from="~map/odom" to="/odom" />
     <!-- <remap from="~map/cloud" to="/map_generator/global_cloud" /> -->
     <remap from="~map/cloud" to="/local_cloud" />
-    <remap from="~map/pose" to="/drone_camera_pose_topic" />
+    <remap from="~map/pose" to="/poscmd_2_odom/pose" />
     <remap from="~map/depth" to="/drone_depth_topic" />
     <!-- Resolutions -->
     <param name="map/resolution" value="0.15" />

@@ -80,12 +80,12 @@ bool inRange(const Eigen::Vector3f &p) {
  * @param valid_clouds_num number of valid points
  */
 void filterPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_in,
-                      pcl::PointCloud<pcl::PointXYZ>::Ptr &      cloud_out,
-                      float *                                    valid_clouds,
-                      int &                                      valid_clouds_num) {
+                      pcl::PointCloud<pcl::PointXYZ>::Ptr       &cloud_out,
+                      float                                     *valid_clouds,
+                      int                                       &valid_clouds_num) {
   pcl::VoxelGrid<pcl::PointXYZ> sor;
   sor.setInputCloud(cloud_in);
-  sor.setLeafSize(0.2, 0.2, 0.2);
+  sor.setLeafSize(0.15, 0.15, 0.15);
   sor.filter(*cloud_out);
 
   /* filter points which are too far from the drone */
@@ -113,9 +113,9 @@ void filterPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_in,
  * @param odom_msg nav_msgs::Odometry
  */
 void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
-                       const nav_msgs::Odometry::ConstPtr &      odom_msg) {
+                       const nav_msgs::Odometry::ConstPtr       &odom_msg) {
   Eigen::Vector3f    p(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y,
-                    odom_msg->pose.pose.position.z);
+                       odom_msg->pose.pose.position.z);
   Eigen::Quaternionf q(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x,
                        odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z);
   Eigen::Matrix3f    R = q.toRotationMatrix();
@@ -144,10 +144,10 @@ void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
  * @param cloud_msg point cloud in camera frame
  * @param pose_msg geometry_msgs::PoseStamped
  */
-void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cloud_msg,
+void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr   &cloud_msg,
                        const geometry_msgs::PoseStamped::ConstPtr &pose_msg) {
   Eigen::Vector3f    pos(pose_msg->pose.position.x, pose_msg->pose.position.y,
-                      pose_msg->pose.position.z);
+                         pose_msg->pose.position.z);
   Eigen::Quaternionf q(pose_msg->pose.orientation.w, pose_msg->pose.orientation.x,
                        pose_msg->pose.orientation.y, pose_msg->pose.orientation.z);
   Eigen::Matrix3f    R = q.toRotationMatrix();

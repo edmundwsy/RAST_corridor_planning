@@ -46,12 +46,12 @@ efficient and sufficient in most scenarios. So it is recommended to use this hea
 using namespace std;
 
 /** Parameters for the map **/
-#define MAP_LENGTH_VOXEL_NUM       65
-#define MAP_WIDTH_VOXEL_NUM        65
+#define MAP_LENGTH_VOXEL_NUM       66
+#define MAP_WIDTH_VOXEL_NUM        66
 #define MAP_HEIGHT_VOXEL_NUM       40
 #define VOXEL_RESOLUTION           0.15
 #define ANGLE_RESOLUTION           3
-#define MAX_PARTICLE_NUM_VOXEL     20
+#define MAX_PARTICLE_NUM_VOXEL     9  // 20
 #define LIMIT_MOVEMENT_IN_XY_PLANE 1
 
 #define PREDICTION_TIMES 9
@@ -62,17 +62,17 @@ using namespace std;
 
 static const float prediction_future_time[PREDICTION_TIMES] = {0.05f, 0.25f, 0.45f, 0.65f, 0.85f,
                                                                1.05f, 1.25f, 1.45f, 1.65f};
-const int half_fov_h = 48;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
+const int half_fov_h = 42;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
                             // or make half_fov_h a smaller value than the real FOV angle
-const int half_fov_v = 36;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
+const int half_fov_v = 24;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
                             // or make half_fov_h a smaller value than the real FOV angle
 
-#define DYNAMIC_CLUSTER_MAX_POINT_NUM \
-  200  // Pre-velocity estimation parameter. Cluster with too many points will be allocated with a
-       // zero velocity.
-#define DYNAMIC_CLUSTER_MAX_CENTER_HEIGHT \
-  1.5  // Pre-velocity estimation parameter. Cluster with too high center will be allocated with a
-       // zero velocity.
+#define DYNAMIC_CLUSTER_MAX_POINT_NUM 200
+// Pre-velocity estimation parameter. Cluster with too many points will be allocated with a
+// zero velocity.
+#define DYNAMIC_CLUSTER_MAX_CENTER_HEIGHT 1.5
+// Pre-velocity estimation parameter. Cluster with too high center will be allocated with a
+// zero velocity.
 
 #define GAUSSIAN_RANDOMS_NUM 10000000
 
@@ -98,6 +98,13 @@ static const float obstacle_thickness_for_occlusion       = 0.3;
 
 namespace dsp_map {
 // string particle_save_folder = "/home/clarence";
+#ifndef M_PIf32
+#define M_PIf32 3.14159265358979323846 /* pi */
+#endif
+
+#ifndef M_PI_2f32
+#define M_PI_2f32 1.57079632679489661923 /* pi/2 */
+#endif
 /** Struct for an individual particle**/
 struct Particle {
   float px;
@@ -288,14 +295,14 @@ class DSPMap {
                                rotated_point_this);
 
       // Store in pcl point cloud for velocity estimation of new born particles
-      pcl::PointXYZ p_this;
-      p_this.x = rotated_point_this[0];
-      p_this.y = rotated_point_this[1];
-      p_this.z = rotated_point_this[2];
-      cloud_in_current_view_rotated->push_back(p_this);
 
       // Store in pyramids for update
       if (ifInPyramidsArea(rotated_point_this[0], rotated_point_this[1], rotated_point_this[2])) {
+        pcl::PointXYZ p_this;
+        p_this.x = rotated_point_this[0];
+        p_this.y = rotated_point_this[1];
+        p_this.z = rotated_point_this[2];
+        cloud_in_current_view_rotated->push_back(p_this);
         int pyramid_index_h, pyramid_index_v;
         pyramid_index_h = findPointPyramidHorizontalIndex(
             rotated_point_this[0], rotated_point_this[1], rotated_point_this[2]);
@@ -424,7 +431,7 @@ class DSPMap {
 
   static void setOriginalVoxelFilterResolution(float res) { voxel_filtered_resolution = res; }
 
-  void getOccupancyMap(int &                           obstacles_num,
+  void getOccupancyMap(int                            &obstacles_num,
                        pcl::PointCloud<pcl::PointXYZ> &cloud,
                        const float                     threshold = 0.7) {
     obstacles_num = 0;
@@ -444,8 +451,8 @@ class DSPMap {
     }
   }
 
-  void getOccupancyMapWithVelocity(int &                              obstacles_num,
-                                   std::vector<float> &               weights,
+  void getOccupancyMapWithVelocity(int                               &obstacles_num,
+                                   std::vector<float>                &weights,
                                    pcl::PointCloud<pcl::PointNormal> &cloud,
                                    const float                        threshold = 0.7) {
     obstacles_num = 0;
@@ -468,9 +475,9 @@ class DSPMap {
     }
   }
 
-  void getOccupancyMapWithFutureStatus(int &                           obstacles_num,
+  void getOccupancyMapWithFutureStatus(int                            &obstacles_num,
                                        pcl::PointCloud<pcl::PointXYZ> &cloud,
-                                       float *                         future_status,
+                                       float                          *future_status,
                                        const float                     threshold = 0.7) {
     obstacles_num = 0;
     for (int i = 0; i < voxels_total_num; i++) {
@@ -1208,8 +1215,8 @@ class DSPMap {
   }
 
   static void findPyramidNeighborIndexInFOV(const int &index_ori,
-                                            int &      neighbor_spaces_num,
-                                            int *      neighbor_spaces_index) {
+                                            int       &neighbor_spaces_num,
+                                            int       *neighbor_spaces_index) {
     int h_index_ori = index_ori / observation_pyramid_num_v;
     int v_index_ori = index_ori % observation_pyramid_num_v;
 
@@ -1285,7 +1292,7 @@ class DSPMap {
   int moveParticle(const int &new_voxel_index,
                    const int &current_v_index,
                    const int &current_v_inner_index,
-                   float *    ori_particle_flag_ptr) {
+                   float     *ori_particle_flag_ptr) {
     int new_voxel_inner_index = current_v_inner_index;
     if (new_voxel_index != current_v_index) {
       *ori_particle_flag_ptr = 0.f;  // Remove from ori voxel first
@@ -1390,7 +1397,7 @@ class DSPMap {
 
   static void rotateVectorByQuaternion(const float *ori_vector,
                                        const float *quaternion,
-                                       float *      rotated_vector) {
+                                       float       *rotated_vector) {
     // Lazy. Use Eigen directly
     Eigen::Quaternionf ori_vector_quaternion, vector_quaternion;
     ori_vector_quaternion.w() = 0;

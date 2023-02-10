@@ -49,16 +49,21 @@ class RiskVoxel {
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_;
 
   /* Parameters */
-  bool  is_publish_spatio_temporal_map_;
+  bool  if_pub_spatio_temporal_map_;
+  bool  if_pub_in_world_frame_;
   float time_resolution_;
+  float filter_res_;
   float resolution_;
-  float risk_maps_[VOXEL_NUM][PREDICTION_TIMES];
-  float valid_clouds_[5000 * 3];
   float local_update_range_x_;
   float local_update_range_y_;
   float local_update_range_z_;
   float risk_threshold_;
   float clearance_;
+  float observation_stddev_;
+  float localization_stddev_;
+  float num_newborn_particles_;
+  float risk_maps_[VOXEL_NUM][PREDICTION_TIMES];
+  float valid_clouds_[5000 * 3];
 
   /* Multi Agents */
   bool       is_multi_agents_ = false;
@@ -99,6 +104,10 @@ class RiskVoxel {
     coordinator_     = ptr;
   }
   void publishOccMap();
+  void inflateMap();
+  void addOtherAgents();
+
+  void updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg);
 
   inline void            setMapCenter(const Eigen::Vector3f &center) { pose_ = center; }
   inline Eigen::Vector3f getMapCenter() const { return pose_; }
