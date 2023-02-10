@@ -30,6 +30,7 @@ void BaselinePlanner::init() {
   /*** INITIALIZE MADER DECONFLICTION ***/
   collision_avoider_.reset(new MADER(nh_));
   collision_avoider_->init();
+  map_->setCoordinator(collision_avoider_);
 
   /*** INITIALIZE VISUALIZATION ***/
   std::string ns = "world";
@@ -110,6 +111,7 @@ void BaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& 
 void BaselinePlanner::showAstarPath() {
   std::vector<Eigen::Vector3d> path = a_star_->getPath(0.1);
   visualizer_->visualizeAstarPath(path);
+  visualizer_->visualizeAstarPathXYT(path, 0.1);
 }
 
 void BaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>& points) {
@@ -204,7 +206,8 @@ bool BaselinePlanner::plan() {
 
   /*----- Safety Corridor Generation -----*/
   std::cout << "/*----- Safety Corridor Generation -----*/" << std::endl;
-  std::vector<Eigen::Matrix<double, 6, 1>> route_vel = a_star_->getPathWithVel(cfg_.corridor_tau);
+  std::vector<Eigen::Matrix<double, 6, 1>> route_vel;
+  route_vel = a_star_->getPathWithVel(cfg_.corridor_tau);
   // std::vector<Eigen::Vector3d>             route     = a_star_->getPath(cfg_.corridor_tau);
   std::vector<Eigen::Vector3d>  route;
   std::vector<Eigen::MatrixX4d> hPolys;
@@ -242,6 +245,7 @@ bool BaselinePlanner::plan() {
     double t1_ros = t_start_.toSec() + i * cfg_.corridor_tau;
     double t2_ros = t1_ros + cfg_.corridor_tau;
     map_->getObstaclePoints(pc, t1_ros, t2_ros, llc, lhc);
+    std::cout << "pc.size() = " << pc.size() << std::endl;
 
     Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();  // initial corridor
     bd(0, 0)                       = 1.0;
@@ -272,7 +276,7 @@ bool BaselinePlanner::plan() {
   /*----- Trajectory Optimization -----*/
   std::cout << "/*----- Trajectory Optimization -----*/" << std::endl;
   std::cout << "hPolys size: " << hPolys.size() << std::endl;
-  // std::cout << "route size: " << route.size() << std::endl;
+  std::cout << "route size: " << route.size() << std::endl;
 
   /* Goal position and time allocation */
   Eigen::Vector3d local_goal_pos = route_vel.back().head(3);
@@ -322,4 +326,5 @@ bool BaselinePlanner::plan() {
     return false;
   }
   ROS_INFO("MADER takes: %f ms", (ros::Time::now() - t1).toSec() * 1000);
+  return true;
 }

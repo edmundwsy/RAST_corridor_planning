@@ -4,7 +4,7 @@ planner:
   risk_threshold_replan: 1.0
   replan_time_threshold: 1.2 # make sure > 1.0 because planner replans every seconds
   max_vel: 3.0
-  max_acc: 5.0
+  max_acc: 6.0
   max_differentiated_current_a: 3.0
   corridor_tau: 0.2
 
@@ -14,16 +14,16 @@ fsm:
   replan_duration: 0.5
 
 search:
-  max_tau: 1.6
+  max_tau: 2.0
   init_max_tau: 0.8
   max_vel: 3.0
-  max_acc: 6.0
+  max_acc: 10.0
   w_time: 10.0
   horizon: 5.0
   lambda_heu: 5.0
   resolution_astar: 0.1
   time_resolution: 0.2
-  margin: 0.4
+  vel_margin: 0.0
   allocate_num: 100000
   check_num: 5
 
@@ -44,11 +44,15 @@ optimizer:
   max_acc_optimization: 10 # Constraint in optimization. A little larger than max_acc
 
 map:
+  booleans:
+    sub_pose: true
+    pub_world_frame: true
+    pub_spatio_temporal: false
   voxel_size_x: 65
   voxel_size_y: 65
   voxel_size_z: 35
 
-  resolution: 0.15
+  resolution: 0.1
   angle_resolution: 3
   time_resolution: 0.2
   n_risk_map: 3
@@ -57,7 +61,7 @@ map:
   stddev_pos: 0.05
   stddev_vel: 0.05
   sigma_update: 0.1
-  sigma_observation: 0.05
+  sigma_observation: 0.1
   sigma_localization: 0.00
   newborn/particles_weight: 0.0001
   newborn/particles_number: 20

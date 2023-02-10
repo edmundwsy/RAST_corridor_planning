@@ -640,29 +640,29 @@ Visualization Manager:
         - Class: rviz/Group
           Displays:
             - Class: rviz/Marker
-              Enabled: false
+              Enabled: true
               Marker Topic: /uav3/planner/vis_astar_path
               Name: AStar
               Namespaces:
-                {}
+                astar_path: true
               Queue Size: 100
-              Value: false
+              Value: true
             - Class: rviz/Marker
-              Enabled: false
+              Enabled: true
               Marker Topic: /uav3/planner/vis_start_goal
               Name: goal_point
               Namespaces:
-                {}
+                StartGoal: true
               Queue Size: 100
-              Value: false
+              Value: true
             - Class: rviz/Marker
-              Enabled: false
+              Enabled: true
               Marker Topic: /uav3/planner/vis_color_traj
               Name: Trajectory
               Namespaces:
                 {}
               Queue Size: 100
-              Value: false
+              Value: true
             - Class: rviz/Marker
               Enabled: false
               Marker Topic: /uav2/planner/vis_edge
@@ -672,21 +672,21 @@ Visualization Manager:
               Queue Size: 100
               Value: false
             - Class: rviz/Marker
-              Enabled: false
+              Enabled: true
               Marker Topic: /uav3/planner/vis_mesh
               Name: CrdMesh
               Namespaces:
-                {}
+                mesh: true
               Queue Size: 100
-              Value: false
+              Value: true
             - Class: rviz/Marker
-              Enabled: false
+              Enabled: true
               Marker Topic: /uav2/planner/vis_ctrl_pts
               Name: CtrlPts
               Namespaces:
                 {}
               Queue Size: 100
-              Value: false
+              Value: true
             - Alpha: 1
               Autocompute Intensity Bounds: true
               Autocompute Value Bounds:
@@ -719,7 +719,7 @@ Visualization Manager:
           Name: Planning
         - Class: rviz/Group
           Displays:
-            - Alpha: 0.5
+            - Alpha: 1
               Autocompute Intensity Bounds: true
               Autocompute Value Bounds:
                 Max Value: 2.9000003337860107
@@ -848,7 +848,7 @@ Visualization Manager:
       Marker Topic: /map_generator/global_cylinders_vis
       Name: MarkerArray
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -914,7 +914,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 27.02346420288086
+      Distance: 5.207420349121094
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -922,17 +922,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.048032522201538086
-        Y: 4.078442096710205
-        Z: -2.384185791015625e-06
+        X: -0.7377806901931763
+        Y: -0.38299667835235596
+        Z: -2.7662379125104053e-06
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.4697964191436768
+      Pitch: 0.7697970867156982
       Target Frame: <Fixed Frame>
-      Yaw: 1.580450177192688
+      Yaw: 4.69044828414917
     Saved:
       - Angle: 0
         Class: rviz/TopDownOrtho

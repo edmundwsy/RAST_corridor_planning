@@ -6,7 +6,7 @@ set(CMAKE_BUILD_TYPE "Release")
 # set(CMAKE_BUILD_TYPE "Debug")
 add_compile_options(-std=c++14)
 
-# set(CMAKE_CXX_FLAGS_DEBUG "-O0 -Wall -g -ggdb")
+# set(CMAKE_CXX_FLAGS_DEBUG "-O1 -Wall -g -ggdb")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g -lpthread")
 find_package(PCL 1.7 REQUIRED)
 find_package(Eigen3 REQUIRED)

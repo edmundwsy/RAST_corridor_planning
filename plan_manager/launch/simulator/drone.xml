@@ -3,6 +3,10 @@
   <arg name="init_x"/>
   <arg name="init_y"/>
   <arg name="init_z"/>
+  <arg name="init_qx" default="0"/>
+  <arg name="init_qy" default="0"/>
+  <arg name="init_qz" default="0"/>
+  <arg name="init_qw" default="1"/>
   <arg name="goal_x"/>
   <arg name="goal_y"/>
   <arg name="goal_z"/>
@@ -27,6 +31,10 @@
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />
+    <param name="init_qx" value="$(arg init_qx)" />
+    <param name="init_qy" value="$(arg init_qy)" />
+    <param name="init_qz" value="$(arg init_qz)" />
+    <param name="init_qw" value="$(arg init_qw)" />
     <param name="goal_x" value="$(arg goal_x)" />
     <param name="goal_y" value="$(arg goal_y)" />
     <param name="goal_z" value="$(arg goal_z)" />
@@ -48,6 +56,10 @@
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />
+    <param name="init_qx" value="$(arg init_qx)" />
+    <param name="init_qy" value="$(arg init_qy)" />
+    <param name="init_qz" value="$(arg init_qz)" />
+    <param name="init_qw" value="$(arg init_qw)" />
     <remap from="~command" to="controller/pos_cmd" />
     <remap from="~odometry" to="$(arg odom_topic)" />
     <remap from="~pose" to="$(arg pose_topic)" />
