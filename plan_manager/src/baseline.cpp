@@ -114,6 +114,11 @@ void BaselinePlanner::showAstarPath() {
   visualizer_->visualizeAstarPathXYT(path, 0.1);
 }
 
+/**
+ * @brief display obstacles
+ *
+ * @param points buffer of points
+ */
 void BaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>& points) {
   pcl::PointCloud<pcl::PointXYZ> cloud;
   for (int i = 0; i < int(points.size()); i++) {
