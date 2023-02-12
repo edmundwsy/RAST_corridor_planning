@@ -15,6 +15,15 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
   nh_ = nh;
 
   /* Parameters */
+  nh_.param("init_x", init_x_, 0.0F);
+  nh_.param("init_y", init_y_, 0.0F);
+  nh_.param("init_z", init_z_, 0.0F);
+  nh_.param("init_qx", init_qx_, 0.0F);
+  nh_.param("init_qy", init_qy_, 0.0F);
+  nh_.param("init_qz", init_qz_, 0.0F);
+  nh_.param("init_qw", init_qw_, 1.0F);
+  nh_.param("is_odom_local", is_odom_local_, false);
+
   nh_.param("map/booleans/sub_pose", is_pose_sub_, false);
   nh_.param("map/booleans/pub_world_frame", if_pub_in_world_frame_, true);
   nh_.param("map/booleans/pub_spatio_temporal", if_pub_spatio_temporal_map_, false);
@@ -120,7 +129,14 @@ void RiskVoxel::cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr   &cl
                           pose_msg->pose.position.z);
   q_    = Eigen::Quaternionf(pose_msg->pose.orientation.w, pose_msg->pose.orientation.x,
                              pose_msg->pose.orientation.y, pose_msg->pose.orientation.z);
-  // Eigen::Matrix3f R = q_.toRotationMatrix();
+  if (is_odom_local_) {
+    Eigen::Vector3f offset(init_x_, init_y_, init_z_);
+    pose_ += offset;
+    Eigen::Quaternionf rotation(init_qw_, init_qx_, init_qy_, init_qz_);
+    q_ = rotation * q_;
+  }
+  std::cout << "odom: " << pose_.transpose() << "  pose: " << q_.w() << q_.x() << q_.y() << q_.z()
+            << std::endl;
   updateMap(cloud_msg);
 }
 
@@ -132,11 +148,19 @@ void RiskVoxel::cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr   &cl
  */
 void RiskVoxel::cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
                                   const nav_msgs::Odometry::ConstPtr       &odom_msg) {
-  Eigen::Vector3f(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y,
-                  odom_msg->pose.pose.position.z);
-  q_ = Eigen::Quaternionf(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x,
-                          odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z);
+  pose_ = Eigen::Vector3f(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y,
+                          odom_msg->pose.pose.position.z);
+  q_    = Eigen::Quaternionf(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x,
+                             odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z);
 
+  if (is_odom_local_) {
+    Eigen::Vector3f offset(init_x_, init_y_, init_z_);
+    pose_ += offset;
+    Eigen::Quaternionf rotation(init_qw_, init_qx_, init_qy_, init_qz_);
+    q_ = rotation * q_;
+  }
+  std::cout << "odom: " << pose_.transpose() << "  pose: " << q_.w() << q_.x() << q_.y() << q_.z()
+            << std::endl;
   updateMap(cloud_msg);
 }
 
@@ -196,7 +220,7 @@ void RiskVoxel::publishOccMap() {
   cloud_pub_.publish(cloud_msg);
 
   // clock_t t2 = clock();
-  // std::cout << "num_occupied: " << num_occupied << "\t"
+  std::cout << "num_occupied: " << num_occupied << "\t" << std::endl;
   //           << "publish time (ms): " << (t2 - t1) * 1000 / (double)CLOCKS_PER_SEC << std::endl;
 }
 
@@ -266,10 +290,10 @@ void RiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>());
   filterPointCloud(cloud_in, cloud_filtered, valid_clouds_, n_valid);
 
-  clock_t t_update_0 = clock();
+  // clock_t t_update_0 = clock();
 
   /* update DSP map */
-  // std::cout << "number of valid points: " << n_valid << std::endl;
+  std::cout << "number of valid points: " << n_valid << std::endl;
   if (!dsp_map_->update(n_valid, 3, valid_clouds_, pose_.x(), pose_.y(), pose_.z(), t, q_.w(),
                         q_.x(), q_.y(), q_.z())) {
     return;
@@ -283,7 +307,7 @@ void RiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
     addOtherAgents();
   }
 
-  clock_t t_update_1 = clock();
+  // clock_t t_update_1 = clock();
   // std::cout << "update time (ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
   //           << std::endl;
 }

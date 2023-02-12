@@ -1,8 +1,8 @@
 <launch>
   <arg name="drone_id" default="0" />
-  <arg name="init_x"/>
-  <arg name="init_y"/>
-  <arg name="init_z"/>
+  <arg name="init_x" default="0"/>
+  <arg name="init_y" default="0"/>
+  <arg name="init_z" default="0"/>
   <arg name="init_qx" default="0"/>
   <arg name="init_qy" default="0"/>
   <arg name="init_qz" default="0"/>
@@ -28,6 +28,7 @@
     
     <rosparam file="$(find plan_manager)/config/sim_cfg.yaml" command="load" />
     <param name="drone_id" value="$(arg drone_id)" />
+    <param name="is_odom_local" value="true" />
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />
@@ -40,7 +41,7 @@
     <param name="goal_z" value="$(arg goal_z)" />
     <param name="vel" value="1" />
     <param name="time_step" value="0.01" />
-    <param name="is_pose_sub" value="$(arg is_pose_subscribed)" />
+    <param name="map/booleans/sub_pose" value="$(arg is_pose_subscribed)" />
   </node>
 
     <node pkg="traj_server" name="traj_server" type="bezier_traj_server" output="screen">

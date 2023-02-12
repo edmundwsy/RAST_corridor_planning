@@ -37,6 +37,7 @@
 
 struct BaselineParameters {
   /* data */
+  bool   is_odom_local  = false;
   double max_vel        = 3.0;
   double max_acc        = 6.0;
   double opt_max_vel    = 3.0;
@@ -70,9 +71,25 @@ struct BaselineParameters {
   double goal_reach_threshold  = 1.0;
   double replan_time_threshold = 0.5;
 
+  double init_x  = 0.0;
+  double init_y  = 0.0;
+  double init_z  = 0.0;
+  double init_qx = 0.0;
+  double init_qy = 0.0;
+  double init_qz = 0.0;
+  double init_qw = 1.0;
+
   /* New */
 
   BaselineParameters(const ros::NodeHandle &nh) {
+    nh.getParam("init_x", init_x);
+    nh.getParam("init_y", init_y);
+    nh.getParam("init_z", init_z);
+    nh.getParam("init_qx", init_qx);
+    nh.getParam("init_qy", init_qy);
+    nh.getParam("init_qz", init_qz);
+    nh.getParam("init_qw", init_qw);
+    nh.getParam("is_odom_local", is_odom_local);
     nh.getParam("planner/max_vel", max_vel);
     nh.getParam("planner/max_acc", max_acc);
     nh.getParam("planner/corridor_tau", corridor_tau);

@@ -112,7 +112,6 @@ class FiniteStateMachine {
 
   /* trajectory */
   Eigen::Vector3d             _goal;
-  Eigen::Vector3d             _odom_pos;
   std::queue<Eigen::Vector3d> _waypoints;
 };
 

@@ -44,13 +44,13 @@ Visualization Manager:
   Displays:
     - Alpha: 1
       Class: rviz/Axes
-      Enabled: false
+      Enabled: true
       Length: 1
       Name: Axes
       Radius: 0.10000000149011612
       Reference Frame: <Fixed Frame>
       Show Trail: false
-      Value: false
+      Value: true
     - Alpha: 0.5
       Cell Size: 1
       Class: rviz/Grid
@@ -876,17 +876,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.3802737295627594
-        Y: 5.057631015777588
-        Z: -2.384185791015625e-06
+        X: -0.303051233291626
+        Y: -2.2452306747436523
+        Z: -2.2905805963091552e-06
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.9347969889640808
+      Pitch: 0.5047974586486816
       Target Frame: <Fixed Frame>
-      Yaw: 1.460450291633606
+      Yaw: 3.115452527999878
     Saved:
       - Angle: 0
         Class: rviz/TopDownOrtho

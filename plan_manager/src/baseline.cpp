@@ -78,6 +78,16 @@ void BaselinePlanner::PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& m
     odom_att_.z() = msg->pose.orientation.z;
     odom_att_.w() = msg->pose.orientation.w;
 
+    if (cfg_.is_odom_local) {
+      odom_pos_.x() += cfg_.init_x;
+      odom_pos_.y() += cfg_.init_y;
+      odom_pos_.z() += cfg_.init_z;
+      Eigen::Quaterniond q_init(cfg_.init_qw, cfg_.init_qx, cfg_.init_qy, cfg_.init_qz);
+      odom_att_ = q_init * odom_att_;
+    }
+    std::cout << "[baseline] odom: " << odom_pos_.transpose() << "  q:" << odom_att_.w()
+              << odom_att_.x() << odom_att_.y() << odom_att_.z() << std::endl;
+
     is_odom_received_ = true;
   }
   is_state_locked_ = false;

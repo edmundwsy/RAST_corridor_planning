@@ -49,6 +49,7 @@ class RiskVoxel {
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_;
 
   /* Parameters */
+  bool  is_odom_local_;
   bool  if_pub_spatio_temporal_map_;
   bool  if_pub_in_world_frame_;
   float time_resolution_;
@@ -64,6 +65,13 @@ class RiskVoxel {
   float num_newborn_particles_;
   float risk_maps_[VOXEL_NUM][PREDICTION_TIMES];
   float valid_clouds_[5000 * 3];
+  float init_x_  = 0.0;
+  float init_y_  = 0.0;
+  float init_z_  = 0.0;
+  float init_qx_ = 0.0;
+  float init_qy_ = 0.0;
+  float init_qz_ = 0.0;
+  float init_qw_ = 1.0;
 
   /* Multi Agents */
   bool       is_multi_agents_ = false;
