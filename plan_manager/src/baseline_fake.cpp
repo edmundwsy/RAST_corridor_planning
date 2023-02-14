@@ -16,12 +16,14 @@ void FakeBaselinePlanner::init() {
   /*** INITIALIZE MAP ***/
   map_.reset(new FakeRiskVoxel());
   map_->init(nh_);
+  ROS_INFO("Map initialized.");
 
   /*** INITIALIZE A STAR ***/
   a_star_.reset(new FakeRiskHybridAstar());
   a_star_->setParam(nh_);
   a_star_->setEnvironment(map_);
   a_star_->init(odom_pos_, Eigen::Vector3d(10, 10, 4));
+  ROS_INFO("Hybrid Astar initialized.");
 
   /*** INITIALIZE BEZIER OPT ***/
   traj_optimizer_.reset(new traj_opt::BezierOpt());
@@ -31,6 +33,7 @@ void FakeBaselinePlanner::init() {
   collision_avoider_.reset(new MADER(nh_));
   collision_avoider_->init();
   map_->setCoordinator(collision_avoider_);
+  ROS_INFO("MADER initialized.");
 
   /*** INITIALIZE VISUALIZATION ***/
   std::string ns = "world";

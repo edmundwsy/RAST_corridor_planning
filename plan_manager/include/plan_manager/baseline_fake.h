@@ -1,5 +1,5 @@
 /**
- * @file baseline.h
+ * @file baseline_fake.h
  * @author Siyuan Wu (siyuanwu99@gmail.com)
  * @brief
  * @version 1.0
@@ -9,8 +9,8 @@
  *
  */
 
-#ifndef _BASELINE_H_
-#define _BASELINE_H_
+#ifndef _BASELINE_FAKE_H_
+#define _BASELINE_FAKE_H_
 
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
@@ -36,7 +36,7 @@
 #include <termcolor.hpp>  // for colored output
 #include <vector>
 // #include <plan_manager/baseline.h>  // include BaselineParameters
-struct BaselineParameters {
+struct FakeBaselineParameters {
   /* data */
   double max_vel        = 3.0;
   double max_acc        = 6.0;
@@ -72,7 +72,7 @@ struct BaselineParameters {
 
   /* New */
 
-  BaselineParameters(const ros::NodeHandle &nh) {
+  FakeBaselineParameters(const ros::NodeHandle &nh) {
     nh.getParam("planner/max_vel", max_vel);
     nh.getParam("planner/max_acc", max_acc);
     nh.getParam("planner/corridor_tau", corridor_tau);
@@ -111,7 +111,7 @@ struct BaselineParameters {
  */
 class FakeBaselinePlanner {
  public:
-  FakeBaselinePlanner(ros::NodeHandle &nh, const BaselineParameters &params)
+  FakeBaselinePlanner(ros::NodeHandle &nh, const FakeBaselineParameters &params)
       : nh_(nh), cfg_(params) {}
   ~FakeBaselinePlanner() {}
 
@@ -143,11 +143,11 @@ class FakeBaselinePlanner {
 
  private:
   /* ROS */
-  ros::NodeHandle    nh_;
-  ros::Subscriber    click_sub_, pose_sub_, swarm_traj_sub_;
-  ros::Publisher     obstacle_pub_;
-  ros::Time          t_start_;
-  BaselineParameters cfg_;
+  ros::NodeHandle        nh_;
+  ros::Subscriber        click_sub_, pose_sub_, swarm_traj_sub_;
+  ros::Publisher         obstacle_pub_;
+  ros::Time              t_start_;
+  FakeBaselineParameters cfg_;
 
   Eigen::Vector3d    odom_pos_; /** quadrotor's current position */
   Eigen::Vector3d    odom_vel_; /** quadrotor's current velocity */
@@ -180,4 +180,4 @@ class FakeBaselinePlanner {
   visualizer::Visualizer::Ptr visualizer_;
 };
 
-#endif  // _BASELINE_H_
+#endif  // _BASELINE_FAKE_H_

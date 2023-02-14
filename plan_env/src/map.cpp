@@ -274,7 +274,7 @@ void MapBase::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
  * @param pos: point position in world frame
  * @return -1: out of range, 0: not in obstacle, 1: in obstacle
  */
-int MapBase::getInflateOccupancy(const Eigen::Vector3d &pos) {
+int MapBase::getInflateOccupancy(const Eigen::Vector3d &pos) const {
   Eigen::Vector3f pf  = pos.cast<float>() - pose_;  // point in the local frame
   int             idx = getVoxelIndex(pf);
   // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM <<
@@ -291,7 +291,7 @@ int MapBase::getInflateOccupancy(const Eigen::Vector3d &pos) {
  * @param t : int
  * @return
  */
-int MapBase::getInflateOccupancy(const Eigen::Vector3d &pos, int t) {
+int MapBase::getInflateOccupancy(const Eigen::Vector3d &pos, int t) const {
   Eigen::Vector3f pf  = pos.cast<float>() - pose_;  // point in the local frame
   int             idx = getVoxelIndex(pf);
   // std::cout << "pf: " << pf.transpose() << "\t idx: " << idx % MAP_LENGTH_VOXEL_NUM <<
@@ -308,7 +308,7 @@ int MapBase::getInflateOccupancy(const Eigen::Vector3d &pos, int t) {
  * @param t : double FIXME: TIME MISMATCH
  * @return
  */
-int MapBase::getInflateOccupancy(const Eigen::Vector3d &pos, double t) {
+int MapBase::getInflateOccupancy(const Eigen::Vector3d &pos, double t) const {
   int tc = ceil(t / time_resolution_);
   tc     = tc > PREDICTION_TIMES ? PREDICTION_TIMES : tc;
   int tf = floor(t / time_resolution_);

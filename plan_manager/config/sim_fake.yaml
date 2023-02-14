@@ -47,7 +47,7 @@ optimizer: # Useless
 map:
   booleans:
     sub_pose: true
-    pub_world_frame: true
+    pub_world_frame: false
     pub_spatio_temporal: false
   local_update_range_x: 4.5
   local_update_range_y: 4.5

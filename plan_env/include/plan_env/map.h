@@ -75,11 +75,11 @@ class MapBase {
   ros::Subscriber cloud_sub_;
 
   /* Utilities */
-  inline bool            isInRange(const Eigen::Vector3f &p);
-  inline int             getVoxelIndex(const Eigen::Vector3f &pos);
-  inline Eigen::Vector3f getVoxelPosition(int index);
-  inline Eigen::Vector3f getVoxelRelPosition(int index);
-  inline Eigen::Vector3i getVoxelRelIndex(const Eigen::Vector3f &pos);
+  inline bool            isInRange(const Eigen::Vector3f &p) const;
+  inline int             getVoxelIndex(const Eigen::Vector3f &pos) const;
+  inline Eigen::Vector3f getVoxelPosition(int index) const;
+  inline Eigen::Vector3f getVoxelRelPosition(int index) const;
+  inline Eigen::Vector3i getVoxelRelIndex(const Eigen::Vector3f &pos) const;
 
  public:
   MapBase() {}
@@ -116,9 +116,9 @@ class MapBase {
                          double                        t_end,
                          const Eigen::Vector3d        &lc,
                          const Eigen::Vector3d        &hc);
-  int  getInflateOccupancy(const Eigen::Vector3d &pos);
-  int  getInflateOccupancy(const Eigen::Vector3d &pos, int t);
-  int  getInflateOccupancy(const Eigen::Vector3d &pos, double t);
+  int  getInflateOccupancy(const Eigen::Vector3d &pos) const;
+  int  getInflateOccupancy(const Eigen::Vector3d &pos, int t) const;
+  int  getInflateOccupancy(const Eigen::Vector3d &pos, double t) const;
 
   void addObstacles(const std::vector<Eigen::Vector3d> &centers,
                     const Eigen::Vector3d              &size,
@@ -132,7 +132,7 @@ class MapBase {
 
 /* ====================== definition of inline function ====================== */
 
-inline bool MapBase::isInRange(const Eigen::Vector3f &p) {
+inline bool MapBase::isInRange(const Eigen::Vector3f &p) const {
   return p.x() > -local_update_range_x_ && p.x() < local_update_range_x_ &&
          p.y() > -local_update_range_y_ && p.y() < local_update_range_y_ &&
          p.z() > -local_update_range_z_ && p.z() < local_update_range_z_;
@@ -143,7 +143,7 @@ inline bool MapBase::isInRange(const Eigen::Vector3f &p) {
  * @param pos point in map frame
  * @return index
  */
-inline int MapBase::getVoxelIndex(const Eigen::Vector3f &pos) {
+inline int MapBase::getVoxelIndex(const Eigen::Vector3f &pos) const {
   int x = (pos[0] + local_update_range_x_) / resolution_;
   int y = (pos[1] + local_update_range_y_) / resolution_;
   int z = (pos[2] + local_update_range_z_) / resolution_;
@@ -155,7 +155,7 @@ inline int MapBase::getVoxelIndex(const Eigen::Vector3f &pos) {
  * @param index
  * @return position of the voxel in the world frame
  */
-inline Eigen::Vector3f MapBase::getVoxelPosition(int index) {
+inline Eigen::Vector3f MapBase::getVoxelPosition(int index) const {
   int x = index % MAP_LENGTH_VOXEL_NUM;
   int y = (index / MAP_LENGTH_VOXEL_NUM) % MAP_WIDTH_VOXEL_NUM;
   int z = index / (MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM);
@@ -170,14 +170,14 @@ inline Eigen::Vector3f MapBase::getVoxelPosition(int index) {
  *
  * @param pos index in global frame
  */
-inline Eigen::Vector3i MapBase::getVoxelRelIndex(const Eigen::Vector3f &pos) {
+inline Eigen::Vector3i MapBase::getVoxelRelIndex(const Eigen::Vector3f &pos) const {
   int x = (pos[0] + local_update_range_x_) / resolution_;
   int y = (pos[1] + local_update_range_y_) / resolution_;
   int z = (pos[2] + local_update_range_z_) / resolution_;
   return Eigen::Vector3i(x, y, z);
 }
 
-inline Eigen::Vector3f MapBase::getVoxelRelPosition(int index) {
+inline Eigen::Vector3f MapBase::getVoxelRelPosition(int index) const {
   int x = index % MAP_LENGTH_VOXEL_NUM;
   int y = (index / MAP_LENGTH_VOXEL_NUM) % MAP_WIDTH_VOXEL_NUM;
   int z = index / (MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM);

@@ -1,6 +1,6 @@
 <launch>
 
-  <arg name="init_x" value="-0.0" />
+  <arg name="init_x" value="-10.0" />
   <arg name="init_y" value="0.0" />
   <arg name="init_z" value="1.0" />
   <arg name="map_size_x" value="13" />
@@ -9,6 +9,7 @@
   <arg name="is_pose_subscribed" value="true" />
 
   <node pkg="plan_env" name="risk_voxel" type="risk_voxel_node" output="screen">
+    <param name="is_odom_local" value="true" />
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />
@@ -16,7 +17,7 @@
     <param name="time_step" value="0.01" />
 
     <!-- Booleans -->
-    <param name="map/booleans/pub_world_frame" value="false" />
+    <param name="map/booleans/pub_world_frame" value="true" />
     <param name="map/booleans/pub_spatio_temporal" value="false" />
     <param name="map/booleans/sub_pose" value="$(arg is_pose_subscribed)" />
     <param name="map/local_update_range_x" value="5.5" />

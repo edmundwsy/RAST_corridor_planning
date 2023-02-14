@@ -21,7 +21,7 @@ void FiniteStateMachineFake::run() {
   _nh.param("fsm/replan_duration", _cfgs.replan_duration, 0.1);
 
   /* Initialize planner */
-  _planner.reset(new FakeBaselinePlanner(_nh, BaselineParameters(_nh)));
+  _planner.reset(new FakeBaselinePlanner(_nh, FakeBaselineParameters(_nh)));
   _planner->init();
 
   /* ROS publishers */
@@ -64,7 +64,6 @@ void FiniteStateMachineFake::run() {
  * @param event
  */
 void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
-  double risk = 0;
   switch (_status) {
     /* initialize */
     case FSM_STATUS::INIT:

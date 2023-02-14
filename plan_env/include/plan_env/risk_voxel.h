@@ -143,9 +143,9 @@ class RiskVoxel : public MapBase {
   //                        double                        t_end,
   //                        const Eigen::Vector3d        &lc,
   //                        const Eigen::Vector3d        &hc);
-  int getInflateOccupancy(const Eigen::Vector3d &pos);
-  int getInflateOccupancy(const Eigen::Vector3d &pos, int t);
-  int getInflateOccupancy(const Eigen::Vector3d &pos, double t);
+  int getInflateOccupancy(const Eigen::Vector3d &pos) const;
+  int getInflateOccupancy(const Eigen::Vector3d &pos, int t) const;
+  int getInflateOccupancy(const Eigen::Vector3d &pos, double t) const;
 
   // void addObstacles(const std::vector<Eigen::Vector3d> &centers,
   //                   const Eigen::Vector3d              &size,

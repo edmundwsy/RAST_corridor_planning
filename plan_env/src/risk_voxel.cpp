@@ -16,7 +16,7 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
 
   /* Parameters */
   loadParameters();
-  nh_.param("map/sigma_observation", observation_stddev_, 0.F);
+  nh_.param("map/sigma_observation", observation_stddev_, 0.05F);
   nh_.param("map/sigma_localization", localization_stddev_, 0.05F);
   nh_.param("map/num_newborn_particles", num_newborn_particles_, 0.05F);
 
@@ -200,11 +200,11 @@ void RiskVoxel::publishMap() {
     Eigen::Affine3f transform = Eigen::Affine3f::Identity();
     transform.translate(pose_);
     // transform.rotate(q_);
-    pcl::transformPointCloud(*cloud_, *cloud_, transform);
+    pcl::transformPointCloud(*cloud, *cloud, transform);
   }
 
   sensor_msgs::PointCloud2 cloud_msg;
-  pcl::toROSMsg(*cloud_, cloud_msg);
+  pcl::toROSMsg(*cloud, cloud_msg);
   cloud_msg.header.stamp    = ros::Time::now();
   cloud_msg.header.frame_id = "world";
   cloud_pub_.publish(cloud_msg);
@@ -283,7 +283,7 @@ void RiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
   clock_t t_update_0 = clock();
 
   /* update DSP map */
-  std::cout << "num_valid" << n_valid << std::endl;
+  std::cout << "num_valid " << n_valid << std::endl;
   if (!dsp_map_->update(n_valid, 3, valid_clouds_, pose_.x(), pose_.y(), pose_.z(), t, q_.w(),
                         q_.x(), q_.y(), q_.z())) {
     return;
@@ -361,7 +361,7 @@ void RiskVoxel::addOtherAgents() {
  * @param pos: point position in world frame
  * @return -1: out of range, 0: not in obstacle, 1: in obstacle
  */
-int RiskVoxel::getInflateOccupancy(const Eigen::Vector3d &pos) {
+int RiskVoxel::getInflateOccupancy(const Eigen::Vector3d &pos) const {
   int   index;
   float px = static_cast<float>(pos(0));
   float py = static_cast<float>(pos(1));
@@ -394,7 +394,7 @@ int RiskVoxel::getInflateOccupancy(const Eigen::Vector3d &pos) {
  * @param t : int
  * @return
  */
-int RiskVoxel::getInflateOccupancy(const Eigen::Vector3d &pos, int t) {
+int RiskVoxel::getInflateOccupancy(const Eigen::Vector3d &pos, int t) const {
   int   index;
   float px = static_cast<float>(pos(0));
   float py = static_cast<float>(pos(1));
@@ -414,7 +414,7 @@ int RiskVoxel::getInflateOccupancy(const Eigen::Vector3d &pos, int t) {
  * @param t : double
  * @return
  */
-int RiskVoxel::getInflateOccupancy(const Eigen::Vector3d &pos, double t) {
+int RiskVoxel::getInflateOccupancy(const Eigen::Vector3d &pos, double t) const {
   int   ti = t / time_resolution_;
   int   index;
   float px = static_cast<float>(pos(0));
