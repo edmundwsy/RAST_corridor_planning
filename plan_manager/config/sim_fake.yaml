@@ -4,7 +4,7 @@ planner:
   risk_threshold_replan: 1.0
   replan_time_threshold: 1.2 # make sure > 1.0 because planner replans every seconds
   max_vel: 3.0
-  max_acc: 5.0
+  max_acc: 6.0
   max_differentiated_current_a: 3.0
   corridor_tau: 0.2
 
@@ -45,6 +45,10 @@ optimizer: # Useless
   max_acc_optimization: 10 # Constraint in optimization. A little larger than max_acc
 
 map:
+  booleans:
+    sub_pose: true
+    pub_world_frame: true
+    pub_spatio_temporal: false
   local_update_range_x: 4.5
   local_update_range_y: 4.5
   local_update_range_z: 3.5
