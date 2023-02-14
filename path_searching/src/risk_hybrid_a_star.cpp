@@ -295,8 +295,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
           pos      = xt.head(3);
           double t = cur_node->time + dt;
           // std::cout << "pos:" << pos.transpose() << " t: " << t << std::endl;
-          if (grid_map_->getInflateOccupancy(pos - map_center_, t) ==
-              1) {  // TODO: world pos is better
+          if (grid_map_->getInflateOccupancy(pos - map_center_, t) == 1) {
             is_occ = true;
             break;
           }
@@ -313,7 +312,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
 
         // Compare nodes expanded from the same parent
         bool prune = false;
-        for (int j = 0; j < tmp_expand_nodes.size(); ++j) {
+        for (int j = 0; j < int(tmp_expand_nodes.size()); ++j) {
           PathNodePtr expand_node = tmp_expand_nodes[j];
           // std::cout << " expand_node: " << expand_node->state.transpose();
           // std::cout << " t: " << pro_t_id << " | " << expand_node->time;

@@ -145,7 +145,7 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
 }
 
 int main(int argc, char **argv) {
-  ros::init(argc, argv, "vis_kinodyn_a_star_node");
+  ros::init(argc, argv, "vis_risk_hybrid_a_star_node");
   ros::NodeHandle nh("~");
   int             pool_size_x = 100, pool_size_y = 100, pool_size_z = 60;
   nh.getParam("pool_size_x", pool_size_x);
@@ -168,7 +168,7 @@ int main(int argc, char **argv) {
 
   grid_map_.reset(new RiskVoxel());
   grid_map_->init(nh);
-  Eigen::Vector3f posf = start_pos_.cast<float>();
+  // Eigen::Vector3f posf = start_pos_.cast<float>();
   // grid_map_->setMapCenter(posf);
   ROS_INFO("Map initialized!");
 

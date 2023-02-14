@@ -51,6 +51,7 @@ void FakeRiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::V
   for (int i = 0; i < allocate_num_; i++) {
     path_node_pool_[i] = new PathNode();
   }
+  std::cout << "allocate " << allocate_num_ << " nodes" << std::endl;
 
   phi_          = Eigen::MatrixXd::Identity(6, 6);
   use_node_num_ = 0;

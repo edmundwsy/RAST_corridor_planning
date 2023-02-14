@@ -15,7 +15,9 @@
   <arg name="fy" value="387.229248046875"/>
 
 
-  <node pkg="path_searching" name="astar" type="risk_a_star_node" output="screen">
+  <node pkg="path_searching" name="astar" type="risk_a_star_node" 
+          launch-prefix="terminator -\-execute gdb -ex run -\-args" 
+  output="screen">
     <!-- <node pkg="path_searching" name="astar" type="kinodyn_a_star_node" output="screen"> -->
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
