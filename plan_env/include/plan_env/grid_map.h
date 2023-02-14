@@ -18,13 +18,13 @@
 #include <visualization_msgs/Marker.h>
 #include <Eigen/Eigen>
 #include <Eigen/StdVector>
+#include <algorithm>
 #include <iostream>
+#include <memory>
 #include <queue>
 #include <random>
 #include <tuple>
-#include <memory>
 #include <vector>
-#include <algorithm>
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -420,6 +420,5 @@ inline void GridMap::inflatePoint(const Eigen::Vector3i&   pt,
 }
 
 inline double GridMap::getResolution() { return mp_.resolution_; }
-
 
 #endif  // GRID_MAP_H_

@@ -49,6 +49,7 @@ include_directories(
 link_directories(${PCL_LIBRARY_DIRS})
 
 add_library(plan_env
+    src/map.cpp
     src/grid_map.cpp
     src/raycast.cpp
     src/obj_predictor.cpp

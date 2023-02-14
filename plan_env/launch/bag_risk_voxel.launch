@@ -1,14 +1,11 @@
 <launch>
 
-  <arg name="init_x" value="-5.0" />
+  <arg name="init_x" value="-0.0" />
   <arg name="init_y" value="0.0" />
   <arg name="init_z" value="1.0" />
   <arg name="map_size_x" value="13" />
   <arg name="map_size_y" value="13" />
   <arg name="map_size_z" value="7" />
-  <arg name="pool_size_x" value="120" />
-  <arg name="pool_size_y" value="120" />
-  <arg name="pool_size_z" value="50" />
   <arg name="is_pose_subscribed" value="true" />
 
   <node pkg="plan_env" name="risk_voxel" type="risk_voxel_node" output="screen">
@@ -20,8 +17,7 @@
 
     <!-- Booleans -->
     <param name="map/booleans/pub_world_frame" value="false" />
-    <param name="map/booleans/pub_spatio_temporal" value="true" />
-
+    <param name="map/booleans/pub_spatio_temporal" value="false" />
     <param name="map/booleans/sub_pose" value="$(arg is_pose_subscribed)" />
     <param name="map/local_update_range_x" value="5.5" />
     <param name="map/local_update_range_y" value="5.5" />
