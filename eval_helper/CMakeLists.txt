@@ -41,3 +41,6 @@ target_link_libraries(multi_eval ${catkin_LIBRARIES})
 
 add_executable(trigger src/trigger.cpp)
 target_link_libraries(trigger ${catkin_LIBRARIES})
+
+add_executable(odom_local2global src/odom_local2global.cpp)
+target_link_libraries(odom_local2global ${catkin_LIBRARIES})

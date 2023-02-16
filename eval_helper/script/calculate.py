@@ -95,8 +95,33 @@ def get_collision_occurance(d, idx):
     danger_idx = np.where(dist < 0.0)[0]
     if len(danger_idx) == 0:
         return 0
-    n_collision = np.sum(np.diff(danger_idx) > 1) + 1
+    n_collision = np.sum(np.diff(danger_idx) > 5) + 1
     return n_collision
+
+
+def get_no_path_collision(d):
+    dist = d[:, 12]
+    danger_idx = np.where(dist < 0.0)[0]
+    if len(danger_idx) == 0:
+        """No collision"""
+        return 0
+    interval = np.where(np.diff(danger_idx) > 5)[0] + 1
+    collision_list = np.split(danger_idx, interval)[:-1]
+    # print("danger: ", danger_idx)
+    # print("gap : ", interval)
+    # print("collision list: ", collision_list)
+
+    min_dist_idx = np.array([c[np.argmin(dist[c])] for c in collision_list])
+    # print("min dist: ", min_dist_idx)
+
+    vx = d[:, 4]
+    vy = d[:, 5]
+    vz = d[:, 6]
+    v = np.sqrt(vx**2 + vy**2 + vz**2)
+    vel_zero_idx = np.where(v < 1e-3)[0]
+    print("vel 0 : ", vel_zero_idx)
+    print("occurances: ", len(np.intersect1d(min_dist_idx, vel_zero_idx)))
+    return len(np.intersect1d(min_dist_idx, vel_zero_idx))
 
 
 def plot_x_t(data, idx):
@@ -170,6 +195,11 @@ def plot_obstacle_distance(data):
     plt.show()
 
 
+"""
+Data: [t, x, y, z, vx, vy, vz, ax, ay, az, yaw, yaw_rate, min_obs_dist, min_uav_dist]
+No.:   0  1  2  3  4   5   6   7   8   9   10    11        12            13
+"""
+
 if __name__ == "__main__":
     args = cal_parser.parse_args()
 
@@ -187,10 +217,12 @@ if __name__ == "__main__":
     # plot_v_t(data[1])
     n_collide = np.array([get_collision_occurance(d, 12) for d in data])
     print(n_collide)
-    plot_reciprocal_distance(data[args.id])
-    plot_obstacle_distance(data[args.id])
-    plot_v_t(data[args.id])
-    # plot_y_t(data[1])
-    print("reciprocal distance: ", np.min(data[args.id][:, 13]))
-    print("sum control efforts:", get_sum_control_efforts(data[args.id]))
-    print("avg flight time:", get_avg_flight_time(data[args.id]))
+    get_no_path_collision(data[0])
+
+    # plot_reciprocal_distance(data[args.id])
+    # plot_obstacle_distance(data[args.id])
+    # plot_v_t(data[args.id])
+    # # plot_y_t(data[1])
+    # print("reciprocal distance: ", np.min(data[args.id][:, 13]))
+    # print("sum control efforts:", get_sum_control_efforts(data[args.id]))
+    # print("avg flight time:", get_avg_flight_time(data[args.id]))

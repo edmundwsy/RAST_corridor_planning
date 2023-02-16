@@ -22,7 +22,7 @@ import calculate
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--world", type=str, default="_4uav_19obs_cls0.2_", help="world name"
+    "--world", type=str, default="_4uav_20obs_v2_a8_cls0.15_", help="world name"
 )
 parser.add_argument("--iters", type=int, default="1", help="number of agents")
 parser.add_argument("--num_agents", type=int, default="4", help="number of agents")
@@ -46,7 +46,8 @@ parser.add_argument(
 parser.add_argument(
     "--cmd_launch",
     type=str,
-    default="roslaunch plan_manager sim_baseline_fkpcp_4.launch",
+    default="roslaunch plan_manager sim_baseline_fkpcp_4.launch rviz:=false",
+    # default="roslaunch plan_manager sim_baseline_fkpcp_4.launch rviz:=true",
 )
 parser.add_argument("--cmd_trigger", type=str, default="rosrun eval_helper trigger")
 
@@ -78,7 +79,7 @@ def startAll(arg):
     time.sleep(0.5)
     # Start the recorder
     os.system("kitty @ launch bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_recorder))
-    time.sleep(2)
+    time.sleep(4)
     # Start planning
     os.system("kitty @ launch bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_trigger))
 
@@ -118,8 +119,18 @@ def findAndRecord(args, save_path):
     n_cld_uav = np.array([calculate.get_collision_occurance(d, 13) for d in data])
     d_cld_uav = np.array([np.min(d[:, 13]) for d in data])
 
+    n_no_path_cld = np.array([calculate.get_no_path_collision(d) for d in data])
+
     arr_to_write = np.hstack(
-        [ctrl_efforts, flight_times, n_cld_uav, d_cld_uav, n_cld_obs, d_cld_obs]
+        [
+            ctrl_efforts,
+            flight_times,
+            n_cld_uav,
+            d_cld_uav,
+            n_cld_obs,
+            d_cld_obs,
+            n_no_path_cld,
+        ]
     )
     return arr_to_write
 
@@ -145,12 +156,16 @@ def run(arg):
                 n_cls_uav_headers = [
                     "num_collide_uav" + str(i) for i in range(arg.num_agents)
                 ]
+                n_no_path_cld_headers = [
+                    "num_no_path_collision" + str(i) for i in range(arg.num_agents)
+                ]
                 min_dist_uav_headers = [
                     "min_dist_uav" + str(i) for i in range(arg.num_agents)
                 ]
                 min_dist_obs_headers = [
                     "min_dist_obs" + str(i) for i in range(arg.num_agents)
                 ]
+
                 # TODO: min dist to obs, min dist to agents
                 headers = (
                     ctr_eft_headers
@@ -159,6 +174,7 @@ def run(arg):
                     + min_dist_uav_headers
                     + n_cls_obs_headers
                     + min_dist_obs_headers
+                    + n_no_path_cld_headers
                 )
                 writer.writerow(headers)
 
