@@ -45,6 +45,18 @@ void MapBase::init(ros::NodeHandle &nh) {
            local_update_range_y_, local_update_range_z_);
   ROS_INFO("[MAP_BASE] Init fake risk voxel map");
 
+  /* initialize inflated kernel */
+  inf_step_ = clearance_ / resolution_;
+  inflate_kernel_.reserve((2 * inf_step_ + 1) * (2 * inf_step_ + 1) * (2 * inf_step_ + 1));
+  for (int x = -inf_step_; x <= inf_step_; x++) {
+    for (int y = -inf_step_; y <= inf_step_; y++) {
+      for (int z = -inf_step_; z <= inf_step_; z++) {
+        inflate_kernel_.push_back(Eigen::Vector3i(x, y, z));
+      }
+    }
+  }
+  ROS_INFO("[MAP_BASE] Inflated kernel size: %d", (int)inflate_kernel_.size());
+
   // cloud_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
   // cloud_->points.reserve(80000);
 
@@ -286,7 +298,7 @@ int MapBase::getInflateOccupancy(const Eigen::Vector3d &pos) const {
 }
 
 /**
- * @brief
+ * @brief collision check on inflated map
  * @param pos in world frame
  * @param t : int
  * @return
@@ -303,7 +315,7 @@ int MapBase::getInflateOccupancy(const Eigen::Vector3d &pos, int t) const {
   return 0;
 }
 /**
- * @brief
+ * @brief collision check on inflated map
  * @param pos in world frame
  * @param t : double FIXME: TIME MISMATCH
  * @return
@@ -322,6 +334,46 @@ int MapBase::getInflateOccupancy(const Eigen::Vector3d &pos, double t) const {
   if (risk_maps_[idx][tc] > risk_threshold_) return 1;
   if (risk_maps_[idx][tf] > risk_threshold_) return 1;
   return 0;
+}
+
+/**
+ * @brief collision check on voxel map with clearance (none-inflated map)
+ *
+ * @param pos position in world frame
+ * @param t index of the time frame
+ * @return 0: free, 1: occupied, -1: out of bound
+ */
+int MapBase::getClearOcccupancy(const Eigen::Vector3d &pos, int t) const {
+  Eigen::Vector3f pf = pos.cast<float>() - pose_;
+  Eigen::Vector3i pi = getVoxelRelIndex(pf);
+  if (!this->isInRange(pi)) return -1; /* query position out of range */
+  for (auto &inf_pts : inflate_kernel_) {
+    Eigen::Vector3i p = pi + inf_pts;
+    if (!isInRange(p)) continue;
+    int idx = getVoxelIndex(p);
+    if (risk_maps_[idx][t] > risk_threshold_) return 1; /* collision */
+  }
+  return 0;
+}
+
+int MapBase::getClearOcccupancy(const Eigen::Vector3d &pos) const {
+  return getClearOcccupancy(pos, 0);
+}
+
+int MapBase::getClearOcccupancy(const Eigen::Vector3d &pos, double dt) const {
+  int tc = ceil(dt / time_resolution_);
+  tc     = tc > PREDICTION_TIMES ? PREDICTION_TIMES : tc;
+  int tf = floor(dt / time_resolution_);
+  tf     = tf > PREDICTION_TIMES ? PREDICTION_TIMES : tf;
+
+  int ret0 = getClearOcccupancy(pos, tc);
+  int ret1 = getClearOcccupancy(pos, tf);
+  if (ret0 == -1 || ret1 == -1) return -1;
+  if (ret0 == 0 && ret1 == 0) {
+    return 0;
+  } else {
+    return 1;
+  }
 }
 
 /**
