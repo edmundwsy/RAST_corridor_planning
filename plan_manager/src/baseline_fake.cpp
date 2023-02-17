@@ -95,6 +95,7 @@ void FakeBaselinePlanner::PoseCallback(const geometry_msgs::PoseStamped::ConstPt
     prev_py_ = odom_pos_.y();
     prev_pz_ = odom_pos_.z();
   }
+  visualizer_->visualizeFOV(odom_pos_, odom_att_, 84, 48, 5);
 }
 
 void FakeBaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {

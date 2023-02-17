@@ -1,25 +1,18 @@
 planner:
-  planning_time_step: 0.05
-  trajectory_piece_max_size: 8
-  risk_threshold_replan: 1.0
-  replan_time_threshold: 1.2 # make sure > 1.0 because planner replans every seconds
-  max_vel: 3.0
-  max_acc: 6.0
-  max_differentiated_current_a: 3.0
   corridor_tau: 0.2
 
 fsm:
   goal_tolerance: 1.0
   replan_tolerance: 1.0
-  replan_duration: 0.20
+  replan_duration: 0.10
 
 search:
-  max_tau: 1.6 # Astar search time horizon
+  max_tau: 1.8 # Astar search time horizon
   init_max_tau: 0.8 # Useless
-  max_vel: 3.0
-  max_acc: 10.0
+  max_vel: 2.0
+  max_acc: 6.0
   w_time: 10.0
-  horizon: 4.0
+  horizon: 5.0
   lambda_heu: 5.0
   resolution_astar: 0.1
   time_resolution: 0.2
@@ -41,8 +34,8 @@ optimizer: # Useless
   snap_factor: 1.0 # minimum snap
   delta_corridor: 0.4
 
-  max_vel_optimization: 3 # Constraint in optimization. A little larger than max_vel
-  max_acc_optimization: 10 # Constraint in optimization. A little larger than max_acc
+  max_vel_optimization: 2 # Constraint in optimization. A little larger than max_vel
+  max_acc_optimization: 6 # Constraint in optimization. A little larger than max_acc
 
 map:
   booleans:

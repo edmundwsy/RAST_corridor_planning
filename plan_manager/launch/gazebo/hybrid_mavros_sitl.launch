@@ -28,7 +28,7 @@
     <arg name="est" default="ekf2"/>
     <arg name="vehicle" default="iris"/>
     <!-- <arg name="world" default="$(find mavlink_sitl_gazebo)/worlds/empty.world"/> -->
-    <arg name="world" default="$(find plan_manager)/worlds/dynamic_2.world"/>
+    <arg name="world" default="$(find plan_manager)/worlds/hybrid.world"/>
     <!-- <arg name="world" default="$(find rast_corridor_planning)/worlds/forest.world"/> -->
     <!-- gazebo configs -->
     <arg name="gui" default="true"/>

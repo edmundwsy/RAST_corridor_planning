@@ -22,11 +22,11 @@
       <arg name="map_size_x" value="$(arg map_size_x)" />
       <arg name="map_size_y" value="$(arg map_size_y)" />
       <arg name="map_size_z" value="$(arg map_size_z)" />
-      <arg name="init_x" value="-8" />
-      <arg name="init_y" value="0" />
+      <arg name="init_x" value="8" />
+      <arg name="init_y" value="8" />
       <arg name="init_z" value="1" />
-      <arg name="goal_x" value="8" />
-      <arg name="goal_y" value="0" />
+      <arg name="goal_x" value="-8" />
+      <arg name="goal_y" value="-8" />
       <arg name="goal_z" value="1" />
     </include>
   </group>
@@ -39,10 +39,10 @@
       <arg name="map_size_y" value="$(arg map_size_y)" />
       <arg name="map_size_z" value="$(arg map_size_z)" />
       <arg name="init_x" value="8" />
-      <arg name="init_y" value="0" />
+      <arg name="init_y" value="-8" />
       <arg name="init_z" value="1" />
       <arg name="goal_x" value="-8" />
-      <arg name="goal_y" value="0" />
+      <arg name="goal_y" value="8" />
       <arg name="goal_z" value="1" />
     </include>
   </group>
@@ -50,6 +50,54 @@
   <group ns="uav2">
     <include file="$(find plan_manager)/launch/simulator/drone_fake_perception.xml">
       <arg name="drone_id" value="2" />
+      <arg name="num_robots" value="$(arg num_robots)" />
+      <arg name="map_size_x" value="$(arg map_size_x)" />
+      <arg name="map_size_y" value="$(arg map_size_y)" />
+      <arg name="map_size_z" value="$(arg map_size_z)" />
+      <arg name="init_x" value="-8" />
+      <arg name="init_y" value="-8" />
+      <arg name="init_z" value="1" />
+      <arg name="goal_x" value="8" />
+      <arg name="goal_y" value="8" />
+      <arg name="goal_z" value="1" />
+    </include>
+  </group>
+
+  <group ns="uav3">
+    <include file="$(find plan_manager)/launch/simulator/drone_fake_perception.xml">
+      <arg name="drone_id" value="3" />
+      <arg name="num_robots" value="$(arg num_robots)" />
+      <arg name="map_size_x" value="$(arg map_size_x)" />
+      <arg name="map_size_y" value="$(arg map_size_y)" />
+      <arg name="map_size_z" value="$(arg map_size_z)" />
+      <arg name="init_x" value="-8" />
+      <arg name="init_y" value="8" />
+      <arg name="init_z" value="1" />
+      <arg name="goal_x" value="8" />
+      <arg name="goal_y" value="-8" />
+      <arg name="goal_z" value="1" />
+    </include>
+  </group>
+
+  <group ns="uav4">
+    <include file="$(find plan_manager)/launch/simulator/drone_fake_perception.xml">
+      <arg name="drone_id" value="4" />
+      <arg name="num_robots" value="$(arg num_robots)" />
+      <arg name="map_size_x" value="$(arg map_size_x)" />
+      <arg name="map_size_y" value="$(arg map_size_y)" />
+      <arg name="map_size_z" value="$(arg map_size_z)" />
+      <arg name="init_x" value="-8" />
+      <arg name="init_y" value="0" />
+      <arg name="init_z" value="1" />
+      <arg name="goal_x" value="8" />
+      <arg name="goal_y" value="0" />
+      <arg name="goal_z" value="1" />
+    </include>
+  </group>
+
+  <group ns="uav5">
+    <include file="$(find plan_manager)/launch/simulator/drone_fake_perception.xml">
+      <arg name="drone_id" value="5" />
       <arg name="num_robots" value="$(arg num_robots)" />
       <arg name="map_size_x" value="$(arg map_size_x)" />
       <arg name="map_size_y" value="$(arg map_size_y)" />
@@ -63,9 +111,25 @@
     </include>
   </group>
 
-  <group ns="uav3">
+  <group ns="uav6">
     <include file="$(find plan_manager)/launch/simulator/drone_fake_perception.xml">
-      <arg name="drone_id" value="3" />
+      <arg name="drone_id" value="6" />
+      <arg name="num_robots" value="$(arg num_robots)" />
+      <arg name="map_size_x" value="$(arg map_size_x)" />
+      <arg name="map_size_y" value="$(arg map_size_y)" />
+      <arg name="map_size_z" value="$(arg map_size_z)" />
+      <arg name="init_x" value="8" />
+      <arg name="init_y" value="0" />
+      <arg name="init_z" value="1" />
+      <arg name="goal_x" value="-8" />
+      <arg name="goal_y" value="0" />
+      <arg name="goal_z" value="1" />
+    </include>
+  </group>
+
+  <group ns="uav7">
+    <include file="$(find plan_manager)/launch/simulator/drone_fake_perception.xml">
+      <arg name="drone_id" value="7" />
       <arg name="num_robots" value="$(arg num_robots)" />
       <arg name="map_size_x" value="$(arg map_size_x)" />
       <arg name="map_size_y" value="$(arg map_size_y)" />
@@ -80,7 +144,7 @@
   </group>
 
 <group if="$(arg rviz)">
-  <node pkg="rviz" name="rviz" type="rviz" args="-d $(find plan_manager)/rviz/demo.rviz" />
+  <node pkg="rviz" name="rviz" type="rviz" args="-d $(find plan_manager)/rviz/demo_8.rviz" />
 </group>
 
 </launch>

@@ -14,9 +14,9 @@
   <arg name="map_size_y"/>
   <arg name="map_size_z"/>
 
-  <arg name="odom_topic" value="/uav$(arg drone_id)/mavros/local_position/odom"/>
-  <arg name="pose_topic" value="/uav$(arg drone_id)/mavros/local_position/pose"/>
-  <arg name="is_pose_subscribed" value="false" />
+  <arg name="odom_topic" value="/uav$(arg drone_id)/mavros/global_position/odom"/>
+  <arg name="pose_topic" value="/uav$(arg drone_id)/mavros/global_position/pose"/>
+  <arg name="is_pose_subscribed" value="true" />
 
   <!-- <node pkg="plan_manager" name="planner" type="baseline" output="screen"> -->
   <node pkg="plan_manager" name="planner" type="baseline">
@@ -28,7 +28,7 @@
     
     <rosparam file="$(find plan_manager)/config/sim_cfg.yaml" command="load" />
     <param name="drone_id" value="$(arg drone_id)" />
-    <param name="is_odom_local" value="true" />
+    <param name="is_odom_local" value="false" />
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />

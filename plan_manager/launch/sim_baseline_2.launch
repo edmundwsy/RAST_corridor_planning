@@ -20,14 +20,14 @@
       <arg name="map_size_x" value="$(arg map_size_x)" />
       <arg name="map_size_y" value="$(arg map_size_y)" />
       <arg name="map_size_z" value="$(arg map_size_z)" />
-      <arg name="init_x" value="-8" />
+      <arg name="init_x" value="0" />
       <arg name="init_y" value="0" />
-      <arg name="init_z" value="1" />
+      <arg name="init_z" value="0" />
       <arg name="init_qx" value="0" />
       <arg name="init_qy" value="0" />
       <arg name="init_qz" value="0" />
       <arg name="init_qw" value="1" />
-      <arg name="goal_x" value="8" />
+      <arg name="goal_x" value="-8" />
       <arg name="goal_y" value="0" />
       <arg name="goal_z" value="1" />
     </include>
@@ -39,14 +39,14 @@
       <arg name="map_size_x" value="$(arg map_size_x)" />
       <arg name="map_size_y" value="$(arg map_size_y)" />
       <arg name="map_size_z" value="$(arg map_size_z)" />
-      <arg name="init_x" value="8" />
+      <arg name="init_x" value="-0" />
       <arg name="init_y" value="0" />
-      <arg name="init_z" value="1" />
+      <arg name="init_z" value="0" />
       <arg name="init_qx" value="0" />
       <arg name="init_qy" value="0" />
-      <arg name="init_qz" value="1" />
-      <arg name="init_qw" value="0" />
-      <arg name="goal_x" value="-8" />
+      <arg name="init_qz" value="0" />
+      <arg name="init_qw" value="1" />
+      <arg name="goal_x" value="8" />
       <arg name="goal_y" value="0" />
       <arg name="goal_z" value="1" />
     </include>

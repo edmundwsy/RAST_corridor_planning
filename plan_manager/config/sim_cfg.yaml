@@ -1,11 +1,4 @@
 planner:
-  planning_time_step: 0.05
-  trajectory_piece_max_size: 8
-  risk_threshold_replan: 1.0
-  replan_time_threshold: 1.2 # make sure > 1.0 because planner replans every seconds
-  max_vel: 3.0
-  max_acc: 6.0
-  max_differentiated_current_a: 3.0
   corridor_tau: 0.2
 
 fsm:

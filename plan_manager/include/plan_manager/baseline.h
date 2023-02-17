@@ -37,9 +37,9 @@
 
 struct BaselineParameters {
   /* data */
-  bool   is_odom_local  = false;
-  double max_vel        = 3.0;
-  double max_acc        = 6.0;
+  bool is_odom_local = false;
+  // double max_vel        = 3.0;
+  // double max_acc        = 6.0;
   double opt_max_vel    = 3.0;
   double opt_max_acc    = 4.0;
   double delta_corridor = 0.3;
@@ -58,18 +58,17 @@ struct BaselineParameters {
   float risk_threshold_motion_primitive = 0.15;
   float risk_threshold_single_voxel     = 0.15;
   float risk_threshold_corridor         = 2.5;
-  float risk_threshold_replan           = 20;
+  // float risk_threshold_replan           = 20;
 
-  int trajectory_piece_max_size = 12;
-  int nmpc_receive_points_num   = 20;
+  // int trajectory_piece_max_size = 12;
+  int nmpc_receive_points_num = 20;
 
-  double planning_time_step           = 0.05;
-  double max_differentiated_current_a = 4.0;
-  bool   is_rviz_map_center_locked    = false;
+  double planning_time_step        = 0.05;
+  bool   is_rviz_map_center_locked = false;
 
-  double waypoint_distance     = 4.0;
-  double goal_reach_threshold  = 1.0;
-  double replan_time_threshold = 0.5;
+  // double waypoint_distance = 4.0;
+  // double goal_reach_threshold = 1.0;
+  // double replan_time_threshold = 0.5;
 
   double init_x  = 0.0;
   double init_y  = 0.0;
@@ -90,15 +89,15 @@ struct BaselineParameters {
     nh.getParam("init_qz", init_qz);
     nh.getParam("init_qw", init_qw);
     nh.getParam("is_odom_local", is_odom_local);
-    nh.getParam("planner/max_vel", max_vel);
-    nh.getParam("planner/max_acc", max_acc);
+    // nh.getParam("planner/max_vel", max_vel);
+    // nh.getParam("planner/max_acc", max_acc);
     nh.getParam("planner/corridor_tau", corridor_tau);
-    nh.getParam("planner/goal_reach_threshold", goal_reach_threshold);
-    nh.getParam("planner/risk_threshold_replan", risk_threshold_replan);
-    nh.getParam("planner/replan_time_threshold", replan_time_threshold);
-    nh.getParam("planner/max_differentiated_current_a", max_differentiated_current_a);
-    nh.getParam("planner/planning_time_step", planning_time_step);
-    nh.getParam("planner/trajectory_piece_max_size", trajectory_piece_max_size);
+    // nh.getParam("planner/goal_reach_threshold", goal_reach_threshold);
+    // nh.getParam("planner/risk_threshold_replan", risk_threshold_replan);
+    // nh.getParam("planner/replan_time_threshold", replan_time_threshold);
+    // nh.getParam("planner/max_differentiated_current_a", max_differentiated_current_a);
+    // nh.getParam("planner/planning_time_step", planning_time_step);
+    // nh.getParam("planner/trajectory_piece_max_size", trajectory_piece_max_size);
 
     nh.getParam("corridor/init_range", init_range);
 
@@ -119,7 +118,7 @@ struct BaselineParameters {
     nh.getParam("corridor/risk_threshold_single_voxel", risk_threshold_single_voxel);
     nh.getParam("corridor/risk_threshold_corridor", risk_threshold_corridor);
 
-    nh.getParam("waypoint_distance", waypoint_distance);
+    // nh.getParam("waypoint_distance", waypoint_distance);
     nh.getParam("rviz_map_center_locked", is_rviz_map_center_locked);
   }
 };

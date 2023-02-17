@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(plan_manager)
 
-# set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Release")
 
-set(CMAKE_BUILD_TYPE "Debug")
+# set(CMAKE_BUILD_TYPE "Debug")
 add_compile_options(-std=c++14)
 
 # set(CMAKE_CXX_FLAGS_DEBUG "-O1 -Wall -g -ggdb")
-# set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g -lpthread")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g -lpthread")
 find_package(PCL 1.7 REQUIRED)
 find_package(Eigen3 REQUIRED)
 set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})

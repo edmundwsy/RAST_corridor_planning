@@ -237,7 +237,7 @@ void FiniteStateMachine::TriggerCallback(const geometry_msgs::PoseStampedPtr& ms
     if (_waypoints.empty()) {
       _goal.x() = msg->pose.position.x;
       _goal.y() = msg->pose.position.y;
-      _goal.z() = msg->pose.position.z;
+      _goal.z() = 1;
       _waypoints.push(_goal);
       ROS_INFO("[FSM] New goal received: %f, %f, %f", _goal.x(), _goal.y(), _goal.z());
     } else {
