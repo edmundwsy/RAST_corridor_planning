@@ -295,7 +295,8 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
           pos      = xt.head(3);
           double t = cur_node->time + dt;
           // std::cout << "pos:" << pos.transpose() << " t: " << t << std::endl;
-          if (grid_map_->getInflateOccupancy(pos - map_center_, t) == 1) {
+          // if (grid_map_->getInflateOccupancy(pos - map_center_, t) == 1) {
+          if (grid_map_->getClearOcccupancy(pos, t) != 0) {
             is_occ = true;
             break;
           }
@@ -484,18 +485,21 @@ bool RiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
       }
     }
     std::cout << "coord: " << coord.transpose() << std::endl;
-    coord = coord - map_center_;
-    std::cout << "relative coord: " << coord.transpose() << std::endl;
+    // coord = coord - map_center_;
+    // std::cout << "relative coord: " << coord.transpose() << std::endl;
 
-    if (coord(0) < -half_map_size_x || coord(0) >= half_map_size_x || coord(1) < -half_map_size_y ||
-        coord(1) >= half_map_size_y || coord(2) < half_map_size_z || coord(2) >= half_map_size_z) {
-      return false;
-    }
+    // if (coord(0) < -half_map_size_x || coord(0) >= half_map_size_x || coord(1) < -half_map_size_y
+    // ||
+    //     coord(1) >= half_map_size_y || coord(2) < half_map_size_z || coord(2) >= half_map_size_z)
+    //     {
+    //   return false;
+    // }
 
     // if (edt_environment_->evaluateCoarseEDT(coord, -1.0) <= margin_) {
     //   return false;
     // }
-    if (grid_map_->getInflateOccupancy(coord) == 1) {
+    if (grid_map_->getClearOcccupancy(coord) != 0) {
+      // if (grid_map_->getInflateOccupancy(coord) == 1) {
       return false;
     }
   }

@@ -302,7 +302,8 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
           pos      = xt.head(3);
           double t = cur_node->time + dt;
           if (is_testing_) {
-            if (grid_map_->getInflateOccupancy(pos, t) != 0) {
+            // if (grid_map_->getInflateOccupancy(pos, t) != 0) {
+            if (grid_map_->getClearOcccupancy(pos, t) != 0) {
               is_occ = true;
               Eigen::Vector4d obs;
               obs << pos, t;
@@ -314,7 +315,8 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
               visited_voxels_.push_back(obs);
             }
           } else {
-            if (grid_map_->getInflateOccupancy(pos, t) != 0) {
+            // if (grid_map_->getInflateOccupancy(pos, t) != 0) {
+            if (grid_map_->getClearOcccupancy(pos, t) != 0) {
               is_occ = true;
               break;
             }
@@ -482,10 +484,7 @@ bool FakeRiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
   Tm << 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 0;
 
   /* ---------- forward checking of trajectory ---------- */
-  double t_delta         = t_d / 10;
-  double half_map_size_x = map_size_(0) / 2;
-  double half_map_size_y = map_size_(1) / 2;
-  double half_map_size_z = map_size_(2) / 2;
+  double t_delta = t_d / 10;
 
   for (double time = t_delta; time <= t_d; time += t_delta) {
     t = VectorXd::Zero(4);
@@ -505,16 +504,9 @@ bool FakeRiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
       }
     }
     std::cout << "coord: " << coord.transpose() << std::endl;
-    coord = coord - map_center_;
-    std::cout << "relative coord: " << coord.transpose() << std::endl;
-
-    if (coord(0) < -half_map_size_x || coord(0) >= half_map_size_x || coord(1) < -half_map_size_y ||
-        coord(1) >= half_map_size_y || coord(2) < half_map_size_z || coord(2) >= half_map_size_z) {
+    if (grid_map_->getClearOcccupancy(coord) != 0) {
+      // if (grid_map_->getInflateOccupancy(coord) != 0) {
       return false;
-    }
-
-    if (grid_map_->getInflateOccupancy(coord + map_center_) == 1) {
-      return false; /* collision */
     }
   }
   coef_shot_    = coef;
