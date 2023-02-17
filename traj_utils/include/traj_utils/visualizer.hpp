@@ -207,6 +207,7 @@ class Visualizer {
   ros::Publisher  _mesh_pub;
   ros::Publisher  _edge_pub;
   ros::Publisher  _obstacle_pub;
+  ros::Publisher  _fov_pub;
   std::string     _frame_id;
   double          color_r = 0.0;
   double          color_g = 0.0;
@@ -233,14 +234,16 @@ class Visualizer {
     _text_pub          = _nh.advertise<visualization_msgs::Marker>("vis_text", 1);
     _mesh_pub          = _nh.advertise<visualization_msgs::Marker>("vis_mesh", 100);
     _edge_pub          = _nh.advertise<visualization_msgs::Marker>("vis_edge", 100);
+    _fov_pub           = _nh.advertise<visualization_msgs::Marker>("vis_fov", 100);
   }
   typedef std::shared_ptr<Visualizer> Ptr;
-  void                                visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
-                                                           const Bernstein::Bezier& traj,
-                                                           double                   max_vel);
-  void                                visualizePolyTraj(const Eigen::Vector3d&        start_pos,
-                                                        const polynomial::Trajectory& traj,
-                                                        double                        max_vel);
+
+  void visualizeBezierCurve(const Eigen::Vector3d&   start_pos,
+                            const Bernstein::Bezier& traj,
+                            double                   max_vel);
+  void visualizePolyTraj(const Eigen::Vector3d&        start_pos,
+                         const polynomial::Trajectory& traj,
+                         double                        max_vel);
   void visualizePolytope(const std::vector<Eigen::MatrixX4d>& hPolys);
   void visualizeCorridors(const traj_utils::Corridors& corridors, const Eigen::Vector3d& map_pose);
   void visualizeCorridors(const std::vector<Eigen::MatrixX4d>& corridors,
@@ -250,6 +253,11 @@ class Visualizer {
   void visualizeAstarPathXYT(const std::vector<Eigen::Vector3d>& points, double dt);
   void visualizeStartGoal(const Eigen::Vector3d& center, int sg = 1);
   void visualizeControlPoints(const Eigen::MatrixX3d& cpts);
+  void visualizeFOV(const Eigen::Vector3d&    pose,
+                    const Eigen::Quaterniond& attitude,
+                    double                    angle_h_deg,
+                    double                    angle_v_deg,
+                    double                    length);
   void displayOptimizationInfo(const double& comp_time,
                                const double& max_velocity,
                                const double& max_acceleration,

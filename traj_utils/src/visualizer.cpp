@@ -520,4 +520,81 @@ void Visualizer::displayOptimizationInfo(const double& comp_time,
   _text_pub.publish(textMarker);
 }
 
+Eigen::Vector3d rotateVectorByQuaternion(const Eigen::Vector3d& v, const Eigen::Quaterniond& q) {
+  Eigen::Quaterniond qvec, rst;
+  qvec.w()   = 0;
+  qvec.vec() = v;
+  rst        = q * qvec * q.inverse();
+  return rst.vec();
+}
+
+void Visualizer::visualizeFOV(const Eigen::Vector3d&    pose,
+                              const Eigen::Quaterniond& attitude,
+                              double                    angle_h_deg,
+                              double                    angle_v_deg,
+                              double                    length = 5) {
+  double angle_h = angle_h_deg / 180 * M_PI;
+  double angle_v = angle_v_deg / 180 * M_PI;
+
+  geometry_msgs::Point p_cam;
+  p_cam.x = pose.x();
+  p_cam.y = pose.y();
+  p_cam.z = pose.z();
+
+  geometry_msgs::Point p1, p2, p3, p4;
+
+  Eigen::Vector3d p1v(length, length * tan(angle_h / 2), length * tan(angle_v / 2));
+  p1v  = rotateVectorByQuaternion(p1v, attitude);
+  p1.x = p_cam.x + p1v.x();
+  p1.y = p_cam.y + p1v.y();
+  p1.z = p_cam.z + p1v.z();
+
+  Eigen::Vector3d p2v(length, -length * tan(angle_h / 2), length * tan(angle_v / 2));
+  p2v  = rotateVectorByQuaternion(p2v, attitude);
+  p2.x = p_cam.x + p2v.x();
+  p2.y = p_cam.y + p2v.y();
+  p2.z = p_cam.z + p2v.z();
+
+  Eigen::Vector3d p3v(length, length * tan(angle_h / 2), -length * tan(angle_v / 2));
+  p3v  = rotateVectorByQuaternion(p3v, attitude);
+  p3.x = p_cam.x + p3v.x();
+  p3.y = p_cam.y + p3v.y();
+  p3.z = p_cam.z + p3v.z();
+
+  Eigen::Vector3d p4v(length, -length * tan(angle_h / 2), -length * tan(angle_v / 2));
+  p4v  = rotateVectorByQuaternion(p4v, attitude);
+  p4.x = p_cam.x + p4v.x();
+  p4.y = p_cam.y + p4v.y();
+  p4.z = p_cam.z + p4v.z();
+
+  visualization_msgs::Marker fov;
+  fov.header.frame_id = "world";
+  fov.header.stamp    = ros::Time::now();
+  fov.action          = visualization_msgs::Marker::ADD;
+  fov.ns              = "lines_and_points";
+  fov.id              = 999;
+  fov.type            = 4;
+
+  fov.scale.x  = 0.1;
+  fov.scale.y  = 0.1;
+  fov.scale.z  = 0.1;
+  fov.color.r  = 0.8;
+  fov.color.g  = 0.5;
+  fov.color.b  = 0.5;
+  fov.color.a  = 0.8;
+  fov.lifetime = ros::Duration(0);
+
+  fov.points.push_back(p1);
+  fov.points.push_back(p2);
+  fov.points.push_back(p_cam);
+  fov.points.push_back(p4);
+  fov.points.push_back(p3);
+  fov.points.push_back(p_cam);
+  fov.points.push_back(p1);
+  fov.points.push_back(p3);
+  fov.points.push_back(p4);
+  fov.points.push_back(p2);
+  _fov_pub.publish(fov);
+}
+
 }  // namespace visualizer
