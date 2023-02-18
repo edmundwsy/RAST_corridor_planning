@@ -65,7 +65,7 @@ void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg)
   if (id == drone_id_) {
     return;
   }
-  int k = drone_id_to_index_[id];
+  // int k = drone_id_to_index_[id];
 
   if (is_checking_) {
     have_received_traj_while_checking_ = true;
@@ -91,10 +91,10 @@ void MADER::trajectoryCallback(const traj_utils::BezierTraj::ConstPtr &traj_msg)
   int order = traj_msg->order + 1;
 
   SwarmTraj traj;
-  traj.id              = traj_msg->drone_id;
-  traj.time_received   = ros::Time::now().toSec();
-  ros::Time time_pub   = traj_msg->pub_time;
-  ros::Time time_start = traj_msg->start_time;
+  traj.id            = traj_msg->drone_id;
+  traj.time_received = ros::Time::now().toSec();
+  ros::Time time_pub = traj_msg->pub_time;
+  // ros::Time time_start = traj_msg->start_time;
 
   ROS_INFO("[CA|A%i] traj communication delay %f ms", traj.id,
            (traj.time_received - time_pub.toSec()) * 1000);
@@ -164,7 +164,7 @@ bool MADER::isSafeAfterOpt(const Traj &traj) {
   is_checking_ = true;
   /* collision checking starts */
 
-  double          t = traj.getDuration();
+  // double          t = traj.getDuration();
   Eigen::MatrixXd cpts;
   traj.getCtrlPoints(cpts);
   /* checkin: check waypoints */
@@ -186,6 +186,13 @@ bool MADER::isSafeAfterOpt(const Traj &traj) {
     pointsB.clear();
     if (traj.time_start < t0 && t0 < traj.time_end) {
       Eigen::MatrixXd cpts = traj.traj.getCtrlPoints();
+
+      /* remove passed control points */
+      int order     = traj.traj.getOrder() + 1;
+      int piece_idx = traj.traj.locatePiece(t0 - traj.time_start);
+      cpts          = cpts.bottomRows(cpts.rows() - piece_idx * order);
+
+      /* add current control points */
       loadVertices(pointsB, cpts);
       ROS_INFO("[CA|A%i] time span (%f, %f)", traj.id, traj.time_start - t0, traj.time_end - t0);
 

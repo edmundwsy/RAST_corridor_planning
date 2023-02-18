@@ -13,6 +13,7 @@
 #include <ros/ros.h>
 
 #include <Eigen/Eigen>
+#include <cmath>
 #include <queue>
 
 #include "quadrotor_msgs/PositionCommand.h"
@@ -338,7 +339,9 @@ void PubCallback(const ros::TimerEvent &e) {
 int main(int argc, char **argv) {
   ros::init(argc, argv, "poly_traj_server");
   ros::NodeHandle nh("~");
+
   nh.param("offset", _offset, 0.00);
+
   ros::Timer      cmd_timer   = nh.createTimer(ros::Duration(0.01), PubCallback);
   ros::Subscriber traj_sub    = nh.subscribe("trajectory", 1, bezierCallback);
   ros::Subscriber trigger_sub = nh.subscribe("/traj_start_trigger", 10, triggerCallback);
@@ -350,6 +353,15 @@ int main(int argc, char **argv) {
 
   nh.getParam("replan_time_threshold", _replan_thres);
   _vis_ptr.reset(new TrajSrvVisualizer(nh));
+
+  double init_qx, init_qy, init_qz, init_qw;
+  nh.param("init_qw", init_qw, 1.0);
+  nh.param("init_qx", init_qx, 0.0);
+  nh.param("init_qy", init_qy, 0.0);
+  nh.param("init_qz", init_qz, 0.0);
+
+  _last_yaw = atan2(2.0 * (init_qw * init_qz + init_qx * init_qy),
+                    1.0 - 2.0 * (init_qy * init_qy + init_qz * init_qz));
 
   ros::Duration(3.0).sleep();
   ROS_INFO("[TrajSrv]: ready to receive trajectory");
