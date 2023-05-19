@@ -13,10 +13,12 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   nav_msgs
+  pcl_conversions
   quadrotor_msgs
   visualization_msgs
 )
 
+find_package(PCL 1.7 REQUIRED)
 find_package(Eigen3 REQUIRED)
 set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 
@@ -30,8 +32,11 @@ include_directories(
   SYSTEM
   include
   ${catkin_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
   ${Eigen3_INCLUDE_DIRS}
 )
+
+link_directories(${PCL_LIBRARY_DIRS})
 
 add_executable(noise_maker src/noise_maker.cpp)
 target_link_libraries(noise_maker ${catkin_LIBRARIES})
@@ -44,3 +49,11 @@ target_link_libraries(trigger ${catkin_LIBRARIES})
 
 add_executable(odom_local2global src/odom_local2global.cpp)
 target_link_libraries(odom_local2global ${catkin_LIBRARIES})
+
+add_executable(calculate_density src/calculate_density.cpp)
+target_link_libraries(calculate_density ${catkin_LIBRARIES}     ${PCL_LIBRARIES}
+)
+
+add_executable(predictor src/predictor.cpp)
+target_link_libraries(predictor ${catkin_LIBRARIES}     ${PCL_LIBRARIES}
+)

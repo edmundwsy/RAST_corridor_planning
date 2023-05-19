@@ -20,14 +20,21 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <traj_coordinator/mader.hpp>
+#include <Eigen/Geometry>
 
 struct Cylinder {
+  int    type;
   double x;   // x coordinate
   double y;   // y coordinate
+  double z;   // y coordinate
   double w;   // width
   double h;   // height
   double vx;  // velocity x
   double vy;  // velocity y
+  double qw;
+  double qx;  // quaternion x
+  double qy;  // quaternion y
+  double qz;  // quaternion z
 };
 
 /**

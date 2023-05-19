@@ -17,7 +17,7 @@ cal_parser.add_argument("--id", type=int, default="0")
 cal_parser.add_argument("--num_agents", type=int, default="4")
 
 
-file_root = "/home/siyuan/.ros/log/latest/"
+file_root = "/home/siyuan/.ros/log/latest"
 file_name = "multi_eval-1-stdout.log"
 
 file_path = os.path.join(file_root, file_name)
@@ -99,28 +99,36 @@ def get_collision_occurance(d, idx):
     return n_collision
 
 
-def get_no_path_collision(d):
+def get_no_path_collision(d, is_print=False):
     dist = d[:, 12]
     danger_idx = np.where(dist < 0.0)[0]
     if len(danger_idx) == 0:
         """No collision"""
         return 0
     interval = np.where(np.diff(danger_idx) > 5)[0] + 1
-    collision_list = np.split(danger_idx, interval)[:-1]
-    # print("danger: ", danger_idx)
-    # print("gap : ", interval)
-    # print("collision list: ", collision_list)
+    if 1 not in interval:
+        interval = np.insert(interval, 0, 1)
+    collision_list = np.split(danger_idx, interval)
+    collision_list = [c for c in collision_list if len(c) > 0]
+    if is_print:
+        print("danger: ", danger_idx)
+        print("gap : ", interval)
+        print(np.split(danger_idx, interval))
+        print("collision list: ", collision_list)
 
     min_dist_idx = np.array([c[np.argmin(dist[c])] for c in collision_list])
-    # print("min dist: ", min_dist_idx)
 
     vx = d[:, 4]
     vy = d[:, 5]
     vz = d[:, 6]
     v = np.sqrt(vx**2 + vy**2 + vz**2)
     vel_zero_idx = np.where(v < 1e-3)[0]
-    print("vel 0 : ", vel_zero_idx)
-    print("occurances: ", len(np.intersect1d(min_dist_idx, vel_zero_idx)))
+
+    if is_print:
+        print("min dist idx: ", min_dist_idx)
+        print("vel 0 : ", vel_zero_idx)
+        print("occurances: ", len(np.intersect1d(min_dist_idx, vel_zero_idx)))
+
     return len(np.intersect1d(min_dist_idx, vel_zero_idx))
 
 
@@ -217,7 +225,11 @@ if __name__ == "__main__":
     # plot_v_t(data[1])
     n_collide = np.array([get_collision_occurance(d, 12) for d in data])
     print(n_collide)
-    get_no_path_collision(data[0])
+    print("data 0 no path collision", get_no_path_collision(data[0], True))
+    print("data 1 no path collision", get_no_path_collision(data[1], True))
+    print("data 2 no path collision", get_no_path_collision(data[2], True))
+    print("data 3 no path collision", get_no_path_collision(data[3], True))
+    # get_no_path_collision(data[3])
 
     # plot_reciprocal_distance(data[args.id])
     # plot_obstacle_distance(data[args.id])

@@ -54,8 +54,8 @@ add_library(${PROJECT_NAME}
   src/fake_plan_manager.cpp # Debug
 
   # robust mader
-  src/rmader/fake_rmader.cpp
-  src/rmader/fake_rmader_plan_manager.cpp
+  # src/rmader/fake_rmader.cpp
+  # src/rmader/fake_rmader_plan_manager.cpp
 )
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
@@ -70,8 +70,8 @@ target_link_libraries(baseline ${catkin_LIBRARIES} ${PROJECT_NAME})
 add_executable(fake_baseline src/fake_planner_node.cpp)
 target_link_libraries(fake_baseline ${catkin_LIBRARIES} ${PROJECT_NAME})
 
-add_executable(test_firi src/test_firi_node.cpp)
-target_link_libraries(test_firi ${catkin_LIBRARIES} ${PROJECT_NAME})
+# add_executable(test_firi src/test_firi_node.cpp)
+# target_link_libraries(test_firi ${catkin_LIBRARIES} ${PROJECT_NAME})
 
-add_executable(rmader src/rmader/fake_rmader_node.cpp)
-target_link_libraries(rmader ${catkin_LIBRARIES} ${PROJECT_NAME})
+# add_executable(rmader src/rmader/fake_rmader_node.cpp)
+# target_link_libraries(rmader ${catkin_LIBRARIES} ${PROJECT_NAME})

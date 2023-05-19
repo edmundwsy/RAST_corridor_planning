@@ -418,7 +418,7 @@ void MapBase::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
 
   int idx_start = floor((t_start - t0) / time_resolution_);
   int idx_end   = ceil((t_end - t0) / time_resolution_);
-  std::cout << "idx_start" << idx_start << "idx_end" << idx_end << std::endl;
+  // std::cout << "idx_start" << idx_start << "idx_end" << idx_end << std::endl;
   int lx = (lower_corner[0] - pose_.x() + local_update_range_x_) / resolution_;
   int ly = (lower_corner[1] - pose_.y() + local_update_range_y_) / resolution_;
   int lz = (lower_corner[2] - pose_.z() + local_update_range_z_) / resolution_;
@@ -433,11 +433,14 @@ void MapBase::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
   ly = std::max(ly, 0);
   lz = std::max(lz, 0);
 
+  // std::cout << "z" << hz - lz << std::endl;
+  // std::cout << "y" << hy - ly << std::endl;
+  // std::cout << "x" << hx - lx << std::endl;
   for (int z = lz; z <= hz; z++) {
     for (int y = ly; y <= hy; y++) {
       for (int x = lx; x <= hx; x++) {
         int i = x + y * MAP_LENGTH_VOXEL_NUM + z * MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM;
-        for (int j = idx_start; j < idx_end; j++) {
+        for (int j = idx_start; j <= idx_end; j++) {
           if (risk_maps_[i][j] > risk_threshold_) {
             points.emplace_back(getVoxelPosition(i).cast<double>());
           }

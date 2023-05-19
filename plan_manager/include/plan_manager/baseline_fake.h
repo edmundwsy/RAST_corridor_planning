@@ -23,7 +23,7 @@
 #include <traj_utils/BezierTraj.h>
 #include <bernstein/bezier_optimizer.hpp>
 // #include <plan_manager/mader_deconfliction.hpp>
-#include <sfc_gen/sfc_gen.hpp>
+#include <sfc_gen/firi.hpp>
 #include <traj_coordinator/mader.hpp>
 #include <traj_utils/bernstein.hpp>
 #include <traj_utils/corridor.hpp>
@@ -44,6 +44,7 @@ struct FakeBaselineParameters {
   double opt_max_acc    = 4.0;
   double delta_corridor = 0.3;
   double init_range     = 1.0;
+  double min_volumn     = 0.5;
 
   bool  use_height_limit = true;
   float height_limit_max = 2.2f;
@@ -83,6 +84,7 @@ struct FakeBaselineParameters {
     nh.getParam("planner/planning_time_step", planning_time_step);
     nh.getParam("planner/trajectory_piece_max_size", trajectory_piece_max_size);
     nh.getParam("corridor/init_range", init_range);
+    nh.getParam("corridor/min_volumn", min_volumn);
 
     nh.getParam("optimizer/max_vel_optimization", opt_max_vel);
     nh.getParam("optimizer/max_acc_optimization", opt_max_acc);

@@ -22,7 +22,7 @@
 #include <traj_utils/BezierTraj.h>
 #include <bernstein/bezier_optimizer.hpp>
 // #include <plan_manager/mader_deconfliction.hpp>
-#include <sfc_gen/sfc_gen.hpp>
+#include <sfc_gen/firi.hpp>
 #include <traj_coordinator/mader.hpp>
 #include <traj_utils/bernstein.hpp>
 #include <traj_utils/corridor.hpp>

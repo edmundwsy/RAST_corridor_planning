@@ -6,7 +6,7 @@
   <arg name="init_qx" default="0"/>
   <arg name="init_qy" default="0"/>
   <arg name="init_qz" default="0"/>
-  <arg name="init_qw" default="1"/>
+  <arg name="init_qw" default="0"/>
   <arg name="goal_x"/>
   <arg name="goal_y"/>
   <arg name="goal_z"/>

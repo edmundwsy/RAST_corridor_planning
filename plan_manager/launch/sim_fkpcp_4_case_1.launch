@@ -9,9 +9,9 @@
   <arg name="rviz" default="True" />
 
   <include file="$(find plan_manager)/launch/simulator/simulator_fake.launch">
-    <arg name="map_mode" value="2" />
+    <arg name="map_mode" value="1" />
     <arg name="map_size_x" value="$(arg map_size_x)" />
-    <arg name="map_size_y" value="$(arg makp_size_y)" />
+    <arg name="map_size_y" value="$(arg map_size_y)" />
     <arg name="map_size_z" value="$(arg map_size_z)" />
     <arg name="obs_num" value="$(arg obs_num)" />
   </include>

@@ -224,6 +224,7 @@ bool FakeBaselinePlanner::plan() {
   for (int i = 0; i < route.size(); i++) {
     route[i] = route_vel[i].head(3); /* copy position to route */
     std::cout << "route[" << i << "] = " << route[i].transpose() << std::endl;
+    if (route[i].z() < 0) route[i].z() = 0.1;
   }
 
   std::vector<Eigen::Vector3d> pc;
@@ -231,6 +232,8 @@ bool FakeBaselinePlanner::plan() {
 
   Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, -1) + odom_pos_;
   Eigen::Vector3d higher_corner = Eigen::Vector3d(4, 4, 1) + odom_pos_;
+  if (lower_corner.z() < 0) lower_corner.z() = 0;
+  if (higher_corner.z() > 4) higher_corner.z() = 4;
 
   t1 = ros::Time::now();
   for (int i = 0; i < route.size() - 1; i++) {
@@ -261,21 +264,34 @@ bool FakeBaselinePlanner::plan() {
     Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> m_pc(pc[0].data(), 3,
                                                                          pc.size());
 
-    ros::Time t3 = ros::Time::now();
-    firi::firi(bd, m_pc, route[i], route[i + 1], hPoly, 2);
+    ros::Time       t3 = ros::Time::now();
+    Eigen::Vector3d r  = Eigen::Vector3d::Ones();
+    firi::firi(bd, m_pc, route[i], route[i + 1], hPoly, r, 2);
     ros::Time t4 = ros::Time::now();
+    if (r.x() * r.y() * r.z() < cfg_.min_volumn) {
+      std::cout << "ellipsoid radius  " << r.transpose() << " volumn: " << r.x() * r.y() * r.z()
+                << std::endl;
+      this->showObstaclePoints(pc);
+      break;
+    }
+
     ROS_INFO("[FIRI] %ith corridor takes %f ms", i, (t4 - t3).toSec() * 1000);
     hPolys.push_back(hPoly);
-    this->showObstaclePoints(pc);
   }
+  this->showObstaclePoints(pc);
 
   t2 = ros::Time::now();
-  ROS_INFO("[CrdGen] cost: %f ms", (t2 - t1).toSec() * 1000);
+  ROS_INFO("[CrdGen] Gen %i corridors cost: %f ms", hPolys.size(), (t2 - t1).toSec() * 1000);
   visualizer_->visualizePolytope(hPolys);
+
+  if (hPolys.size() == 0) {
+    ROS_ERROR("Cannot find safety corridors!");
+    setEmptyTrajectory(); /* set current position as traj to prevent planning failed */
+    return false;
+  }
 
   /*----- Trajectory Optimization -----*/
   std::cout << "/*----- Trajectory Optimization -----*/" << std::endl;
-  std::cout << "hPolys size: " << hPolys.size() << std::endl;
   // std::cout << "route size: " << route.size() << std::endl;
 
   /* Goal position and time allocation */

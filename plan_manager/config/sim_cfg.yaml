@@ -9,8 +9,8 @@ fsm:
 search:
   max_tau: 2.0
   init_max_tau: 0.8
-  max_vel: 3.0
-  max_acc: 10.0
+  max_vel: 2.0
+  max_acc: 6.0
   w_time: 10.0
   horizon: 5.0
   lambda_heu: 5.0
@@ -33,8 +33,8 @@ optimizer:
   snap_factor: 1.0 # minimum snap
   delta_corridor: 0.4
 
-  max_vel_optimization: 3 # Constraint in optimization. A little larger than max_vel
-  max_acc_optimization: 10 # Constraint in optimization. A little larger than max_acc
+  max_vel_optimization: 2 # Constraint in optimization. A little larger than max_vel
+  max_acc_optimization: 6 # Constraint in optimization. A little larger than max_acc
 
 map:
   booleans:

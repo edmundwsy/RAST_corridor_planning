@@ -848,7 +848,7 @@ Visualization Manager:
       Marker Topic: /map_generator/global_cylinders_vis
       Name: MarkerArray
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -914,7 +914,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 5.207420349121094
+      Distance: 22.121252059936523
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -922,17 +922,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -0.7377806901931763
-        Y: -0.38299667835235596
+        X: -0.21770888566970825
+        Y: -5.1945343017578125
         Z: -2.7662379125104053e-06
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7697970867156982
+      Pitch: 1.3047966957092285
       Target Frame: <Fixed Frame>
-      Yaw: 4.69044828414917
+      Yaw: 4.685448169708252
     Saved:
       - Angle: 0
         Class: rviz/TopDownOrtho

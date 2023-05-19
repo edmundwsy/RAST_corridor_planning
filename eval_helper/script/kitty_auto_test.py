@@ -22,11 +22,14 @@ import calculate
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--world", type=str, default="_4uav_20obs_v2_a8_cls0.15_", help="world name"
+    "--world",
+    type=str,
+    default="ours_4uav_circle_case0_40obs_v2_a6_cls0.15_ir1.5",
+    help="world name",
 )
 parser.add_argument("--iters", type=int, default="1", help="number of agents")
 parser.add_argument("--num_agents", type=int, default="4", help="number of agents")
-parser.add_argument("--save_path", type=str, default="results", help="folder name")
+parser.add_argument("--save_path", type=str, default="", help="folder name")
 parser.add_argument("--waiting_time", type=float, default="20", help="waiting time")
 parser.add_argument(
     "--node_name", type=str, default="/uav0/planner", help="key planning node name"
@@ -46,8 +49,8 @@ parser.add_argument(
 parser.add_argument(
     "--cmd_launch",
     type=str,
-    default="roslaunch plan_manager sim_baseline_fkpcp_4.launch rviz:=false",
-    # default="roslaunch plan_manager sim_baseline_fkpcp_4.launch rviz:=true",
+    # default="roslaunch plan_manager sim_baseline_fkpcp_4.launch rviz:=false",
+    default="roslaunch plan_manager sim_fkpcp_4_case_3.launch rviz:=true obs_num:=50",
 )
 parser.add_argument("--cmd_trigger", type=str, default="rosrun eval_helper trigger")
 
@@ -76,7 +79,7 @@ def stopNode(node_name):
 def startAll(arg):
     # Start the planner
     os.system("kitty @ launch bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_launch))
-    time.sleep(0.5)
+    time.sleep(1)
     # Start the recorder
     os.system("kitty @ launch bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_recorder))
     time.sleep(4)
@@ -136,7 +139,7 @@ def findAndRecord(args, save_path):
 
 
 def run(arg):
-    save_path = arg.save_path + "_" + arg.world + "_ground_truth" + ".csv"
+    save_path = arg.save_path + arg.world + "_ground_truth" + ".csv"
 
     if not arg.no_run:
         cleanROSLog()
@@ -200,7 +203,7 @@ def run(arg):
         time.sleep(1)
         stopAll()
 
-    arr = findAndRecord(args, save_path)
+    arr = findAndRecord(arg, save_path)
     if arr is not None:
         with open(save_path, "a") as result:
             csv_row = ["{:.4f}".format(a) for a in arr]
@@ -213,7 +216,9 @@ def run(arg):
 if __name__ == "__main__":
     args = parser.parse_args()
     for i in range(args.iters):
+        print("=====    Iteration: {}    =====".format(i))
         run(args)
+        time.sleep(1)
     # print(args.no_run)
     # save_path = args.save_path + args.world + "_measurement_noise_" + ".csv"
     # print(findAndRecord(args, save_path))

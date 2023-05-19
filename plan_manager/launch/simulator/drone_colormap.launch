@@ -25,4 +25,28 @@
     <param name="odom_visualization/color/b" value="0.729" />
   </group>
 
+  <group if="$(eval drone_id == 4)">
+    <param name="odom_visualization/color/r" value="0.647" />
+    <param name="odom_visualization/color/g" value="0.937" />
+    <param name="odom_visualization/color/b" value="0.729" />
+  </group>
+
+  <group if="$(eval drone_id == 5)">
+    <param name="odom_visualization/color/r" value="0.647" />
+    <param name="odom_visualization/color/g" value="0.937" />
+    <param name="odom_visualization/color/b" value="0.729" />
+  </group>
+
+  <group if="$(eval drone_id == 6)">
+    <param name="odom_visualization/color/r" value="0.647" />
+    <param name="odom_visualization/color/g" value="0.937" />
+    <param name="odom_visualization/color/b" value="0.729" />
+  </group>
+
+  <group if="$(eval drone_id == 7)">
+    <param name="odom_visualization/color/r" value="0.647" />
+    <param name="odom_visualization/color/g" value="0.937" />
+    <param name="odom_visualization/color/b" value="0.729" />
+  </group>
+
 </launch>

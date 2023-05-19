@@ -22,7 +22,8 @@ search:
   check_num: 5
 
 corridor:
-  init_range: 1.0
+  init_range: 1.5
+  min_volumn: 0.1
   risk_threshold_single_voxel: 0.15 # Useless
   risk_threshold_corridor: 3.0 # Useless
 
@@ -68,7 +69,7 @@ map:
   local_map_margin: 10
   ground_height: -0.01
 
-  clearance: 0.15
+  clearance: 0.3
 
   publish_spatio_temporal: true
   virtual_ceil_height: 2.9

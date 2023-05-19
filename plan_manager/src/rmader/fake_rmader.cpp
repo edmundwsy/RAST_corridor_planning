@@ -249,8 +249,9 @@ bool FakeRmaderPlanner::plan() {
     Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> m_pc(pc[0].data(), 3,
                                                                          pc.size());
 
-    ros::Time t3 = ros::Time::now();
-    firi::firi(bd, m_pc, route[i], route[i + 1], hPoly, 2);
+    ros::Time       t3 = ros::Time::now();
+    Eigen::Vector3d r  = Eigen::Vector3d::Ones();
+    firi::firi(bd, m_pc, route[i], route[i + 1], hPoly, r, 2);
     ros::Time t4 = ros::Time::now();
     ROS_INFO("[FIRI] %ith corridor takes %f ms", i, (t4 - t3).toSec() * 1000);
     hPolys.push_back(hPoly);

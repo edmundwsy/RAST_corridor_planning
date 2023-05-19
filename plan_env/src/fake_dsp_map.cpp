@@ -199,23 +199,37 @@ void FakeRiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_ms
   }
 
   for (auto &i : obs_idx_list) {
-    Eigen::Vector3f pt        = getVoxelPosition(i);
-    int             obs_count = 0;
+    Eigen::Vector3f pt = getVoxelPosition(i);
+
+    Eigen::Vector3f vel(0, 0, 0);
     for (auto &cyl : gt_cylinders_) {
-      Eigen::Vector3f pt_cyl       = Eigen::Vector3f(cyl.x, cyl.y, pt.z());
-      Eigen::Vector3f pt_cyl_local = pt_cyl - pose_;
-      if (!isInRange(pt_cyl_local)) continue;
-      float dist = (pt - pt_cyl).norm();
-      if (dist <= cyl.w + clearance_) {
-        Eigen::Vector3f vel = Eigen::Vector3f(cyl.vx, cyl.vy, 0.0F);
-        for (int k = 1; k < PREDICTION_TIMES; k++) {
-          Eigen::Vector3f pt_pred = pt + vel * time_resolution_ * k - pose_;
-          if (isInRange(pt_pred)) {
-            risk_maps_[getVoxelIndex(pt_pred)][k] = 1.0F;
-          }
+      if (cyl.type == 3) {
+        Eigen::Vector3f pt_cyl = Eigen::Vector3f(cyl.x, cyl.y, pt.z());
+        float           dist   = (pt - pt_cyl).norm();
+        if (dist <= cyl.w + clearance_) {
+          vel = Eigen::Vector3f(cyl.vx, cyl.vy, 0.0F);
+          break;
         }
-        obs_count++;
-        if (obs_count > 4) break;
+      } else if (cyl.type == 2) {
+        Eigen::Vector3f             pt_cyl = Eigen::Vector3f(cyl.x, cyl.y, cyl.z);
+        Eigen::Quaternionf          q      = Eigen::Quaternionf(cyl.qw, cyl.qx, cyl.qy, cyl.qz);
+        Eigen::Hyperplane<float, 3> plane =
+            Eigen::Hyperplane<float, 3>::Through(pt_cyl,pt_cyl +  q * Eigen::Vector3f(0, 1, 0), pt_cyl + q * Eigen::Vector3f(1, 0, 0));
+        Eigen::Vector3f b             = plane.projection(pt);
+        float           dist_to_plane = plane.absDistance(pt);
+        float           dist          = (pt_cyl - b).norm();
+        if (abs(cyl.w / 2- dist) < 2 * resolution_ && dist_to_plane <2 *  resolution_) {
+          vel = Eigen::Vector3f(cyl.vx, cyl.vy, 0.0F);
+          break;
+        }
+      } else {
+        std::cout << "unknown type: " << cyl.type << std::endl;
+      }
+    }
+    for (int k = 1; k < PREDICTION_TIMES; k++) {
+      Eigen::Vector3f pt_pred = pt + vel * time_resolution_ * k - pose_;
+      if (isInRange(pt_pred)) {
+        risk_maps_[getVoxelIndex(pt_pred)][k] = 1.0F;
       }
     }
   }
@@ -258,11 +272,17 @@ void FakeRiskVoxel::groundTruthStateCallback(
   gt_cylinders_.resize(n);
 
   for (auto &mk : state_msg->markers) {
-    gt_cylinders_[mk.id].x  = mk.points[0].x;
-    gt_cylinders_[mk.id].y  = mk.points[0].y;
-    gt_cylinders_[mk.id].w  = mk.scale.x;
-    gt_cylinders_[mk.id].h  = mk.points[0].z;
-    gt_cylinders_[mk.id].vx = mk.points[1].x - mk.points[0].x;
-    gt_cylinders_[mk.id].vy = mk.points[1].y - mk.points[0].y;
+    gt_cylinders_[mk.id].type = mk.type;
+    gt_cylinders_[mk.id].x    = mk.pose.position.x;
+    gt_cylinders_[mk.id].y    = mk.pose.position.y;
+    gt_cylinders_[mk.id].z    = mk.pose.position.z;
+    gt_cylinders_[mk.id].w    = mk.scale.x;
+    gt_cylinders_[mk.id].h    = mk.points[0].z;
+    gt_cylinders_[mk.id].vx   = mk.points[1].x - mk.points[0].x;
+    gt_cylinders_[mk.id].vy   = mk.points[1].y - mk.points[0].y;
+    gt_cylinders_[mk.id].qw   = mk.pose.orientation.w;
+    gt_cylinders_[mk.id].qx   = mk.pose.orientation.x;
+    gt_cylinders_[mk.id].qy   = mk.pose.orientation.y;
+    gt_cylinders_[mk.id].qz   = mk.pose.orientation.z;
   }
 }

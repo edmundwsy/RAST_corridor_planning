@@ -7,9 +7,6 @@
   <arg name="uav0_init_qy" default="0"/>
   <arg name="uav0_init_qz" default="0"/>
   <arg name="uav0_init_qw" default="1"/>
-  <arg name="uav0_goal_x" default="0"/>
-  <arg name="uav0_goal_y" default="0"/>
-  <arg name="uav0_goal_z" default="1"/>
 
   <arg name="uav1_init_x" default="-8"/>
   <arg name="uav1_init_y" default="0"/>
@@ -18,9 +15,6 @@
   <arg name="uav1_init_qy" default="0"/>
   <arg name="uav1_init_qz" default="0"/>
   <arg name="uav1_init_qw" default="1"/>
-  <arg name="uav1_goal_x" default="0"/>
-  <arg name="uav1_goal_y" default="0"/>
-  <arg name="uav1_goal_z" default="1"/>
   <env name="ROSCONSOLE_FORMAT" value="[${node}][${severity}]:${message}"/>
     <!-- MAVROS posix SITL environment launch script -->
     <!-- launches Gazebo environment and 2x: MAVROS, PX4 SITL, and spawns vehicle -->

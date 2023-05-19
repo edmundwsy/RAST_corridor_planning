@@ -40,6 +40,7 @@
     <param name="map/local_update_range_z" value="3.5" />
     <param name="map/clearance" value="0.15" />
     <param name="map/booleans/pub_spatio_temporal" value="true" />
+    <param name="map/booleans/pub_world_frame" value="false" />
 
     <param name="search/is_test" value="true" type="bool"/>
     <param name="search/max_tau" value="1.6" type="double"/>
@@ -69,13 +70,20 @@
     <param name="map/frame_id" value="world" />
     <param name="map/test" value="true" />
     <param name="ObstacleShape/seed" value="-1" />
-    <param name="map/obs_num" value="20" />
+    <param name="map/obs_num" value="2" />
     <param name="ObstacleShape/lower_rad" value="0.3" />
     <param name="ObstacleShape/upper_rad" value="0.8" />
     <param name="ObstacleShape/lower_hei" value="4.0" />
     <param name="ObstacleShape/upper_hei" value="4.0" />
     <param name="ObstacleShape/upper_vel" value="0.2" />
     <param name="ObstacleShape/set_cylinder" value="true" />
+    <param name="map/circle_num" value="5"/>        
+    <param name="ObstacleShape/radius_l" value="0.7"/>        
+    <param name="ObstacleShape/radius_h" value="2.5"/>        
+    <param name="ObstacleShape/z_l" value="0.8"/>        
+    <param name="ObstacleShape/z_h" value="2.0"/>        
+    <param name="ObstacleShape/dr" value="0.0"/>        
+    <param name="ObstacleShape/theta" value="0.2"/>        
     <param name="sensing/radius" value="5.0" />
     <param name="sensing/rate" value="10.0" />
   </node>

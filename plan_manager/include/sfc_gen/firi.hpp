@@ -72,7 +72,7 @@ inline bool smoothedL1(const double &mu, const double &x, double &f, double &df)
 }
 
 inline double costMVIE(void *data, const Eigen::VectorXd &x, Eigen::VectorXd &grad) {
-  const int *   pM         = (int *)data;
+  const int    *pM         = (int *)data;
   const double *pSmoothEps = (double *)(pM + 1);
   const double *pPenaltyWt = pSmoothEps + 1;
   const double *pA         = pPenaltyWt + 1;
@@ -144,9 +144,9 @@ inline double costMVIE(void *data, const Eigen::VectorXd &x, Eigen::VectorXd &gr
 // R, p, r are ALWAYS taken as the initial guess
 // R is also assumed to be a rotation matrix
 inline bool maxVolInsEllipsoid(const Eigen::MatrixX4d &hPoly,
-                               Eigen::Matrix3d &       R,
-                               Eigen::Vector3d &       p,
-                               Eigen::Vector3d &       r) {
+                               Eigen::Matrix3d        &R,
+                               Eigen::Vector3d        &p,
+                               Eigen::Vector3d        &r) {
   // Find the deepest interior point
   const int            M = hPoly.rows();
   Eigen::MatrixX4d     Alp(M, 4);
@@ -166,10 +166,10 @@ inline bool maxVolInsEllipsoid(const Eigen::MatrixX4d &hPoly,
 
   // Prepare the data for MVIE optimization
   uint8_t *optData    = new uint8_t[sizeof(int) + (2 + 3 * M) * sizeof(double)];
-  int *    pM         = (int *)optData;
-  double * pSmoothEps = (double *)(pM + 1);
-  double * pPenaltyWt = pSmoothEps + 1;
-  double * pA         = pPenaltyWt + 1;
+  int     *pM         = (int *)optData;
+  double  *pSmoothEps = (double *)(pM + 1);
+  double  *pPenaltyWt = pSmoothEps + 1;
+  double  *pA         = pPenaltyWt + 1;
 
   *pM = M;
   Eigen::Map<Eigen::MatrixX3d> A(pA, M, 3);
@@ -237,9 +237,10 @@ inline bool maxVolInsEllipsoid(const Eigen::MatrixX4d &hPoly,
 
 inline bool firi(const Eigen::MatrixX4d &bd,
                  const Eigen::Matrix3Xd &pc,
-                 const Eigen::Vector3d & a,
-                 const Eigen::Vector3d & b,
-                 Eigen::MatrixX4d &      hPoly,
+                 const Eigen::Vector3d  &a,
+                 const Eigen::Vector3d  &b,
+                 Eigen::MatrixX4d       &hPoly,
+                 Eigen::Vector3d        &r,
                  const int               iterations = 4,
                  const double            epsilon    = 1.0e-6) {
   const Eigen::Vector4d ah(a(0), a(1), a(2), 1.0);
@@ -252,9 +253,9 @@ inline bool firi(const Eigen::MatrixX4d &bd,
   const int M = bd.rows();
   const int N = pc.cols();
 
-  Eigen::Matrix3d  R = Eigen::Matrix3d::Identity();
-  Eigen::Vector3d  p = 0.5 * (a + b);
-  Eigen::Vector3d  r = Eigen::Vector3d::Ones();
+  Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
+  Eigen::Vector3d p = 0.5 * (a + b);
+  // Eigen::Vector3d  r = Eigen::Vector3d::Ones();
   Eigen::MatrixX4d forwardH(M + N, 4);
   int              nH = 0;
 
