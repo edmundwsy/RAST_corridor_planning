@@ -15,6 +15,7 @@
 #include <Eigen/Eigen>
 #include <cmath>
 #include <queue>
+#include <string>
 
 #include "quadrotor_msgs/PositionCommand.h"
 #include "traj_server/visualizer.hpp"
@@ -23,6 +24,8 @@
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 
 /* ----- GLOBAL VARIABLES ----- */
+const bool if_vis_cmd = true;
+
 ros::Publisher _pos_cmd_pub, _pva_pub, _vis_pub;
 ros::Publisher _error_pub;
 
@@ -166,7 +169,12 @@ void publishCmd(const Eigen::Vector3d &pos,
   cmd_msg.acceleration.x = acc(0);
   cmd_msg.acceleration.y = acc(1);
   cmd_msg.acceleration.z = acc(2);
+
   _pos_cmd_pub.publish(cmd_msg);
+
+  if (if_vis_cmd) {
+    _vis_ptr->visualizeCmd(cmd_msg);
+  }
 }
 
 /**
@@ -333,6 +341,7 @@ void PubCallback(const ros::TimerEvent &e) {
 
   /** publish tracking error */
   pubTrackingError(p.pos, _odom_pos);
+
   return;
 }
 
@@ -340,7 +349,13 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "poly_traj_server");
   ros::NodeHandle nh("~");
 
+  double init_qx, init_qy, init_qz, init_qw;
+  nh.param("init_qw", init_qw, 1.0);
+  nh.param("init_qx", init_qx, 0.0);
+  nh.param("init_qy", init_qy, 0.0);
+  nh.param("init_qz", init_qz, 0.0);
   nh.param("offset", _offset, 0.00);
+  nh.getParam("replan_time_threshold", _replan_thres);
 
   ros::Timer      cmd_timer   = nh.createTimer(ros::Duration(0.01), PubCallback);
   ros::Subscriber traj_sub    = nh.subscribe("trajectory", 1, bezierCallback);
@@ -351,14 +366,7 @@ int main(int argc, char **argv) {
 
   _error_pub = nh.advertise<geometry_msgs::PointStamped>("error", 1);
 
-  nh.getParam("replan_time_threshold", _replan_thres);
   _vis_ptr.reset(new TrajSrvVisualizer(nh));
-
-  double init_qx, init_qy, init_qz, init_qw;
-  nh.param("init_qw", init_qw, 1.0);
-  nh.param("init_qx", init_qx, 0.0);
-  nh.param("init_qy", init_qy, 0.0);
-  nh.param("init_qz", init_qz, 0.0);
 
   _last_yaw = atan2(2.0 * (init_qw * init_qz + init_qx * init_qy),
                     1.0 - 2.0 * (init_qy * init_qy + init_qz * init_qz));
