@@ -1,3 +1,4 @@
+<?xml version="1.0"?>
 <launch>
   <arg name="drone_id" default="0" />
   <arg name="init_x" default="0"/>
@@ -16,14 +17,15 @@
 
   <arg name="odom_topic" value="/uav$(arg drone_id)/mavros/global_position/odom"/>
   <arg name="pose_topic" value="/uav$(arg drone_id)/mavros/global_position/pose"/>
+  <arg name="depth_topic" value="/iris_D435i$(arg drone_id)/depth/color/points"/>
   <arg name="is_pose_subscribed" value="true" />
 
-  <!-- <node pkg="plan_manager" name="planner" type="baseline" output="screen"> -->
-  <node pkg="plan_manager" name="planner" type="baseline">
+  <node pkg="plan_manager" name="planner" type="baseline" output="screen">
+  <!-- <node pkg="plan_manager" name="planner" type="baseline"> -->
     <!-- Topics -->
     <remap from="~pose" to="$(arg pose_topic)" />
     <remap from="~map/odom" to="$(arg odom_topic)" />
-    <remap from="~map/cloud" to="/uav$(arg drone_id)/camera/depth/points" />
+    <remap from="~map/cloud" to="$(arg depth_topic)" />
     <remap from="~map/pose" to="$(arg pose_topic)" />
     
     <rosparam file="$(find plan_manager)/config/sim_cfg.yaml" command="load" />
@@ -44,12 +46,13 @@
     <param name="map/booleans/sub_pose" value="$(arg is_pose_subscribed)" />
   </node>
 
-    <node pkg="traj_server" name="traj_server" type="bezier_traj_server" output="screen">
-      <remap from="~trajectory" to="planner/trajectory" />
-      <remap from="/position_cmd" to="tracker/pos_cmd" />
-      <remap from="/pva_setpoint" to="tracker/pva_cmd" />
-      <remap from="~odom" to="$(arg pose_topic)" />
-      <param name="tf" value="true" />
-      <param name="replan_time_threshold" value="1.2" />
-    </node>
+  <node pkg="traj_server" name="traj_server" type="bezier_traj_server" output="screen">
+    <remap from="~trajectory" to="planner/trajectory" />
+    <remap from="/position_cmd" to="tracker/pos_cmd" />
+    <remap from="/pva_setpoint" to="tracker/pva_cmd" />
+    <remap from="~odom" to="$(arg pose_topic)" />
+    <param name="tf" value="true" />
+    <param name="replan_time_threshold" value="1.2" />
+    <param name="tf_prefix" value="uav$(arg drone_id)" />
+  </node>
 </launch>

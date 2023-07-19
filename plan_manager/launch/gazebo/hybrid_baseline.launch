@@ -22,7 +22,7 @@
     </include>
   </group>
 
-  <!-- UAV0 -->
+  <!-- UAV1 -->
   <arg name="uav1_goal_x" default="8"/>
   <arg name="uav1_goal_y" default="0"/>
   <arg name="uav1_goal_z" default="1"/>

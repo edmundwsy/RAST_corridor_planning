@@ -1,4 +1,4 @@
-/* /**
+/**
  * @file plan_manager.cpp
  * @author Siyuan Wu (siyuanwu99@gmail.com)
  * @brief

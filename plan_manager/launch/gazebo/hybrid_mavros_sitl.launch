@@ -1,26 +1,26 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="uav0_init_x" default="8"/>
-  <arg name="uav0_init_y" default="0"/>
-  <arg name="uav0_init_z" default="0"/>
-  <arg name="uav0_init_qx" default="0"/>
-  <arg name="uav0_init_qy" default="0"/>
-  <arg name="uav0_init_qz" default="0"/>
-  <arg name="uav0_init_qw" default="1"/>
+    <env name="ROSCONSOLE_FORMAT" value="[${node}][${severity}]:${message}"/>
 
-  <arg name="uav1_init_x" default="-8"/>
-  <arg name="uav1_init_y" default="0"/>
-  <arg name="uav1_init_z" default="0"/>
-  <arg name="uav1_init_qx" default="0"/>
-  <arg name="uav1_init_qy" default="0"/>
-  <arg name="uav1_init_qz" default="0"/>
-  <arg name="uav1_init_qw" default="1"/>
-  <env name="ROSCONSOLE_FORMAT" value="[${node}][${severity}]:${message}"/>
-    <!-- MAVROS posix SITL environment launch script -->
-    <!-- launches Gazebo environment and 2x: MAVROS, PX4 SITL, and spawns vehicle -->
-    <!-- vehicle model and world -->
+    <arg name="uav0_init_x" default="8"/>
+    <arg name="uav0_init_y" default="0"/>
+    <arg name="uav0_init_z" default="0"/>
+    <arg name="uav0_init_qx" default="0"/>
+    <arg name="uav0_init_qy" default="0"/>
+    <arg name="uav0_init_qz" default="0"/>
+    <arg name="uav0_init_qw" default="1"/>
+
+    <arg name="uav1_init_x" default="-8"/>
+    <arg name="uav1_init_y" default="0"/>
+    <arg name="uav1_init_z" default="0"/>
+    <arg name="uav1_init_qx" default="0"/>
+    <arg name="uav1_init_qy" default="0"/>
+    <arg name="uav1_init_qz" default="0"/>
+    <arg name="uav1_init_qw" default="1"/>
+
+
     <arg name="est" default="ekf2"/>
-    <arg name="vehicle" default="iris"/>
+    <arg name="vehicle" default="iris_D435i"/>
     <!-- <arg name="world" default="$(find mavlink_sitl_gazebo)/worlds/empty.world"/> -->
     <arg name="world" default="$(find plan_manager)/worlds/hybrid.world"/>
     <!-- <arg name="world" default="$(find rast_corridor_planning)/worlds/forest.world"/> -->
@@ -37,13 +37,15 @@
         <arg name="verbose" value="$(arg verbose)"/>
         <arg name="paused" value="$(arg paused)"/>
     </include>
+
+
     <!-- UAV0 -->
     <group ns="uav0">
         <!-- MAVROS and vehicle configs -->
         <arg name="ID" value="0"/>
         <arg name="fcu_url" default="udp://:14540@localhost:14580"/>
         <!-- PX4 SITL and vehicle spawn -->
-        <include file="$(find px4)/launch/single_vehicle_spawn.launch">
+        <include file="$(find px4)/launch/single_vehicle_spawn_revised.launch">
             <arg name="x" value="$(arg uav0_init_x)"/>
             <arg name="y" value="$(arg uav0_init_y)"/>
             <arg name="z" value="$(arg uav0_init_z)"/>
@@ -51,6 +53,7 @@
             <arg name="P" value="0"/>
             <arg name="Y" value="3.14"/>
             <arg name="vehicle" value="$(arg vehicle)"/>
+            <!-- <arg name="vehicle_name" value="$(arg vehicle)"/> -->
             <arg name="mavlink_udp_port" value="14560"/>
             <arg name="mavlink_tcp_port" value="4560"/>
             <arg name="ID" value="$(arg ID)"/>
@@ -75,22 +78,25 @@
             <arg name="init_qw" value="$(arg uav0_init_qw)"/>"
         </include>
     </group>
+
+
     <!-- UAV1 -->
     <group ns="uav1">
         <!-- MAVROS and vehicle configs -->
         <arg name="ID" value="1"/>
         <arg name="fcu_url" default="udp://:14541@localhost:14581"/>
         <!-- PX4 SITL and vehicle spawn -->
-        <include file="$(find px4)/launch/single_vehicle_spawn.launch">
+        <include file="$(find px4)/launch/single_vehicle_spawn_revised.launch">
             <arg name="x" value="$(arg uav1_init_x)"/>
             <arg name="y" value="$(arg uav1_init_y)"/>
             <arg name="z" value="$(arg uav1_init_z)"/>
             <arg name="R" value="0"/>
             <arg name="P" value="0"/>
             <arg name="Y" value="0"/>
+            <!-- <arg name="vehicle_name" value="$(arg vehicle)"/> -->
             <arg name="vehicle" value="$(arg vehicle)"/>
-            <arg name="mavlink_udp_port" value="$(eval 14560 + arg('ID'))"/>
-            <arg name="mavlink_tcp_port" value="$(eval 4560 + arg('ID'))"/>
+            <arg name="mavlink_udp_port" value="14561"/>
+            <arg name="mavlink_tcp_port" value="4561"/>
             <arg name="ID" value="$(arg ID)"/>
             <arg name="gst_udp_port" value="$(eval 5600 + arg('ID'))"/>
             <arg name="video_uri" value="$(eval 5600 + arg('ID'))"/>
