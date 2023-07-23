@@ -4,7 +4,8 @@ planner:
 fsm:
   goal_tolerance: 1.0
   replan_tolerance: 1.0
-  replan_duration: 0.10
+  replan_duration: 0.5
+  replan_start_time: 0.2
 
 search:
   max_tau: 1.8 # Astar search time horizon
@@ -23,7 +24,7 @@ search:
 
 corridor:
   init_range: 1.5
-  min_volumn: 0.1
+  min_volumn: 0.01
   risk_threshold_single_voxel: 0.15 # Useless
   risk_threshold_corridor: 3.0 # Useless
 

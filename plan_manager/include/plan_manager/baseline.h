@@ -12,11 +12,15 @@
 #ifndef _BASELINE_H_
 #define _BASELINE_H_
 
+#define FAKE_PERCEPTION 0  // 1: use fake perception; 0: use real perception
+
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
+// #include <path_searching/fake_risk_hybrid_a_star.h>
 #include <path_searching/risk_hybrid_a_star.h>
 #include <pcl/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
+// #include <plan_env/fake_dsp_map.h>
 #include <plan_env/risk_voxel.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <traj_utils/BezierTraj.h>
@@ -37,7 +41,8 @@
 
 struct BaselineParameters {
   /* data */
-  bool is_odom_local = false;
+  bool is_odom_local      = false;
+  bool is_fake_perception = false;
   // double max_vel        = 3.0;
   // double max_acc        = 6.0;
   double opt_max_vel    = 3.0;
@@ -89,6 +94,7 @@ struct BaselineParameters {
     nh.getParam("init_qz", init_qz);
     nh.getParam("init_qw", init_qw);
     nh.getParam("is_odom_local", is_odom_local);
+    nh.getParam("is_fake_perception", is_fake_perception);
     // nh.getParam("planner/max_vel", max_vel);
     // nh.getParam("planner/max_acc", max_acc);
     nh.getParam("planner/corridor_tau", corridor_tau);
@@ -172,9 +178,14 @@ class BaselinePlanner {
   double prev_vt_, prev_vx_, prev_vy_, prev_vz_; /** previous velocity */
   double prev_opt_end_time_;                     /** previous trajectory end time */
 
-  /* Shared Pointers */
-  RiskVoxel::Ptr           map_;
-  RiskHybridAstar::Ptr     a_star_;
+/* Shared Pointers */
+#if FAKE_PERCEPTION
+  FakeRiskVoxel::Ptr       map_;
+  FakeRiskHybridAstar::Ptr a_star_;
+#else
+  RiskVoxel::Ptr       map_;
+  RiskHybridAstar::Ptr a_star_;
+#endif
   traj_opt::BezierOpt::Ptr traj_optimizer_;    /** Trajectory optimizer */
   MADER::Ptr               collision_avoider_; /* multi-agent collision avoidance policy*/
   /* Trajectory */
