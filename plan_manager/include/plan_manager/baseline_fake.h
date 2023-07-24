@@ -117,69 +117,67 @@ class FakeBaselinePlanner {
       : nh_(nh), cfg_(params) {}
   ~FakeBaselinePlanner() {}
 
-  void PoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
-  void OdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
-  void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
-
   void init();
-  bool plan();
+  bool replan(double                 t,
+              const Eigen::Vector3d &start_pos,
+              const Eigen::Vector3d &start_vel,
+              const Eigen::Vector3d &start_acc,
+              const Eigen::Vector3d &goal_pos);
+  void setStartTime(double t) { prev_traj_start_time_ = t; }
 
   void showAstarPath();
 
-  void setGoal(const Eigen::Vector3d &goal) { goal_pos_ = goal; }
-
-  bool              getMapStatus() { return is_map_updated_; }
-  bool              getOdomStatus() { return is_odom_received_; }
-  Eigen::Vector3d   getPos() const { return odom_pos_; }
   Bernstein::Bezier getTrajectory() const { return traj_; }
 
-  void getTrajStartTime(ros::Time &start_time) const { start_time = t_start_; }
+  inline Eigen::Vector3d getPos(double t) const;
+  inline Eigen::Vector3d getVel(double t) const;
+  inline Eigen::Vector3d getAcc(double t) const;
+
+  /* Visualization */
+  visualizer::Visualizer::Ptr visualizer_;
 
   typedef std::shared_ptr<FakeBaselinePlanner> Ptr;
 
  private:
   /* Helper function */
+  Eigen::Matrix<double, 6, 4> getInitCorridor(const Eigen::Vector3d &left_higher_corner,
+                                              const Eigen::Vector3d &right_lower_corner);
+
   void showObstaclePoints(const std::vector<Eigen::Vector3d> &points);
   void addAgentsTrajectoryToMap();
-  void setEmptyTrajectory();
+  void setEmptyTrajectory(const Eigen::Vector3d &pos);
 
  private:
   /* ROS */
-  ros::NodeHandle        nh_;
-  ros::Subscriber        click_sub_, pose_sub_, swarm_traj_sub_;
-  ros::Publisher         obstacle_pub_;
-  ros::Time              t_start_;
+  ros::NodeHandle nh_;
+  ros::Publisher  obstacle_pub_;
+
   FakeBaselineParameters cfg_;
-
-  Eigen::Vector3d    odom_pos_; /** quadrotor's current position */
-  Eigen::Vector3d    odom_vel_; /** quadrotor's current velocity */
-  Eigen::Vector3d    odom_acc_; /** quadrotor's current acceleration */
-  Eigen::Vector3d    goal_pos_; /** quadrotor's goal position */
-  Eigen::Quaterniond odom_att_; /** quadrotor's current attitude as a quaternion */
-
-  double prev_pt_, prev_px_, prev_py_, prev_pz_; /** previous point */
-  double prev_vt_, prev_vx_, prev_vy_, prev_vz_; /** previous velocity */
-  double prev_opt_end_time_;                     /** previous trajectory end time */
 
   /* Shared Pointers */
   FakeRiskVoxel::Ptr       map_;
   FakeRiskHybridAstar::Ptr a_star_;
   traj_opt::BezierOpt::Ptr traj_optimizer_;    /** Trajectory optimizer */
   MADER::Ptr               collision_avoider_; /* multi-agent collision avoidance policy*/
+
   /* Trajectory */
-  Bernstein::Bezier traj_;     /** Trajectory */
-  int               traj_idx_; /** Trajectory index */
+  int    traj_idx_;        /** Trajectory index */
+  double traj_start_time_; /** current trajectory start time */
+  double prev_traj_start_time_;
 
-  /* Waypoints */
-
-  /* Booleans */
-  bool is_state_locked_;      /** State lock */
-  bool is_velocity_received_; /** Velocity received */
-  bool is_odom_received_;     /** Odom received */
-  bool is_map_updated_;       /** Map updated */
-
-  /* Visualization */
-  visualizer::Visualizer::Ptr visualizer_;
+  Bernstein::Bezier traj_; /** Trajectory */
 };
+
+inline Eigen::Vector3d FakeBaselinePlanner::getPos(double t) const {
+  return traj_.getPos(t - prev_traj_start_time_);
+}
+
+inline Eigen::Vector3d FakeBaselinePlanner::getVel(double t) const {
+  return traj_.getVel(t - prev_traj_start_time_);
+}
+
+inline Eigen::Vector3d FakeBaselinePlanner::getAcc(double t) const {
+  return traj_.getAcc(t - prev_traj_start_time_);
+}
 
 #endif  // _BASELINE_FAKE_H_

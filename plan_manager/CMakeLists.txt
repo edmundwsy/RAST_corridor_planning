@@ -8,7 +8,7 @@ add_compile_options(-std=c++14)
 
 # set(CMAKE_CXX_FLAGS_DEBUG "-O1 -Wall -g -ggdb")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g -lpthread")
-find_package(PCL 1.7 REQUIRED)
+find_package(PCL 1.10 REQUIRED)
 find_package(Eigen3 REQUIRED)
 set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 
@@ -27,7 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
   plan_env
   path_searching
   traj_coordinator
-
+  quadrotor_msgs
   # separator # MADER linear separator
 )
 
@@ -48,11 +48,9 @@ include_directories(
 add_library(${PROJECT_NAME}
   src/baseline.cpp
   src/plan_manager.cpp
-
   # src/mader_deconfliction.cpp
   src/baseline_fake.cpp # Debug
   src/fake_plan_manager.cpp # Debug
-
   # robust mader
   # src/rmader/fake_rmader.cpp
   # src/rmader/fake_rmader_plan_manager.cpp

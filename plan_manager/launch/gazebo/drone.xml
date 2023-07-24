@@ -28,7 +28,7 @@
     <remap from="~map/cloud" to="$(arg depth_topic)" />
     <remap from="~map/pose" to="$(arg pose_topic)" />
     
-    <rosparam file="$(find plan_manager)/config/sim_cfg.yaml" command="load" />
+    <rosparam file="$(find plan_manager)/config/sim_gazebo.yaml" command="load" />
     <param name="drone_id" value="$(arg drone_id)" />
     <param name="is_odom_local" value="false" />
     <param name="init_x" value="$(arg init_x)" />
@@ -38,6 +38,7 @@
     <param name="init_qy" value="$(arg init_qy)" />
     <param name="init_qz" value="$(arg init_qz)" />
     <param name="init_qw" value="$(arg init_qw)" />
+    <param name="use_preset_goal" value="true" />
     <param name="goal_x" value="$(arg goal_x)" />
     <param name="goal_y" value="$(arg goal_y)" />
     <param name="goal_z" value="$(arg goal_z)" />

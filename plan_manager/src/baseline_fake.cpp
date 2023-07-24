@@ -12,6 +12,9 @@
 #include <plan_manager/baseline_fake.h>
 #include <ros/ros.h>
 
+/**
+ * @brief initialize the planner
+ */
 void FakeBaselinePlanner::init() {
   /*** INITIALIZE MAP ***/
   map_.reset(new FakeRiskVoxel());
@@ -22,7 +25,7 @@ void FakeBaselinePlanner::init() {
   a_star_.reset(new FakeRiskHybridAstar());
   a_star_->setParam(nh_);
   a_star_->setEnvironment(map_);
-  a_star_->init(odom_pos_, Eigen::Vector3d(10, 10, 4));
+  a_star_->init(Eigen::Vector3d::Zero(), Eigen::Vector3d(10, 10, 4));
   ROS_INFO("Hybrid Astar initialized.");
 
   /*** INITIALIZE BEZIER OPT ***/
@@ -40,73 +43,10 @@ void FakeBaselinePlanner::init() {
   visualizer_.reset(new visualizer::Visualizer(nh_, ns));
 
   /*** INITIALIZE SUBSCRIBER ***/
-  pose_sub_     = nh_.subscribe("pose", 10, &FakeBaselinePlanner::PoseCallback, this);
   obstacle_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 100);
 
-  /*** INITIALIZE AUXILIARY VARIABLES ***/
-  prev_pt_ = ros::Time::now().toSec();
-  prev_px_ = 0.0;
-  prev_py_ = 0.0;
-  prev_pz_ = 0.0;
-  prev_vt_ = ros::Time::now().toSec();
-  prev_vx_ = 0.0;
-  prev_vy_ = 0.0;
-  prev_vz_ = 0.0;
-
-  odom_vel_ = Eigen::Vector3d(0, 0, 0);
-  odom_acc_ = Eigen::Vector3d(0, 0, 0);
-
-  /*** BOOLEANS ***/
-  is_map_updated_       = true;
-  is_state_locked_      = false;
-  is_velocity_received_ = false;
   ROS_INFO("Baseline planner initialized");
 }
-
-/**
- * @brief get current position and attitude from odometry
- * @param msg
- */
-void FakeBaselinePlanner::PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
-  if (!is_state_locked_) {
-    is_state_locked_ = true;
-
-    odom_pos_.x() = msg->pose.position.x;
-    odom_pos_.y() = msg->pose.position.y;
-    odom_pos_.z() = msg->pose.position.z;
-
-    odom_att_.x() = msg->pose.orientation.x;
-    odom_att_.y() = msg->pose.orientation.y;
-    odom_att_.z() = msg->pose.orientation.z;
-    odom_att_.w() = msg->pose.orientation.w;
-
-    is_odom_received_ = true;
-  }
-  is_state_locked_ = false;
-
-  if (!is_velocity_received_) {
-    double dt     = msg->header.stamp.toSec() - prev_pt_;
-    odom_vel_.x() = (odom_pos_.x() - prev_px_) / dt;
-    odom_vel_.y() = (odom_pos_.y() - prev_py_) / dt;
-    odom_vel_.z() = (odom_pos_.z() - prev_pz_) / dt;
-
-    prev_pt_ = msg->header.stamp.toSec();
-    prev_px_ = odom_pos_.x();
-    prev_py_ = odom_pos_.y();
-    prev_pz_ = odom_pos_.z();
-  }
-  visualizer_->visualizeFOV(odom_pos_, odom_att_, 84, 48, 5);
-}
-
-void FakeBaselinePlanner::clickCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
-  goal_pos_(0) = msg->pose.position.x;
-  goal_pos_(1) = msg->pose.position.y;
-  goal_pos_(2) = 1;
-  ROS_INFO("Start position: (%f, %f, %f)", odom_pos_(0), odom_pos_(1), odom_pos_(2));
-  ROS_INFO("End position: (%f, %f, %f)", goal_pos_(0), goal_pos_(1), goal_pos_(2));
-  plan();
-}
-
 /**
  * @brief show A star results
  *
@@ -117,7 +57,7 @@ void FakeBaselinePlanner::showAstarPath() {
   visualizer_->visualizeAstarPathXYT(path, 0.1);
 }
 
-void FakeBaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>& points) {
+void FakeBaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d> &points) {
   pcl::PointCloud<pcl::PointXYZ> cloud;
   for (int i = 0; i < int(points.size()); i++) {
     pcl::PointXYZ p;
@@ -133,19 +73,36 @@ void FakeBaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d>&
   obstacle_pub_.publish(cloud_msg);
 }
 
+Eigen::Matrix<double, 6, 4> FakeBaselinePlanner::getInitCorridor(
+    const Eigen::Vector3d &left_higher_corner, const Eigen::Vector3d &right_lower_corner) {
+  Eigen::Matrix<double, 6, 4> corridor = Eigen::Matrix<double, 6, 4>::Zero();
+
+  corridor(0, 0) = 1.0;
+  corridor(1, 1) = 1.0;
+  corridor(2, 2) = 1.0;
+  corridor(3, 0) = -1.0;
+  corridor(4, 1) = -1.0;
+  corridor(5, 2) = -1.0;
+
+  corridor.block<3, 1>(0, 3) = -left_higher_corner;
+  corridor.block<3, 1>(3, 3) = right_lower_corner;
+  return corridor;
+}
+
 /**
  * @brief get empty trajectory
  * set current position as the trajectory
+ * TODO(@siyuan): evaluate if it's necessary to create such function
  */
-void FakeBaselinePlanner::setEmptyTrajectory() {
+void FakeBaselinePlanner::setEmptyTrajectory(const Eigen::Vector3d &pos) {
   traj_ = Bernstein::Bezier(cfg_.corridor_tau);
 
   Eigen::Matrix<double, 5, 3> cpts;
-  cpts.row(0) = odom_pos_;
-  cpts.row(1) = odom_pos_;
-  cpts.row(2) = odom_pos_;
-  cpts.row(3) = odom_pos_;
-  cpts.row(4) = odom_pos_;
+  cpts.row(0) = pos;
+  cpts.row(1) = pos;
+  cpts.row(2) = pos;
+  cpts.row(3) = pos;
+  cpts.row(4) = pos;
 
   traj_.setControlPoints(cpts);
 }
@@ -155,33 +112,35 @@ void FakeBaselinePlanner::setEmptyTrajectory() {
  * get agents trajectory from collision avoider
  * add agents trajectory to map
  */
-void FakeBaselinePlanner::addAgentsTrajectoryToMap() {
-  int             n = collision_avoider_->getNumAgents();
-  Eigen::Vector3d robot_size;
-  collision_avoider_->getAgentsSize(robot_size);
-  std::vector<Eigen::Vector3d> obs_points;
-  for (int i = 0; i < n - 1; i++) {
-    obs_points.clear();
-    collision_avoider_->getAgentsTrajectory(obs_points, i, 0.2);
-    if (obs_points.size() > 0) {
-      for (int j = 0; j < obs_points.size(); j++) {
-        std::vector<Eigen::Vector3d> pts;
-        pts.push_back(obs_points[j] - odom_pos_);
-        map_->addObstacles(pts, robot_size, ros::Time::now() + ros::Duration(0.2 * j));
-      }
-    }
-  }
-}
+// void FakeBaselinePlanner::addAgentsTrajectoryToMap() {
+//   int             n = collision_avoider_->getNumAgents();
+//   Eigen::Vector3d robot_size;
+//   collision_avoider_->getAgentsSize(robot_size);
+//   std::vector<Eigen::Vector3d> obs_points;
+//   for (int i = 0; i < n - 1; i++) {
+//     obs_points.clear();
+//     collision_avoider_->getAgentsTrajectory(obs_points, i, 0.2);
+//     if (obs_points.size() > 0) {
+//       for (int j = 0; j < obs_points.size(); j++) {
+//         std::vector<Eigen::Vector3d> pts;
+//         pts.push_back(obs_points[j] - odom_pos_);
+//         map_->addObstacles(pts, robot_size, ros::Time::now() + ros::Duration(0.2 * j));
+//       }
+//     }
+//   }
+// }
 
-bool FakeBaselinePlanner::plan() {
-  ROS_INFO("Planning...");
+bool FakeBaselinePlanner::replan(double                 t,
+                                 const Eigen::Vector3d &start_pos,
+                                 const Eigen::Vector3d &start_vel,
+                                 const Eigen::Vector3d &start_acc,
+                                 const Eigen::Vector3d &goal_pos) {
+  ROS_INFO("Replanning ... start position (%f, %f, %f)", start_pos(0), start_pos(1), start_pos(2));
+  traj_start_time_ = t;
+
+  // TODO: check time system
   ros::Time t0, t1;
-  t0       = ros::Time::now();
-  t_start_ = ros::Time::now();  // time when trajectory started (and odom applied)
-  // /* ----- Add other agents to the DSP Map ----- */
-  // addAgentsTrajectoryToMap();
-  // t1 = ros::Time::now();
-  // ROS_INFO("Add trajectory to map: Time used: %f ms", (t1 - t0).toSec() * 1000);
+  t0 = ros::Time::now();
 
   /*----- Path Searching on DSP Dynamic -----*/
   std::cout << "/*----- Path Searching on DSP Static -----*/" << std::endl;
@@ -191,94 +150,92 @@ bool FakeBaselinePlanner::plan() {
   double t_after_map = (t1 - t0).toSec();
   ROS_INFO("[Astar] start position on map: %f | %i", t_after_map,
            int((t1 - t0).toSec() / cfg_.corridor_tau));
-  ASTAR_RET rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_,
+  ASTAR_RET rst = a_star_->search(start_pos, start_vel, start_acc, goal_pos,
                                   Eigen::Vector3d(0, 0, 0), true, true, t_after_map);
   if (rst == 0) {
     t1                 = ros::Time::now();
     t0                 = map_->getMapTime();
     double t_after_map = (t1 - t0).toSec();
     a_star_->reset();
-    rst = a_star_->search(odom_pos_, odom_vel_, odom_acc_, goal_pos_, Eigen::Vector3d(0, 0, 0),
+    rst = a_star_->search(start_pos, start_vel, start_acc, goal_pos, Eigen::Vector3d(0, 0, 0),
                           false, true, t_after_map);
   }
 
   auto t2 = ros::Time::now();
   ROS_INFO("[Astar] cost: %f ms", (t2 - t1).toSec() * 1000);
+
+  /* if no path found, set empty trajectory */
   if (rst == NO_PATH) {
     ROS_ERROR("[Astar] No path found!");
-    setEmptyTrajectory();
     return false;
   }
-  showAstarPath();
+  showAstarPath();  // visualization
 
   /*----- Safety Corridor Generation -----*/
   std::cout << "/*----- Safety Corridor Generation -----*/" << std::endl;
   std::vector<Eigen::Matrix<double, 6, 1>> route_vel = a_star_->getPathWithVel(cfg_.corridor_tau);
   // std::vector<Eigen::Vector3d>             route     = a_star_->getPath(cfg_.corridor_tau);
-  std::vector<Eigen::Vector3d>  route;
+  std::vector<Eigen::Vector3d>  wpts;
   std::vector<Eigen::MatrixX4d> hPolys;
 
-  route.resize(route_vel.size()); /* copy route_vel to route */
+  wpts.resize(route_vel.size()); /* copy route_vel to route */
 
-  std::cout << "odom_pos = \t" << odom_pos_.transpose() << std::endl;
-  for (int i = 0; i < route.size(); i++) {
-    route[i] = route_vel[i].head(3); /* copy position to route */
-    std::cout << "route[" << i << "] = " << route[i].transpose() << std::endl;
-    if (route[i].z() < 0) route[i].z() = 0.1;
+  std::cout << "start_position = \t" << start_pos.transpose() << std::endl;
+  for (int i = 0; i < wpts.size(); i++) {
+    wpts[i] = route_vel[i].head(3); /* copy position to route */
+    std::cout << "local_wpts[" << i << "] = " << wpts[i].transpose() << std::endl;
+    if (wpts[i].z() < 0) wpts[i].z() = 0.1;
   }
 
   std::vector<Eigen::Vector3d> pc;
   pc.reserve(2000);
 
-  Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, -1) + odom_pos_;
-  Eigen::Vector3d higher_corner = Eigen::Vector3d(4, 4, 1) + odom_pos_;
+  Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, -1) + start_pos;
+  Eigen::Vector3d higher_corner = Eigen::Vector3d(4, 4, 1) + start_pos;
   if (lower_corner.z() < 0) lower_corner.z() = 0;
   if (higher_corner.z() > 4) higher_corner.z() = 4;
+  Eigen::Matrix<double, 6, 4> init_corridor = getInitCorridor(higher_corner, lower_corner);
 
   t1 = ros::Time::now();
-  for (int i = 0; i < route.size() - 1; i++) {
+  for (int i = 0; i < wpts.size() - 1; i++) {
     /* Get a local bounding box */
     Eigen::Vector3d llc, lhc; /* local lower corner and higher corner */
-    lhc(0) = std::min(std::max(route[i](0), route[i + 1](0)) + cfg_.init_range, higher_corner(0));
-    lhc(1) = std::min(std::max(route[i](1), route[i + 1](1)) + cfg_.init_range, higher_corner(1));
-    lhc(2) = std::min(std::max(route[i](2), route[i + 1](2)) + cfg_.init_range, higher_corner(2));
-    llc(0) = std::max(std::min(route[i](0), route[i + 1](0)) - cfg_.init_range, lower_corner(0));
-    llc(1) = std::max(std::min(route[i](1), route[i + 1](1)) - cfg_.init_range, lower_corner(1));
-    llc(2) = std::max(std::min(route[i](2), route[i + 1](2)) - cfg_.init_range, lower_corner(2));
-    pc.clear();
-    double t1_glb = t_start_.toSec() + i * cfg_.corridor_tau;
-    double t2_glb = t_start_.toSec() + (i + 1) * cfg_.corridor_tau;
-    map_->getObstaclePoints(pc, t1_glb, t2_glb, llc, lhc);
-    std::cout << "pc.size() = " << pc.size() << std::endl;
-    Eigen::Matrix<double, 6, 4> bd = Eigen::Matrix<double, 6, 4>::Zero();  // initial corridor
-    bd(0, 0)                       = 1.0;
-    bd(1, 1)                       = 1.0;
-    bd(2, 2)                       = 1.0;
-    bd(3, 0)                       = -1.0;
-    bd(4, 1)                       = -1.0;
-    bd(5, 2)                       = -1.0;
+    lhc(0) = std::min(std::max(wpts[i](0), wpts[i + 1](0)) + cfg_.init_range, higher_corner(0));
+    lhc(1) = std::min(std::max(wpts[i](1), wpts[i + 1](1)) + cfg_.init_range, higher_corner(1));
+    lhc(2) = std::min(std::max(wpts[i](2), wpts[i + 1](2)) + cfg_.init_range, higher_corner(2));
+    llc(0) = std::max(std::min(wpts[i](0), wpts[i + 1](0)) - cfg_.init_range, lower_corner(0));
+    llc(1) = std::max(std::min(wpts[i](1), wpts[i + 1](1)) - cfg_.init_range, lower_corner(1));
+    llc(2) = std::max(std::min(wpts[i](2), wpts[i + 1](2)) - cfg_.init_range, lower_corner(2));
+    Eigen::Matrix<double, 6, 4> bd = init_corridor;
     bd.block<3, 1>(0, 3)           = -lhc;
     bd.block<3, 1>(3, 3)           = llc;
-    Eigen::MatrixX4d hPoly;
+
+    pc.clear();
+    std::cout << "[dbg] t1_glb = " << traj_start_time_ + i * cfg_.corridor_tau << std::endl;
+    double t1_glb = traj_start_time_ + i * cfg_.corridor_tau;
+    double t2_glb = traj_start_time_ + (i + 1) * cfg_.corridor_tau;
+    map_->getObstaclePoints(pc, t1_glb, t2_glb, llc, lhc);
+    std::cout << "pc.size() = " << pc.size() << std::endl;
 
     Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> m_pc(pc[0].data(), 3,
                                                                          pc.size());
 
-    ros::Time       t3 = ros::Time::now();
-    Eigen::Vector3d r  = Eigen::Vector3d::Ones();
-    firi::firi(bd, m_pc, route[i], route[i + 1], hPoly, r, 2);
+    ros::Time        t3 = ros::Time::now();
+    Eigen::MatrixX4d hPoly;
+    Eigen::Vector3d  r = Eigen::Vector3d::Ones();
+    firi::firi(bd, m_pc, wpts[i], wpts[i + 1], hPoly, r, 2);
     ros::Time t4 = ros::Time::now();
     if (r.x() * r.y() * r.z() < cfg_.min_volumn) {
       std::cout << "ellipsoid radius  " << r.transpose() << " volumn: " << r.x() * r.y() * r.z()
                 << std::endl;
-      this->showObstaclePoints(pc);
+      this->showObstaclePoints(pc);  // visualization
       break;
     }
 
     ROS_INFO("[FIRI] %ith corridor takes %f ms", i, (t4 - t3).toSec() * 1000);
     hPolys.push_back(hPoly);
   }
-  this->showObstaclePoints(pc);
+  this->showObstaclePoints(pc);  // visualization
 
   t2 = ros::Time::now();
   ROS_INFO("[CrdGen] Gen %i corridors cost: %f ms", hPolys.size(), (t2 - t1).toSec() * 1000);
@@ -286,7 +243,6 @@ bool FakeBaselinePlanner::plan() {
 
   if (hPolys.size() == 0) {
     ROS_ERROR("Cannot find safety corridors!");
-    setEmptyTrajectory(); /* set current position as traj to prevent planning failed */
     return false;
   }
 
@@ -303,17 +259,17 @@ bool FakeBaselinePlanner::plan() {
   std::cout << "time_alloc size: " << time_alloc.size() << std::endl;
   traj_optimizer_.reset(new traj_opt::BezierOpt());
   Eigen::Matrix3d init_state, final_state;
-  init_state.row(0)  = odom_pos_;
-  init_state.row(1)  = odom_vel_;
-  init_state.row(2)  = odom_acc_;
+  init_state.row(0)  = start_pos;
+  init_state.row(1)  = start_vel;
+  init_state.row(2)  = start_acc;
   final_state.row(0) = local_goal_pos;
   final_state.row(1) = local_goal_vel;
   final_state.row(2) = Eigen::Vector3d(0, 0, 0);
 
   // std::cout << "init_state: " << init_state << std::endl;
   // std::cout << "final_state: " << final_state << std::endl;
-  visualizer_->visualizeStartGoal(odom_pos_);
-  visualizer_->visualizeStartGoal(local_goal_pos);
+  visualizer_->visualizeStartGoal(start_pos);       // visualization
+  visualizer_->visualizeStartGoal(local_goal_pos);  // visualization
 
   t1 = ros::Time::now();
   traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.opt_max_vel,
@@ -322,7 +278,6 @@ bool FakeBaselinePlanner::plan() {
     t2 = ros::Time::now();
     ROS_INFO("[TrajOpt] cost: %f ms", (t2 - t1).toSec() * 1000);
     ROS_ERROR("Trajectory optimization failed!");
-    setEmptyTrajectory();
     return false;
   }
   t2 = ros::Time::now();
@@ -331,22 +286,21 @@ bool FakeBaselinePlanner::plan() {
   traj_optimizer_->getOptBezier(traj_);
 
   /*----- Trajectory Deconfliction -----*/
-  t1 = ros::Time::now();
-  if (!collision_avoider_->isSafeAfterOpt(traj_)) {
-    ROS_ERROR("Trajectory collides after optimization!");
-    t2 = ros::Time::now();
-    ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
-    setEmptyTrajectory(); /* set current position as traj to prevent planning failed */
-    return false;
-  }
-  if (!collision_avoider_->isSafeAfterChk()) {
-    ROS_ERROR("Trajectory commited while checking!");
-    t2 = ros::Time::now();
-    ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
-    setEmptyTrajectory();
-    return false;
-  }
-  t2 = ros::Time::now();
-  ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
+  // t1 = ros::Time::now();
+  // if (!collision_avoider_->isSafeAfterOpt(traj_)) {
+  //   ROS_ERROR("Trajectory collides after optimization!");
+  //   t2 = ros::Time::now();
+  //   ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
+  //   return false;
+  // }
+  // if (!collision_avoider_->isSafeAfterChk()) {
+  //   ROS_ERROR("Trajectory published while checking!");
+  //   t2 = ros::Time::now();
+  //   ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
+  //   return false;
+  // }
+  // t2 = ros::Time::now();
+  // ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
+  prev_traj_start_time_ = traj_start_time_;
   return true;
 }

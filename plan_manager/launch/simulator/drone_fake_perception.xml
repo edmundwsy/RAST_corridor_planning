@@ -28,8 +28,8 @@
   <arg name="odom_topic" value="mavros/local_position/odom"/>
   <arg name="is_pose_subscribed" value="false" />
 
-  <!-- <node pkg="plan_manager" name="planner" type="baseline" output="screen"> -->
-  <node pkg="plan_manager" name="planner" type="fake_baseline">
+  <node pkg="plan_manager" name="planner" type="fake_baseline" output="screen">
+  <!-- <node pkg="plan_manager" name="planner" type="fake_baseline"> -->
     <!-- Topics -->
     <remap from="~pose" to="$(arg pose_topic)" />
     <remap from="~map/odom" to="$(arg odom_topic)" />
@@ -43,6 +43,7 @@
     <param name="init_x" value="$(arg init_x)" />
     <param name="init_y" value="$(arg init_y)" />
     <param name="init_z" value="$(arg init_z)" />
+    <param name="use_preset_goal" value="true" />
     <param name="goal_x" value="$(arg goal_x)" />
     <param name="goal_y" value="$(arg goal_y)" />
     <param name="goal_z" value="$(arg goal_z)" />
@@ -60,7 +61,7 @@
     <param name="init_qz" value="$(arg init_qz)" />
     <param name="init_qw" value="$(arg init_qw)" />
     <param name="tf" value="true" />
-    <param name="replan_time_threshold" value="1.2" />
+    <param name="replan_threshold" value="0.3" />
   </node>
 
 

@@ -130,8 +130,9 @@ void RiskVoxel::cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &clou
     Eigen::Quaternionf rotation(init_qw_, init_qx_, init_qy_, init_qz_);
     q_ = rotation * q_;
   }
-  std::cout << "odom: " << pose_.transpose() << "  pose: " << q_.w() << q_.x() << q_.y() << q_.z()
-            << std::endl;
+  // std::cout << "odom: " << pose_.transpose() << "  pose: " << q_.w() << q_.x() << q_.y() <<
+  // q_.z()
+  //           << std::endl;
   updateMap(cloud_msg);
 }
 
@@ -210,7 +211,7 @@ void RiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
   clock_t t_update_0 = clock();
 
   /* update DSP map */
-  std::cout << "num_valid " << n_valid << std::endl;
+  // std::cout << "num_valid " << n_valid << std::endl;
   if (!dsp_map_->update(n_valid, 3, valid_clouds_, pose_.x(), pose_.y(), pose_.z(), t, q_.w(),
                         q_.x(), q_.y(), q_.z())) {
     return;
@@ -225,8 +226,8 @@ void RiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
   }
 
   clock_t t_update_1 = clock();
-  std::cout << "update time (ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
-            << std::endl;
+  // std::cout << "update time (ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
+  //           << std::endl;
 }
 
 void RiskVoxel::addOtherAgents() {
@@ -249,7 +250,7 @@ void RiskVoxel::addOtherAgents() {
     addObstacles(waypoints, robot_size, idx);
   }
   ros::Time toc = ros::Time::now();
-  std::cout << "adding obstacles takes: " << (toc - tic).toSec() * 1000 << "ms" << std::endl;
+  // std::cout << "adding obstacles takes: " << (toc - tic).toSec() * 1000 << "ms" << std::endl;
 }
 
 /**
