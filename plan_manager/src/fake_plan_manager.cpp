@@ -117,7 +117,6 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
         }
       }
       /** TODO: time delay !!! */
-
       if (is_exec_triggered_) { /* execute trajectory */
         FSMChangeState(FSM_STATUS::EXEC_TRAJ);
       }
@@ -263,6 +262,8 @@ void FiniteStateMachineFake::TriggerCallback(const geometry_msgs::PoseStampedPtr
     }
     is_goal_received_ = true;
   }
+
+  planner_->setStartTime(ros::Time::now().toSec());
 }
 
 /**

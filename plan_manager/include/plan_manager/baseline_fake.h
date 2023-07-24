@@ -123,7 +123,7 @@ class FakeBaselinePlanner {
               const Eigen::Vector3d &start_vel,
               const Eigen::Vector3d &start_acc,
               const Eigen::Vector3d &goal_pos);
-  void setStartTime(double t) { traj_start_time_ = t; }
+  void setStartTime(double t) { prev_traj_start_time_ = t; }
 
   void showAstarPath();
 
@@ -163,21 +163,21 @@ class FakeBaselinePlanner {
   /* Trajectory */
   int    traj_idx_;        /** Trajectory index */
   double traj_start_time_; /** current trajectory start time */
-  double traj_end_time_;   /** previous trajectory end time */
+  double prev_traj_start_time_;
 
   Bernstein::Bezier traj_; /** Trajectory */
 };
 
 inline Eigen::Vector3d FakeBaselinePlanner::getPos(double t) const {
-  return traj_.getPos(t - traj_start_time_);
+  return traj_.getPos(t - prev_traj_start_time_);
 }
 
 inline Eigen::Vector3d FakeBaselinePlanner::getVel(double t) const {
-  return traj_.getVel(t - traj_start_time_);
+  return traj_.getVel(t - prev_traj_start_time_);
 }
 
 inline Eigen::Vector3d FakeBaselinePlanner::getAcc(double t) const {
-  return traj_.getAcc(t - traj_start_time_);
+  return traj_.getAcc(t - prev_traj_start_time_);
 }
 
 #endif  // _BASELINE_FAKE_H_

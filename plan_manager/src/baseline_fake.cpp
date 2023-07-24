@@ -95,8 +95,7 @@ Eigen::Matrix<double, 6, 4> FakeBaselinePlanner::getInitCorridor(
  * TODO(@siyuan): evaluate if it's necessary to create such function
  */
 void FakeBaselinePlanner::setEmptyTrajectory(const Eigen::Vector3d &pos) {
-  traj_          = Bernstein::Bezier(cfg_.corridor_tau);
-  traj_end_time_ = traj_start_time_ + cfg_.corridor_tau;
+  traj_ = Bernstein::Bezier(cfg_.corridor_tau);
 
   Eigen::Matrix<double, 5, 3> cpts;
   cpts.row(0) = pos;
@@ -136,7 +135,7 @@ bool FakeBaselinePlanner::replan(double                 t,
                                  const Eigen::Vector3d &start_vel,
                                  const Eigen::Vector3d &start_acc,
                                  const Eigen::Vector3d &goal_pos) {
-  ROS_INFO("Replanning...");
+  ROS_INFO("Replanning ... start position (%f, %f, %f)", start_pos(0), start_pos(1), start_pos(2));
   traj_start_time_ = t;
 
   // TODO: check time system
@@ -302,5 +301,6 @@ bool FakeBaselinePlanner::replan(double                 t,
   // }
   // t2 = ros::Time::now();
   // ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
+  prev_traj_start_time_ = traj_start_time_;
   return true;
 }
