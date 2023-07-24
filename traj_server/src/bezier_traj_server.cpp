@@ -213,8 +213,9 @@ void fillTrajQueue() {
   if (t > duration_) return;
   pushToTrajQueue(t, traj_.getPos(t), traj_.getVel(t), traj_.getAcc(t), Eigen::Vector3d::Zero(), 0,
                   0);
-  ROS_INFO("[dbg] tq: %.2f id:%d sz:%d | t: %.2f | x: %.2f y: %.2f z: %.2f", tq - ti_, traj_id_,
-           int(traj_queue_.size()), t, traj_.getPos(t)(0), traj_.getPos(t)(1), traj_.getPos(t)(2));
+  // ROS_INFO("[dbg] tq: %.2f id:%d sz:%d | t: %.2f | x: %.2f y: %.2f z: %.2f", tq - ti_, traj_id_,
+  //          int(traj_queue_.size()), t, traj_.getPos(t)(0), traj_.getPos(t)(1),
+  //          traj_.getPos(t)(2));
 }
 
 /**
@@ -226,38 +227,38 @@ void resetTrajQueue(const Bernstein::Bezier &traj) {
   for (; t < replan_thres_; t += DELTA_T) {
     pushToTrajQueue(t, traj.getPos(t), traj.getVel(t), traj.getAcc(t), Eigen::Vector3d::Zero(), 0,
                     0);
-    ROS_INFO("[dbg] tq: %.2f id:%d sz:%d | t: %.2f | x: %.2f y: %.2f z: %.2f", tns_ - ti_ + t,
-             traj_id_, int(traj_queue_.size()), t, traj.getPos(t)(0), traj.getPos(t)(1),
-             traj.getPos(t)(2));
+    // ROS_INFO("[dbg] tq: %.2f id:%d sz:%d | t: %.2f | x: %.2f y: %.2f z: %.2f", tns_ - ti_ + t,
+    //          traj_id_, int(traj_queue_.size()), t, traj.getPos(t)(0), traj.getPos(t)(1),
+    //          traj.getPos(t)(2));
   }
 }
 
 void mergeTrajQueue(const Bernstein::Bezier &traj) {
   int k = (ros::Time::now().toSec() + replan_thres_ - tns_) / DELTA_T;
   if (k > traj_queue_.size()) {
-    ROS_INFO("[TrajSrv] t_str - tn = %f,  k = %d", ts_ - ros::Time::now().toSec(), k);
+    // ROS_INFO("[TrajSrv] t_str - tn = %f,  k = %d", ts_ - ros::Time::now().toSec(), k);
     ROS_WARN("[TrajSrv] Next traj starts earlier than current buffer!");
     double dt = ros::Time::now().toSec() - tns_;
     for (int i = 0; i < replan_thres_ / DELTA_T; i++) {
       double t = i * DELTA_T + dt;
       pushToTrajQueue(t, traj.getPos(t), traj.getVel(t), traj.getAcc(t), Eigen::Vector3d::Zero(), 0,
                       0);
-      ROS_INFO("[dbg] tq: %.2f id:%d sz:%d | t: %.2f | x: %.2f y: %.2f z: %.2f", tns_ - ti_ + t,
-               traj_id_, int(traj_queue_.size()), t, traj.getPos(t)(0), traj.getPos(t)(1),
-               traj.getPos(t)(2));
+      // ROS_INFO("[dbg] tq: %.2f id:%d sz:%d | t: %.2f | x: %.2f y: %.2f z: %.2f", tns_ - ti_ + t,
+      //          traj_id_, int(traj_queue_.size()), t, traj.getPos(t)(0), traj.getPos(t)(1),
+      //          traj.getPos(t)(2));
     }
     return;
   }
   traj_queue_.erase(traj_queue_.end() - k, traj_queue_.end());
-  ROS_INFO("[dbg] tc: %.2f, tns: %.2f k:%d sz:%d", ros::Time::now().toSec() - ti_, tns_ - ti_, k,
-           int(traj_queue_.size()));
+  // ROS_INFO("[dbg] tc: %.2f, tns: %.2f k:%d sz:%d", ros::Time::now().toSec() - ti_, tns_ - ti_, k,
+  //          int(traj_queue_.size()));
   for (int i = 0; i < k; i++) {
     double t = i * DELTA_T;
     pushToTrajQueue(t, traj.getPos(t), traj.getVel(t), traj.getAcc(t), Eigen::Vector3d::Zero(), 0,
                     0);
-    ROS_INFO("[dbg] tq: %.2f id:%d sz:%d | t: %.2f | x: %.2f y: %.2f z: %.2f", tns_ - ti_ + t,
-             traj_id_ + 1, int(traj_queue_.size()), t, traj.getPos(t)(0), traj.getPos(t)(1),
-             traj.getPos(t)(2));
+    // ROS_INFO("[dbg] tq: %.2f id:%d sz:%d | t: %.2f | x: %.2f y: %.2f z: %.2f", tns_ - ti_ + t,
+    //          traj_id_ + 1, int(traj_queue_.size()), t, traj.getPos(t)(0), traj.getPos(t)(1),
+    //          traj.getPos(t)(2));
   }
 }
 
