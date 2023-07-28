@@ -31,10 +31,14 @@ ros::Publisher pos_cmd_pub_, pva_pub_, vis_pub_;
 ros::Publisher error_pub_;
 
 const double DELTA_T = 0.01;  // 100 Hz
+const double YAW_RAT = 0.10;  // max yaw rate
 
-bool   is_traj_received_ = false;
-bool   is_triggered_     = false;
-double replan_thres_     = 1.2;  // seconds of trajectory loaded into the queue
+bool   is_traj_received_   = false;
+bool   is_triggered_       = false;
+bool   is_init_yaw_needed_ = false;
+bool   is_yaw_initilized_  = false;
+bool   is_odom_received_   = false;
+double replan_thres_       = 1.2;  // seconds of trajectory loaded into the queue
 
 int               traj_id_;
 Bernstein::Bezier traj_;
@@ -52,7 +56,9 @@ double offset_;    // offset of the trajectory in seconds (to account for the ti
 double last_yaw_    = 0;  // previous yaw value
 double last_yawdot_ = 0;  // previous yawdot value
 
-Eigen::Vector3d odom_pos_;  // current position
+Eigen::Vector3d    init_pos_;  // initial velocity
+Eigen::Vector3d    odom_pos_;  // current position
+Eigen::Quaterniond odom_q_;    // current orientation
 
 std::deque<TrajPoint> traj_queue_;
 
@@ -352,7 +358,10 @@ void triggerCallback(const geometry_msgs::PoseStampedPtr &msg) {
 }
 
 void odomCallback(const geometry_msgs::PoseStampedPtr &msg) {
+  is_odom_received_ = true;
   odom_pos_ = Eigen::Vector3d(msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
+  odom_q_   = Eigen::Quaterniond(msg->pose.orientation.w, msg->pose.orientation.x,
+                                 msg->pose.orientation.y, msg->pose.orientation.z);
   vis_ptr_->visualizeOdom(msg);
 }
 
@@ -378,32 +387,61 @@ void pubTrackingError(const Eigen::Vector3d &pos_cmd, const Eigen::Vector3d &pos
  * @param e
  */
 void PubCallback(const ros::TimerEvent &e) {
-  if (!is_traj_received_) {
-    ROS_INFO_ONCE("[TrajSrv] waiting for trajectory");
-    return;
-  } else if (!is_triggered_) {
-    ROS_INFO_ONCE("[TrajSrv] waiting for trigger");
+  if (!is_odom_received_) {
+    ROS_INFO("[dbg] waiting for odom");
     return;
   }
+  double current_yaw = atan2(2 * (odom_q_.w() * odom_q_.z() + odom_q_.x() * odom_q_.y()),
+                             1 - 2 * (odom_q_.y() * odom_q_.y() + odom_q_.z() * odom_q_.z()));
 
   TrajPoint p;
-  if (traj_queue_.size() == 1) {
-    p         = traj_queue_.front();
-    p.vel     = Eigen::Vector3d::Zero();
-    p.acc     = Eigen::Vector3d::Zero();
-    p.yaw_dot = 0.0;
+  p.pos = init_pos_;
+  p.vel = Eigen::Vector3d::Zero();
+  p.acc = Eigen::Vector3d::Zero();
+
+  if (!is_yaw_initilized_) { /* if yaw is not initialized, turn to desired yaw */
+    if (abs(last_yaw_ - current_yaw) < 0.1) {
+      ROS_INFO("[dbg] yaw_init = %.2f, yaw_des = %.2f, no need to init yaw", current_yaw,
+               last_yaw_);
+      is_yaw_initilized_ = true;
+      return;
+    }
+    ROS_INFO("[dbg] yaw_init = %.2f, yaw_des = %.2f", current_yaw, last_yaw_);
+    if (last_yaw_ < 0 && last_yaw_ > -3.12) {
+      p.yaw     = current_yaw - YAW_RAT;
+      p.yaw_dot = -YAW_RAT;
+
+    } else {
+      p.yaw     = current_yaw + YAW_RAT;
+      p.yaw_dot = YAW_RAT;
+    }
   } else {
-    p = traj_queue_.front();
-    traj_queue_.pop_front();
-    fillTrajQueue();
+    p.yaw     = last_yaw_;
+    p.yaw_dot = 0.0;
+  }
+
+  if (!is_traj_received_) {
+    ROS_INFO_ONCE("[TrajSrv] waiting for trajectory");
+  } else if (!is_triggered_) {
+    ROS_INFO_ONCE("[TrajSrv] waiting for trigger");
+  } else {
+    if (traj_queue_.size() == 1) {
+      p         = traj_queue_.front();
+      p.vel     = Eigen::Vector3d::Zero();
+      p.acc     = Eigen::Vector3d::Zero();
+      p.yaw     = last_yaw_;
+      p.yaw_dot = 0.0;
+    } else {
+      p = traj_queue_.front();
+      traj_queue_.pop_front();
+      fillTrajQueue();
+    }
   }
 
   publishCmd(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
   publishPVA(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
-
   /** publish tracking error */
   pubTrackingError(p.pos, odom_pos_);
-
   return;
 }
 
@@ -412,12 +450,17 @@ int main(int argc, char **argv) {
   ros::NodeHandle nh("~");
 
   double init_qx, init_qy, init_qz, init_qw;
+  nh.param("init_x", init_pos_(0), 0.0);
+  nh.param("init_y", init_pos_(1), 0.0);
+  nh.param("init_z", init_pos_(2), 0.0);
   nh.param("init_qw", init_qw, 1.0);
   nh.param("init_qx", init_qx, 0.0);
   nh.param("init_qy", init_qy, 0.0);
   nh.param("init_qz", init_qz, 0.0);
   nh.param("offset", offset_, 0.00);
   nh.param("replan_threshold", replan_thres_, 0.5);
+
+  nh.param("is_init_yaw", is_init_yaw_needed_, false);  // correct yaw angle while initializing
 
   ros::Timer      cmd_timer   = nh.createTimer(ros::Duration(0.01), PubCallback);
   ros::Subscriber traj_sub    = nh.subscribe("trajectory", 1, bezierCallback);
@@ -434,6 +477,7 @@ int main(int argc, char **argv) {
                     1.0 - 2.0 * (init_qy * init_qy + init_qz * init_qz));
 
   ros::Duration(3.0).sleep();
+
   ROS_INFO("[TrajSrv]: ready to receive trajectory");
 
   ti_ = ros::Time::now().toSec();

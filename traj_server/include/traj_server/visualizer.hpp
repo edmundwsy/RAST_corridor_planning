@@ -55,7 +55,7 @@ class TrajSrvVisualizer {
     _nh.getParam("tf_prefix", tf_prefix);
 
     if (tf_prefix.empty()) {
-      tf_prefix = "";
+      tf_prefix = ros::this_node::getNamespace();
     } else {
       tf_prefix += "/";
     }
