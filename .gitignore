@@ -34,3 +34,11 @@
 /cmake-build-debug
 /cmake-build-release
 /.idea
+
+*.pyc
+*.pyo
+*.py
+
+RAST_corridor_planning/
+
+.vscode/
