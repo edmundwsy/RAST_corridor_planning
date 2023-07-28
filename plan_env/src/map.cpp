@@ -80,6 +80,13 @@ void MapBase::init(ros::NodeHandle &nh) {
   /* initialize odometry */
   pose_ = Eigen::Vector3f::Zero();
   q_    = Eigen::Quaternionf::Identity();
+
+  /* initialize risk map by setting unknown voxels as 1 */
+  for (int i = 0; i < VOXEL_NUM; i++) {
+    for (int j = 0; j < PREDICTION_TIMES; j++) {
+      risk_maps_[i][j] = 1.0F;
+    }
+  }
 }
 
 /**

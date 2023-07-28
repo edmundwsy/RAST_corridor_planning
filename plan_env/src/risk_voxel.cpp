@@ -106,8 +106,9 @@ void RiskVoxel::cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr   &cl
     Eigen::Quaternionf rotation(init_qw_, init_qx_, init_qy_, init_qz_);
     q_ = rotation * q_;
   }
-  std::cout << "odom: " << pose_.transpose() << "  pose: " << q_.w() << q_.x() << q_.y() << q_.z()
-            << std::endl;
+  // std::cout << "odom: " << pose_.transpose() << "  pose: " << q_.w() << q_.x() << q_.y() <<
+  // q_.z()
+  //           << std::endl;
   updateMap(cloud_msg);
 }
 
@@ -159,10 +160,11 @@ void RiskVoxel::publishMap() {
   std::string wrd_msg = (if_pub_in_world_frame_) ? "true" : "false";
 
   if (if_pub_spatio_temporal_map_) {
+    cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
     for (int i = 0; i < VOXEL_NUM; i++) {
       pcl::PointXYZ   pt;
       Eigen::Vector3f pos = getVoxelPosition(i);
-      if (pos.z() < -1) continue;  // filter out the ground
+      if (abs(pos.z() - pose_.z()) > 0.5) continue;  // filter out necessary points
       for (int j = 0; j < PREDICTION_TIMES; j++) {
         if (risk_maps_[i][j] > risk_threshold_) {
           pt.x = pos.x();
@@ -172,6 +174,8 @@ void RiskVoxel::publishMap() {
         }
       }
     }
+    cloud->width  = cloud->points.size();
+    cloud->height = 1;
   }
 
   if (if_pub_in_world_frame_ && !if_pub_spatio_temporal_map_) {
@@ -230,8 +234,11 @@ void RiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
   //           << std::endl;
 }
 
+/**
+ * @brief add occupancies of other agents to the map
+ */
 void RiskVoxel::addOtherAgents() {
-  ros::Time       tic        = ros::Time::now();
+  // ros::Time       tic        = ros::Time::now();
   Eigen::Vector3d robot_size = coordinator_->getAgentsSize();
   int             n          = coordinator_->getNumAgents();
   for (int idx = 0; idx < PREDICTION_TIMES; idx++) {
@@ -249,7 +256,7 @@ void RiskVoxel::addOtherAgents() {
     }
     addObstacles(waypoints, robot_size, idx);
   }
-  ros::Time toc = ros::Time::now();
+  // ros::Time toc = ros::Time::now();
   // std::cout << "adding obstacles takes: " << (toc - tic).toSec() * 1000 << "ms" << std::endl;
 }
 
@@ -310,4 +317,46 @@ int RiskVoxel::getInflateOccupancy(const Eigen::Vector3d &pos, double t) const {
   if (t > PREDICTION_TIMES) return -1;
   if (risk_maps_[index][ti] > risk_threshold_) return 1;
   return 0;
+}
+
+/**
+ * @brief collision check on voxel map with clearance (none-inflated map)
+ *
+ * @param pos position in world frame
+ * @param t index of the time frame
+ * @return 0: free, 1: occupied, -1: out of bound
+ */
+int RiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos, int t) const {
+  Eigen::Vector3f pf = pos.cast<float>() - pose_;
+  Eigen::Vector3i pi = getVoxelRelIndex(pf);
+  if (!this->isInRange(pi)) return -1; /* query position out of range */
+  for (auto &inf_pts : inflate_kernel_) {
+    Eigen::Vector3i p = pi + inf_pts;
+    if (!isInRange(p)) continue;
+    int idx = getVoxelIndex(p);
+    // std::cout << "pf: " << pf.transpose() << "\tt:" << t << "\trisk:" << risk_maps_[idx][0]
+    //           << std::endl;
+    if (risk_maps_[idx][t] > risk_threshold_) return 1; /* collision */
+  }
+  return 0;
+}
+
+int RiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos) const {
+  return getClearOcccupancy(pos, 0);
+}
+
+int RiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos, double dt) const {
+  int tc = ceil(dt / time_resolution_);
+  tc     = tc > PREDICTION_TIMES ? PREDICTION_TIMES : tc;
+  int tf = floor(dt / time_resolution_);
+  tf     = tf > PREDICTION_TIMES ? PREDICTION_TIMES : tf;
+
+  int ret0 = getClearOcccupancy(pos, tc);
+  int ret1 = getClearOcccupancy(pos, tf);
+  if (ret0 == -1 || ret1 == -1) return -1;
+  if (ret0 == 0 && ret1 == 0) {
+    return 0;
+  } else {
+    return 1;
+  }
 }

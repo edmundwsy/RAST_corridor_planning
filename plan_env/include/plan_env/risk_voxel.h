@@ -17,6 +17,7 @@
 
 #include <ros/ros.h>
 #include <Eigen/Dense>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -99,6 +100,10 @@ class RiskVoxel : public MapBase {
   int getInflateOccupancy(const Eigen::Vector3d &pos) const;
   int getInflateOccupancy(const Eigen::Vector3d &pos, int t) const;
   int getInflateOccupancy(const Eigen::Vector3d &pos, double t) const;
+
+  int getClearOcccupancy(const Eigen::Vector3d &pos) const;
+  int getClearOcccupancy(const Eigen::Vector3d &pos, int t) const;
+  int getClearOcccupancy(const Eigen::Vector3d &pos, double t) const;
 
   typedef std::shared_ptr<RiskVoxel> Ptr;
 };

@@ -12,6 +12,7 @@
 #define MAP_H
 #include <ros/ros.h>
 #include <Eigen/Dense>
+#include <algorithm>
 #include <string>
 #include <vector>
 
