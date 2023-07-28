@@ -247,7 +247,7 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
     } else { /* otherwise: sample acceleration to generate motion primitives */
       for (double ax = -max_acc_; ax <= max_acc_ + 1e-3; ax += max_acc_ * res)
         for (double ay = -max_acc_; ay <= max_acc_ + 1e-3; ay += max_acc_ * res)
-          for (double az = -max_acc_; az <= max_acc_ + 1e-3; az += max_acc_ * res) {
+          for (double az = -0.5 * max_acc_; az <= 0.5 * max_acc_ + 1e-3; az += max_acc_ * res) {
             um << ax, ay, az;
             inputs.push_back(um);
           }

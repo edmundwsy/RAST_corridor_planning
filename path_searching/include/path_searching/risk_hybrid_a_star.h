@@ -27,6 +27,7 @@
 class RiskHybridAstar : public AStar {
  private:
   /* ---------- search parameter ---------- */
+  bool   is_testing_;
   bool   optimistic_;
   int    allocate_num_;  // number of nodes to be allocated in path_node_pool_
   int    check_num_;
@@ -63,6 +64,10 @@ class RiskHybridAstar : public AStar {
   Eigen::Vector3d             start_vel_, end_vel_, start_acc_;
   Eigen::Matrix<double, 6, 6> phi_;  // state transit matrix
   Eigen::MatrixXd             coef_shot_;
+
+  /* debug & visualization */
+  std::vector<Eigen::Vector4d> occupied_voxels_;
+  std::vector<Eigen::Vector4d> visited_voxels_;
 
   /* helper */
   int             timeToIndex(double time);
@@ -105,6 +110,8 @@ class RiskHybridAstar : public AStar {
 
   std::vector<Eigen::Vector3d>             getPath(double delta_t);
   std::vector<Eigen::Matrix<double, 6, 1>> getPathWithVel(double delta_t);
+  std::vector<Eigen::Vector4d>             getTraversedObstacles() { return visited_voxels_; }
+  std::vector<Eigen::Vector4d>             getOccupiedObstacles() { return occupied_voxels_; }
 
   void getSamples(double&                       ts,
                   std::vector<Eigen::Vector3d>& point_set,

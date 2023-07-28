@@ -15,6 +15,7 @@
 // #include <path_searching/fake_risk_hybrid_a_star.h>
 #include <plan_env/risk_voxel.h>
 // #include <plan_env/fake_dsp_map.h>
+#include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
 
@@ -24,6 +25,8 @@
 ros::Subscriber click_sub_;
 ros::Publisher  path_pub_;
 ros::Publisher  t_path_pub_;
+ros::Publisher  voxel_pub_;
+ros::Publisher  occupied_pub_;
 
 RiskVoxel::Ptr       grid_map_;
 RiskHybridAstar::Ptr a_star_;
@@ -113,10 +116,29 @@ void visualizeTemporalPath(const std::vector<Eigen::Vector3d> &path, double dt) 
   t_path_pub_.publish(marker);
 }
 
+void visualizeObstacles(const std::vector<Eigen::Vector4d> &points, ros::Publisher &pub) {
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  cloud->points.reserve(points.size());
+  for (auto &pt : points) {
+    pcl::PointXYZ p;
+    p.x = pt[0]; /* x */
+    p.y = pt[1]; /* y */
+    p.z = pt[3]; /* t */
+    cloud->points.push_back(p);
+  }
+  sensor_msgs::PointCloud2 cloud_msg;
+  pcl::toROSMsg(*cloud, cloud_msg);
+  cloud_msg.header.stamp    = ros::Time::now();
+  cloud_msg.header.frame_id = "world";
+  pub.publish(cloud_msg);
+}
+
 void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   end_pos_(0) = msg->pose.position.x;
   end_pos_(1) = msg->pose.position.y;
   end_pos_(2) = 1;
+  ROS_INFO("Start position: (%f, %f, %f)", start_pos_(0), start_pos_(1), start_pos_(2));
+  ROS_INFO("Start velocity: (%f, %f, %f)", start_vel_(0), start_vel_(1), start_vel_(2));
   ROS_INFO("End position: (%f, %f, %f)", end_pos_(0), end_pos_(1), end_pos_(2));
   a_star_->reset();
   auto      t1 = ros::Time::now();
@@ -129,6 +151,11 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
     a_star_->reset();
     rst = a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, false, true, 0);
   }
+
+  std::vector<Eigen::Vector4d> visited_voxels  = a_star_->getTraversedObstacles();
+  std::vector<Eigen::Vector4d> occupied_voxels = a_star_->getOccupiedObstacles();
+  visualizeObstacles(visited_voxels, voxel_pub_);
+  visualizeObstacles(occupied_voxels, occupied_pub_);
 
   if (rst > 2) {
     path_ = a_star_->getPath(sample_duration_);
@@ -144,8 +171,18 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   }
 }
 
+void odomCallback(const nav_msgs::Odometry::ConstPtr &msg) {
+  start_pos_(0) = msg->pose.pose.position.x;
+  start_pos_(1) = msg->pose.pose.position.y;
+  start_pos_(2) = msg->pose.pose.position.z;
+  start_vel_(0) = msg->twist.twist.linear.x;
+  start_vel_(1) = msg->twist.twist.linear.y;
+  start_vel_(2) = msg->twist.twist.linear.z;
+}
+
 int main(int argc, char **argv) {
   ros::init(argc, argv, "vis_risk_hybrid_a_star_node");
+  ros::NodeHandle nh_;
   ros::NodeHandle nh("~");
   int             pool_size_x = 100, pool_size_y = 100, pool_size_z = 60;
   nh.getParam("pool_size_x", pool_size_x);
@@ -165,6 +202,7 @@ int main(int argc, char **argv) {
   ROS_INFO("Start velocity: (%f, %f, %f)", start_vel_(0), start_vel_(1), start_vel_(2));
 
   nh.getParam("sample_duration", sample_duration_);
+  nh.param("mode", mode_, 0);
 
   grid_map_.reset(new RiskVoxel());
   grid_map_->init(nh);
@@ -177,9 +215,16 @@ int main(int argc, char **argv) {
   a_star_->setEnvironment(grid_map_);
   a_star_->init(start_pos_, Eigen::Vector3d(10, 10, 4));
 
-  click_sub_  = nh.subscribe("/move_base_simple/goal", 1, clickCallback);
   path_pub_   = nh.advertise<visualization_msgs::Marker>("/path", 1);
   t_path_pub_ = nh.advertise<visualization_msgs::Marker>("/t_path", 1);
+
+  voxel_pub_    = nh.advertise<sensor_msgs::PointCloud2>("/voxel", 1, true);
+  occupied_pub_ = nh.advertise<sensor_msgs::PointCloud2>("/occupied", 1, true);
+
+  ros::Subscriber odom_sub = nh.subscribe("astar/odom", 1, odomCallback);
+
+  ROS_INFO("[Astar] Triggered by click!");
+  click_sub_ = nh.subscribe("/move_base_simple/goal", 1, clickCallback);
 
   ros::AsyncSpinner spinner(4);
   spinner.start();

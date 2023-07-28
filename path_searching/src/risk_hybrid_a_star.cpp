@@ -72,7 +72,8 @@ void RiskHybridAstar::setParam(ros::NodeHandle& nh) {
   nh.param("search/allocate_num", allocate_num_, -1);
   nh.param("search/check_num", check_num_, -1);
   nh.param("search/optimistic", optimistic_, true);
-  nh.param("search/tolerance", tolerance_, 1); /* 终点误差容忍度 */
+  nh.param("search/tolerance", tolerance_, 1);    /* 终点误差容忍度 */
+  nh.param("search/is_test", is_testing_, false); /* if testing mode, record traversed voxels */
   tie_breaker_ = 1.0 + 1.0 / 10000;
 
   double vel_margin;
@@ -119,6 +120,8 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
                                   bool            init,
                                   bool            dynamic,
                                   double          time_start) {
+  occupied_voxels_.clear();
+  visited_voxels_.clear();
   Eigen::Vector3f map_center_f;
   map_center_ = grid_map_->getMapCenter().cast<double>();
   start_vel_  = start_v;
@@ -159,7 +162,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     expanded_nodes_.insert(cur_node->getIndex(), cur_node);
   }
 
-  // PathNodePtr neighbor       = NULL;
+  PathNodePtr neighbor       = NULL;
   PathNodePtr terminate_node = NULL;
   bool        init_search    = init;
 
@@ -177,6 +180,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     if (reach_horizon || near_end || exceed_time) {
       terminate_node = cur_node;
       retrievePath(terminate_node);
+      std::cout << "retrievePath success " << std::endl;
       if (near_end) {
         // Check whether shot traj exist
         estimateHeuristic(cur_node->state, end_state, time_to_goal);
@@ -221,7 +225,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
 
     /* primitives <- Expand(n_c) */
     double res = 1 / 2.0;
-    // time_res = 1 / 1.0, time_res_init = 1 / 20.0;
+    // double time_res = 1 / 1.0, time_res_init = 1 / 20.0;
 
     Eigen::Matrix<double, 6, 1>  cur_state = cur_node->state;
     Eigen::Matrix<double, 6, 1>  pro_state;
@@ -240,7 +244,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
     } else { /* otherwise: sample acceleration to generate motion primitives */
       for (double ax = -max_acc_; ax <= max_acc_ + 1e-3; ax += max_acc_ * res)
         for (double ay = -max_acc_; ay <= max_acc_ + 1e-3; ay += max_acc_ * res)
-          for (double az = -max_acc_; az <= max_acc_ + 1e-3; az += max_acc_ * res) {
+          for (double az = -0.5 * max_acc_; az <= 0.5 * max_acc_ + 1e-3; az += max_acc_ * res) {
             um << ax, ay, az;
             inputs.push_back(um);
           }
@@ -294,13 +298,27 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
           stateTransit(cur_state, xt, um, dt);
           pos      = xt.head(3);
           double t = cur_node->time + dt;
-          // std::cout << "pos:" << pos.transpose() << " t: " << t << std::endl;
-          // if (grid_map_->getInflateOccupancy(pos - map_center_, t) == 1) {
-          if (grid_map_->getClearOcccupancy(pos, t) != 0) {
-            is_occ = true;
-            break;
+          if (is_testing_) {
+            if (grid_map_->getClearOcccupancy(pos, t) != 0) {
+              is_occ = true;
+              Eigen::Vector4d obs;
+              obs << pos, t;
+              occupied_voxels_.push_back(obs);
+              break;
+            } else {
+              Eigen::Vector4d free;
+              free << pos, t;
+              visited_voxels_.push_back(free);
+            }
+          } else {
+            // if (grid_map_->getInflateOccupancy(pos, t) != 0) {
+            if (grid_map_->getClearOcccupancy(pos, t) != 0) {
+              is_occ = true;
+              break;
+            }
           }
         }
+
         if (is_occ) {
           if (init_search) std::cout << "safe" << std::endl;
           continue;
@@ -313,7 +331,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
 
         // Compare nodes expanded from the same parent
         bool prune = false;
-        for (int j = 0; j < int(tmp_expand_nodes.size()); ++j) {
+        for (int j = 0; j < static_cast<int>(tmp_expand_nodes.size()); ++j) {
           PathNodePtr expand_node = tmp_expand_nodes[j];
           // std::cout << " expand_node: " << expand_node->state.transpose();
           // std::cout << " t: " << pro_t_id << " | " << expand_node->time;
@@ -462,10 +480,7 @@ bool RiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
   Tm << 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 0;
 
   /* ---------- forward checking of trajectory ---------- */
-  double t_delta         = t_d / 10;
-  double half_map_size_x = map_size_(0) / 2;
-  double half_map_size_y = map_size_(1) / 2;
-  double half_map_size_z = map_size_(2) / 2;
+  double t_delta = t_d / 10;
 
   for (double time = t_delta; time <= t_d; time += t_delta) {
     t = VectorXd::Zero(4);
@@ -485,21 +500,8 @@ bool RiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
       }
     }
     std::cout << "coord: " << coord.transpose() << std::endl;
-    // coord = coord - map_center_;
-    // std::cout << "relative coord: " << coord.transpose() << std::endl;
-
-    // if (coord(0) < -half_map_size_x || coord(0) >= half_map_size_x || coord(1) < -half_map_size_y
-    // ||
-    //     coord(1) >= half_map_size_y || coord(2) < half_map_size_z || coord(2) >= half_map_size_z)
-    //     {
-    //   return false;
-    // }
-
-    // if (edt_environment_->evaluateCoarseEDT(coord, -1.0) <= margin_) {
-    //   return false;
-    // }
     if (grid_map_->getClearOcccupancy(coord) != 0) {
-      // if (grid_map_->getInflateOccupancy(coord) == 1) {
+      // if (grid_map_->getInflateOccupancy(coord) != 0) {
       return false;
     }
   }
