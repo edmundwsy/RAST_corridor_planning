@@ -234,8 +234,8 @@ bool BaselinePlanner::replan(double                 t,
     firi::firi(bd, m_pc, wpts[i], wpts[i + 1], hPoly, r, 2);
     ros::Time t4 = ros::Time::now();
     if (r.x() * r.y() * r.z() < cfg_.min_volumn) {
-      std::cout << "ellipsoid radius  " << r.transpose() << " volumn: " << r.x() * r.y() * r.z()
-                << std::endl;
+      std::cout << "Narrow corridor, reject! Ellipsoid radius " << r.transpose()
+                << " volumn: " << r.x() * r.y() * r.z() << std::endl;
       this->showObstaclePoints(pc);  // visualization
       break;
     }

@@ -134,6 +134,9 @@ class BaselinePlanner {
 
   Bernstein::Bezier getTrajectory() const { return traj_; }
 
+  inline bool            isPrevTrajFinished(double t) const;
+  inline double          getPrevTrajStartTime() const;
+  inline double          getPrevTrajEndTime() const;
   inline Eigen::Vector3d getPos(double t) const;
   inline Eigen::Vector3d getVel(double t) const;
   inline Eigen::Vector3d getAcc(double t) const;
@@ -185,4 +188,13 @@ inline Eigen::Vector3d BaselinePlanner::getAcc(double t) const {
   return traj_.getAcc(t - prev_traj_start_time_);
 }
 
+inline bool BaselinePlanner::isPrevTrajFinished(double t) const {
+  return (t - prev_traj_start_time_ > traj_.getDuration());
+}
+
+inline double BaselinePlanner::getPrevTrajStartTime() const { return prev_traj_start_time_; }
+
+inline double BaselinePlanner::getPrevTrajEndTime() const {
+  return prev_traj_start_time_ + traj_.getDuration();
+}
 #endif  // _BASELINE_H_

@@ -10,8 +10,8 @@ fsm:
 search:
   max_tau: 2.0
   init_max_tau: 0.8
-  max_vel: 0.8
-  max_acc: 2.0
+  max_vel: 1.5
+  max_acc: 3.0
   w_time: 10.0
   horizon: 5.0
   lambda_heu: 5.0
@@ -22,7 +22,7 @@ search:
   check_num: 5
 
 corridor:
-  init_range: 1.0
+  init_range: 1.5
   min_volumn: 0.01
   risk_threshold_single_voxel: 0.05
   risk_threshold_corridor: 3.0
@@ -35,8 +35,8 @@ optimizer:
   snap_factor: 1.0 # minimum snap
   delta_corridor: 0.4
 
-  max_vel_optimization: 1.0 # Constraint in optimization. A little larger than max_vel
-  max_acc_optimization: 2.5 # Constraint in optimization. A little larger than max_acc
+  max_vel_optimization: 1.2 # Constraint in optimization. A little larger than max_vel
+  max_acc_optimization: 2.0 # Constraint in optimization. A little larger than max_acc
 
 map:
   booleans:

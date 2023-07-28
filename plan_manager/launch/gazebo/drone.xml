@@ -42,7 +42,6 @@
     <param name="goal_x" value="$(arg goal_x)" />
     <param name="goal_y" value="$(arg goal_y)" />
     <param name="goal_z" value="$(arg goal_z)" />
-    <param name="vel" value="1" />
     <param name="time_step" value="0.01" />
     <param name="map/booleans/sub_pose" value="$(arg is_pose_subscribed)" />
   </node>
@@ -55,5 +54,13 @@
     <param name="tf" value="true" />
     <param name="replan_time_threshold" value="1.2" />
     <param name="tf_prefix" value="uav$(arg drone_id)" />
+    <param name="is_init_yaw" value="true" />
+    <param name="init_x" value="$(arg init_x)" />
+    <param name="init_y" value="$(arg init_y)" />
+    <param name="init_z" value="$(arg init_z)" />
+    <param name="init_qx" value="$(arg init_qx)" />
+    <param name="init_qy" value="$(arg init_qy)" />
+    <param name="init_qz" value="$(arg init_qz)" />
+    <param name="init_qw" value="$(arg init_qw)" />
   </node>
 </launch>
