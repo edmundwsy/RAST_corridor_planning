@@ -68,7 +68,7 @@
             <arg name="tgt_system" value="$(eval 1 + arg('ID'))"/>
             <arg name="tgt_component" value="1"/>
         </include>
-        <include file="$(find eval_helper)/launch/odom_local2global.launch">
+        <include file="$(find traj_server)/launch/odom_local2global.launch">
             <arg name="init_x" value="$(arg uav0_init_x)"/>"
             <arg name="init_y" value="$(arg uav0_init_y)"/>"
             <arg name="init_z" value="$(arg uav0_init_z)"/>"
@@ -109,7 +109,7 @@
             <arg name="tgt_system" value="$(eval 1 + arg('ID'))"/>
             <arg name="tgt_component" value="1"/>
         </include>
-        <include file="$(find eval_helper)/launch/odom_local2global.launch">
+        <include file="$(find traj_server)/launch/odom_local2global.launch">
             <arg name="init_x" value="$(arg uav1_init_x)"/>"
             <arg name="init_y" value="$(arg uav1_init_y)"/>"
             <arg name="init_z" value="$(arg uav1_init_z)"/>"

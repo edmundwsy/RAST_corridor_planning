@@ -17,14 +17,16 @@
 #include <path_searching/fake_risk_hybrid_a_star.h>
 #include <pcl/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <plan_env/fake_dsp_map.h>
-#include <plan_env/risk_voxel.h>
+// #include <plan_env/fake_dsp_map.h>
+// #include <plan_env/risk_voxel.h>
+#include <plan_env/fake_particle_risk_voxel.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <traj_utils/BezierTraj.h>
 #include <bernstein/bezier_optimizer.hpp>
 // #include <plan_manager/mader_deconfliction.hpp>
 #include <sfc_gen/firi.hpp>
-#include <traj_coordinator/mader.hpp>
+// #include <traj_coordinator/mader.hpp>
+#include <traj_coordinator/particle.hpp>
 #include <traj_utils/bernstein.hpp>
 #include <traj_utils/corridor.hpp>
 #include <traj_utils/visualizer.hpp>
@@ -158,10 +160,10 @@ class FakeBaselinePlanner {
   FakeBaselineParameters cfg_;
 
   /* Shared Pointers */
-  FakeRiskVoxel::Ptr       map_;
-  FakeRiskHybridAstar::Ptr a_star_;
-  traj_opt::BezierOpt::Ptr traj_optimizer_;    /** Trajectory optimizer */
-  MADER::Ptr               collision_avoider_; /* multi-agent collision avoidance policy*/
+  FakeParticleRiskVoxel::Ptr map_;
+  FakeRiskHybridAstar::Ptr   a_star_;
+  traj_opt::BezierOpt::Ptr   traj_optimizer_;    /** Trajectory optimizer */
+  ParticleATC::Ptr           collision_avoider_; /* multi-agent collision avoidance policy*/
 
   /* Trajectory */
   int    traj_idx_;        /** Trajectory index */

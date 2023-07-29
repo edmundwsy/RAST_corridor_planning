@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(plan_env)
 
 set(CMAKE_BUILD_TYPE "Release")
+# set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 ADD_COMPILE_OPTIONS(-std=c++11)
 ADD_COMPILE_OPTIONS(-std=c++14)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
@@ -56,6 +57,7 @@ add_library(plan_env
     src/dsp_map_new.cpp
     src/risk_voxel.cpp
     src/fake_dsp_map.cpp
+    src/fake_particle_risk_voxel.cpp
 )
 target_link_libraries(plan_env
     ${catkin_LIBRARIES}

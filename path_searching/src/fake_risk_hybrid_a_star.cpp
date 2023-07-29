@@ -58,10 +58,6 @@ void FakeRiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::V
   iter_num_     = 0;
 }
 
-void FakeRiskHybridAstar::setEnvironment(const FakeRiskVoxel::Ptr& grid_map) {
-  grid_map_ = grid_map;
-}
-
 void FakeRiskHybridAstar::setParam(ros::NodeHandle& nh) {
   nh.param("search/max_tau", max_tau_, -1.0); /* 每次前向积分的时间，设为地图的时间长度 */
   nh.param("search/init_max_tau", init_max_tau_, -1.0); /* 按照之前的输入前向积分的时间 */

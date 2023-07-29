@@ -17,7 +17,7 @@
  */
 void FakeBaselinePlanner::init() {
   /*** INITIALIZE MAP ***/
-  map_.reset(new FakeRiskVoxel());
+  map_.reset(new FakeParticleRiskVoxel());
   map_->init(nh_);
   ROS_INFO("Map initialized.");
 
@@ -33,10 +33,10 @@ void FakeBaselinePlanner::init() {
   ROS_INFO("Trajectory optimizer initialized.");
 
   /*** INITIALIZE MADER DECONFLICTION ***/
-  collision_avoider_.reset(new MADER(nh_));
+  collision_avoider_.reset(new ParticleATC(nh_));
   collision_avoider_->init();
   map_->setCoordinator(collision_avoider_);
-  ROS_INFO("MADER initialized.");
+  ROS_INFO("Collision avoider initialized.");
 
   /*** INITIALIZE VISUALIZATION ***/
   std::string ns = "world";

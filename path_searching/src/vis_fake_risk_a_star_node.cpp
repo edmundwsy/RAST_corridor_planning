@@ -16,7 +16,7 @@
 // #include <path_searching/risk_hybrid_a_star.h>
 #include <path_searching/fake_risk_hybrid_a_star.h>
 // #include <plan_env/risk_voxel.h>
-#include <plan_env/fake_dsp_map.h>
+// #include <plan_env/fake_dsp_map.h>
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
 
@@ -29,8 +29,8 @@ ros::Publisher  t_path_pub_;
 ros::Publisher  voxel_pub_;
 ros::Publisher  occupied_pub_;
 
-FakeRiskVoxel::Ptr       grid_map_;
-FakeRiskHybridAstar::Ptr a_star_;
+FakeParticleRiskVoxel::Ptr grid_map_;
+FakeRiskHybridAstar::Ptr   a_star_;
 
 Eigen::Vector3d              end_pos_, start_pos_, start_vel_;
 Eigen::Vector3d              end_vel_   = Eigen::Vector3d::Zero();
@@ -200,7 +200,7 @@ int main(int argc, char **argv) {
 
   nh.getParam("sample_duration", sample_duration_);
 
-  grid_map_.reset(new FakeRiskVoxel());
+  grid_map_.reset(new FakeParticleRiskVoxel());
   grid_map_->init(nh);
   Eigen::Vector3f posf = start_pos_.cast<float>();
   grid_map_->setMapCenter(posf);

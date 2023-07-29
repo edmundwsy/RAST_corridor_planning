@@ -202,7 +202,6 @@ int main(int argc, char **argv) {
   ROS_INFO("Start velocity: (%f, %f, %f)", start_vel_(0), start_vel_(1), start_vel_(2));
 
   nh.getParam("sample_duration", sample_duration_);
-  nh.param("mode", mode_, 0);
 
   grid_map_.reset(new RiskVoxel());
   grid_map_->init(nh);
