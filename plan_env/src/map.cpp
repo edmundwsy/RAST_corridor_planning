@@ -10,6 +10,7 @@
  */
 
 #include <plan_env/map.h>
+#include <pcl/impl/point_types.hpp>
 
 void MapBase::loadParameters() {
   /* parameters */
@@ -72,6 +73,8 @@ void MapBase::init(ros::NodeHandle &nh) {
   /* publishers */
   cloud_pub_    = nh.advertise<sensor_msgs::PointCloud2>("map/occupancy_inflated", 1, true);
   obstacle_pub_ = nh.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 1, true);
+  // risk_pub_     = nh.advertise<std_msgs::Float32MultiArray>("map/risk", 1, true);
+  risk_pub_ = nh.advertise<sensor_msgs::PointCloud2>("map/risk_map", 1);
   /* publish point clouds in 20 Hz */
   pub_timer_ = nh.createTimer(ros::Duration(0.10), &MapBase::pubCallback, this);
 
@@ -222,6 +225,42 @@ void MapBase::publishMap() {
   // clock_t t2 = clock();
   // std::cout << "num_occupied: " << num_occupied << "\t" << std::endl;
   //           << "publish time (ms): " << (t2 - t1) * 1000 / (double)CLOCKS_PER_SEC << std::endl;
+  // std_msgs::Float32MultiArray   risk_msg;
+  // std_msgs::MultiArrayDimension risk_dim;
+  // risk_dim.size   = VOXEL_NUM;
+  // risk_dim.stride = PREDICTION_TIMES;
+  // risk_msg.layout.dim.push_back(risk_dim);
+  // risk_msg.data.reserve(VOXEL_NUM * PREDICTION_TIMES);
+  // for (int i = 0; i < VOXEL_NUM; i++) {
+  //   for (int j = 0; j < PREDICTION_TIMES; j++) {
+  //     risk_msg.data.push_back(risk_maps_[i][j]);
+  //   }
+  // }
+  // risk_pub_.publish(risk_msg);
+  pcl::PointCloud<pcl::PointXYZRGB> risk_cloud;
+  risk_cloud.points.reserve(VOXEL_NUM);
+  for (size_t i = 0; i < VOXEL_NUM; i++) {
+    Eigen::Vector3f pt = getVoxelPosition(i);
+    if (risk_maps_[i][0] <= 0) continue;  // filter out safe area
+    int color = 255 * (1 - risk_maps_[i][0]);
+    color     = (color > 255) ? 255 : color;
+    color     = (color < 0) ? 0 : color;
+    pcl::PointXYZRGB p;
+    p.x = pt[0];
+    p.y = pt[1];
+    p.z = pt[2];
+    p.r = color;
+    p.g = color;
+    p.b = color;
+    risk_cloud.push_back(p);
+  }
+  risk_cloud.width  = risk_cloud.points.size();
+  risk_cloud.height = 1;
+  sensor_msgs::PointCloud2 risk_cloud_msg;
+  pcl::toROSMsg(risk_cloud, risk_cloud_msg);
+  risk_cloud_msg.header.stamp    = ros::Time::now();
+  risk_cloud_msg.header.frame_id = "world";
+  risk_pub_.publish(risk_cloud_msg);
 }
 
 /**

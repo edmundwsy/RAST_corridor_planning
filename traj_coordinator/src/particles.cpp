@@ -27,6 +27,10 @@ void ParticleATC::init() {
 
   nh_.param("drone_id", drone_id_, 0);
   nh_.param("swarm/num_robots", num_robots_, 3);
+  nh_.param("map/tracking_stddev", tracking_stddev_, 0.0F);
+  nh_.param("map/tracking_mean_", tracking_mean_, 0.0F);
+  nh_.param("map/time_sync_stddev", time_sync_stddev_, 0.0F);
+  nh_.param("map/localization_stddev", localization_stddev_, 0.0F);
 
   /* Initialize Booleans */
   is_checking_                         = false;
@@ -39,10 +43,15 @@ void ParticleATC::init() {
   // index_to_drone_id_.clear();
 
   /* initialize particles buffer */
-  particles_buffer_.resize(num_robots_);
-  for (int i = 0; i < num_robots_; ++i) {
-    particles_buffer_[i].reserve(512);
-  }
+  // particles_buffer_.resize(num_robots_);
+  // for (int i = 0; i < num_robots_; ++i) {
+  //   particles_buffer_[i].reserve(512);
+  // }
+
+  /* initialize uncertainties buffer */
+  tracking_uncertainties_.resize(num_robots_, 0.0F);
+  time_sync_uncertainties_.resize(num_robots_, 0.0F);
+  localization_uncertainties_.resize(num_robots_, 0.0F);
 
   /* Initialize ego particles sets */
   initEgoParticles();
@@ -67,8 +76,8 @@ void ParticleATC::reset() {
 
 void ParticleATC::initEgoParticles() {
   ego_particles_.clear();
-  double WIDTH = 0.3;
-  double STEP  = 0.15;
+  double WIDTH = 0.6;
+  double STEP  = 0.3;
   /* body particles, we use a cube to approximate the body */
   for (double x = -WIDTH; x <= WIDTH; x += STEP) {
     for (double y = -WIDTH; y <= WIDTH; y += STEP) {
@@ -78,34 +87,48 @@ void ParticleATC::initEgoParticles() {
       }
     }
   }
+  ROS_INFO("[CA] ego particles initialized with %lu particles", ego_particles_.size());
 
   /* fill the ego particles buffer */
-  particles_buffer_[drone_id_].clear();
-  particles_buffer_[drone_id_].reserve(ego_particles_.size());
+  particles_buffer_.resize(num_robots_);
+  for (int i = 0; i < num_robots_; ++i) {
+    particles_buffer_[i].clear();
+    particles_buffer_[i].reserve(ego_particles_.size());
+  }
+
   for (int i = 0; i < ego_particles_.size(); ++i) {
     particles_buffer_[drone_id_].push_back(ego_particles_[i]);
   }
-  ROS_INFO("[CA] ego particles initialized with %lu particles", ego_particles_.size());
 }
 
 void ParticleATC::particlesCallback(const geometry_msgs::PolygonStamped::ConstPtr &particles_msg) {
-  int idx = std::stoi(particles_msg->header.frame_id.substr(3, 1));
-  std::cout << idx << std::endl;
-  if (idx >= num_robots_) {
-    ROS_ERROR("[CA] received particles from drone %d, which is not in the swarm", idx);
+  int rbt_idx = std::stoi(particles_msg->header.frame_id.substr(3, 1));
+  std::cout << rbt_idx << std::endl;
+  if (rbt_idx >= num_robots_) {
+    ROS_ERROR("[CA] received particles from drone %d, which is not in the swarm", rbt_idx);
     return;
   }
-  if (idx == drone_id_) return;
+  if (rbt_idx == drone_id_) return;
 
-  if (particles_buffer_[idx].size() != particles_msg->polygon.points.size()) {
-    particles_buffer_[idx].clear();
-    for (int i = 0; i < particles_msg->polygon.points.size(); ++i) {
+  if (particles_buffer_[rbt_idx].size() != particles_msg->polygon.points.size()) {
+    /* update the uncertainties */
+    localization_uncertainties_[rbt_idx] = particles_msg->polygon.points[0].x;
+    time_sync_uncertainties_[rbt_idx]    = particles_msg->polygon.points[0].y;
+    tracking_uncertainties_[rbt_idx]     = particles_msg->polygon.points[0].z;
+
+    /* update the particles buffer */
+    particles_buffer_[rbt_idx].clear();
+    for (int i = 1; i < particles_msg->polygon.points.size(); ++i) {
       Eigen::Vector3d pt;
       pt << particles_msg->polygon.points[i].x, particles_msg->polygon.points[i].y,
           particles_msg->polygon.points[i].z;
-      particles_buffer_[idx].push_back(pt);
+      particles_buffer_[rbt_idx].push_back(pt);
     }
-    ROS_INFO("[CA] received %lu particles from drone %d", particles_buffer_[idx].size(), idx);
+    ROS_INFO("[CA] received uncertainties from drone %d, loc: %.2f, t_sync: %.2f, track: %.2f",
+             rbt_idx, localization_uncertainties_[rbt_idx], time_sync_uncertainties_[rbt_idx],
+             tracking_uncertainties_[rbt_idx]);
+    ROS_INFO("[CA] received %lu particles from drone %d", particles_buffer_[rbt_idx].size(),
+             rbt_idx);
   }
 }
 
@@ -114,7 +137,14 @@ void ParticleATC::egoParticlesCallback(const ros::TimerEvent &event) {
   particles_msg.header.stamp    = ros::Time::now();
   particles_msg.header.frame_id = "uav" + std::to_string(drone_id_) + "/base_link";
   particles_msg.polygon.points.resize(ego_particles_.size());
-  for (int i = 0; i < ego_particles_.size(); ++i) {
+  /* HACK: for simplicity, we use this message to share uncertainties
+  We use p[0].x = localization uncertainty, p[0].y = clock sync uncertainty, p[0].z = tracking
+  uncertainty
+  */
+  particles_msg.polygon.points[0].x = localization_stddev_;
+  particles_msg.polygon.points[0].y = time_sync_stddev_;
+  particles_msg.polygon.points[0].z = tracking_stddev_;
+  for (int i = 1; i < ego_particles_.size() + 1; ++i) {
     particles_msg.polygon.points[i].x = ego_particles_[i](0);
     particles_msg.polygon.points[i].y = ego_particles_[i](1);
     particles_msg.polygon.points[i].z = ego_particles_[i](2);

@@ -53,6 +53,7 @@ void FakeParticleRiskVoxel::init(ros::NodeHandle &nh) {
   /* publishers */
   cloud_pub_    = nh.advertise<sensor_msgs::PointCloud2>("map/occupancy_inflated", 1, true);
   obstacle_pub_ = nh.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 1, true);
+  risk_pub_     = nh.advertise<sensor_msgs::PointCloud2>("map/risk_map", 1);
 
   /* publish point clouds in 20 Hz */
   cloud_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);

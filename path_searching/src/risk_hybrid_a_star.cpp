@@ -296,26 +296,26 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
         for (int k = 1; k <= check_num_; ++k) {
           double dt = tau * double(k) / double(check_num_);
           stateTransit(cur_state, xt, um, dt);
-          pos      = xt.head(3);
-          double t = cur_node->time + dt;
-          if (is_testing_) {
-            if (grid_map_->getClearOcccupancy(pos, t) != 0) {
-              is_occ = true;
-              Eigen::Vector4d obs;
-              obs << pos, t;
-              occupied_voxels_.push_back(obs);
-              break;
-            } else {
-              Eigen::Vector4d free;
-              free << pos, t;
-              visited_voxels_.push_back(free);
-            }
+          pos               = xt.head(3);
+          double          t = cur_node->time + dt;
+          Eigen::Vector4d obs;
+          obs << pos, t;
+          auto it = std::find_if(
+              occupied_voxels_.begin(), occupied_voxels_.end(),
+              [&obs](const Eigen::Vector4d& p) { return std::abs(p.norm() - obs.norm()) < 1e-3; });
+          if (it != occupied_voxels_.end()) {
+            is_occ = true;
+            break;
+          } else if (grid_map_->getClearOcccupancy(pos, t) != 0) {
+            is_occ = true;
+            Eigen::Vector4d obs;
+            obs << pos, t;
+            occupied_voxels_.push_back(obs);
+            break;
           } else {
-            // if (grid_map_->getInflateOccupancy(pos, t) != 0) {
-            if (grid_map_->getClearOcccupancy(pos, t) != 0) {
-              is_occ = true;
-              break;
-            }
+            Eigen::Vector4d free;
+            free << pos, t;
+            visited_voxels_.push_back(free);
           }
         }
 

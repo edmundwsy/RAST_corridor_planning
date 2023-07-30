@@ -27,7 +27,8 @@
 #include <bernstein/bezier_optimizer.hpp>
 // #include <plan_manager/mader_deconfliction.hpp>
 #include <sfc_gen/firi.hpp>
-#include <traj_coordinator/mader.hpp>
+#include <traj_coordinator/particle.hpp>
+// #include <traj_coordinator/mader.hpp>
 #include <traj_utils/bernstein.hpp>
 #include <traj_utils/corridor.hpp>
 #include <traj_utils/visualizer.hpp>
@@ -166,7 +167,7 @@ class BaselinePlanner {
   RiskVoxel::Ptr           map_;
   RiskHybridAstar::Ptr     a_star_;
   traj_opt::BezierOpt::Ptr traj_optimizer_;    /** Trajectory optimizer */
-  MADER::Ptr               collision_avoider_; /* multi-agent collision avoidance policy*/
+  ParticleATC::Ptr         collision_avoider_; /* multi-agent collision avoidance policy*/
 
   /* Trajectory */
   int    traj_idx_;        /** Trajectory index */

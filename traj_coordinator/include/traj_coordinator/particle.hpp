@@ -65,6 +65,13 @@ class ParticleATC {
   std::vector<Eigen::Vector3d>              ego_particles_;
   std::vector<std::vector<Eigen::Vector3d>> particles_buffer_;
 
+  /* uncertainties */
+  float              tracking_stddev_, time_sync_stddev_, localization_stddev_;
+  float              tracking_mean_;
+  std::vector<float> tracking_uncertainties_;
+  std::vector<float> time_sync_uncertainties_;
+  std::vector<float> localization_uncertainties_;
+
  public:
   /* constructor */
   ParticleATC(ros::NodeHandle &nh) : nh_(nh) {}

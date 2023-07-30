@@ -13,7 +13,8 @@
 
 #include <plan_env/dsp_dynamic.h>
 #include <plan_env/map.h>
-#include <traj_coordinator/mader.hpp>
+// #include <traj_coordinator/mader.hpp>
+#include <traj_coordinator/particle.hpp>
 
 #include <ros/ros.h>
 #include <Eigen/Dense>
@@ -45,8 +46,8 @@ class RiskVoxel : public MapBase {
   float num_newborn_particles_;
 
   /* Multi Agents */
-  bool       is_multi_agents_ = false;
-  MADER::Ptr coordinator_;
+  bool             is_multi_agents_ = false;
+  ParticleATC::Ptr coordinator_;
 
   /* Message filters */
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2,
@@ -72,7 +73,7 @@ class RiskVoxel : public MapBase {
   ~RiskVoxel() {}
 
   void init(ros::NodeHandle &nh);
-  void setCoordinator(MADER::Ptr ptr) {
+  void setCoordinator(ParticleATC::Ptr ptr) {
     is_multi_agents_ = true;
     coordinator_     = ptr;
   }
@@ -104,6 +105,9 @@ class RiskVoxel : public MapBase {
   int getClearOcccupancy(const Eigen::Vector3d &pos) const;
   int getClearOcccupancy(const Eigen::Vector3d &pos, int t) const;
   int getClearOcccupancy(const Eigen::Vector3d &pos, double t) const;
+
+  void createEgoParticlesVoxel();
+  void addObstaclesToRiskMap(const std::vector<Eigen::Vector3d> &centers, int t_index);
 
   typedef std::shared_ptr<RiskVoxel> Ptr;
 };

@@ -16,7 +16,7 @@
       <arg name="map_size_z" value="$(arg map_size_z)" />
       <arg name="init_x" value="0" />
       <arg name="init_y" value="0" />
-      <arg name="init_z" value="0" />
+      <arg name="init_z" value="1" />
       <arg name="goal_x" value="25" />
       <arg name="goal_y" value="0" />
       <arg name="goal_z" value="1" />

@@ -28,7 +28,7 @@ void BaselinePlanner::init() {
   ROS_INFO("Trajectory optimizer initialized.");
 
   /*** INITIALIZE MADER DECONFLICTION ***/
-  collision_avoider_.reset(new MADER(nh_));
+  collision_avoider_.reset(new ParticleATC(nh_));
   collision_avoider_->init();
   map_->setCoordinator(collision_avoider_);
 

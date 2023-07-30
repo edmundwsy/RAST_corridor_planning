@@ -238,26 +238,60 @@ void RiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
  * @brief add occupancies of other agents to the map
  */
 void RiskVoxel::addOtherAgents() {
-  // ros::Time       tic        = ros::Time::now();
-  Eigen::Vector3d robot_size = coordinator_->getAgentsSize();
-  int             n          = coordinator_->getNumAgents();
-  for (int idx = 0; idx < PREDICTION_TIMES; idx++) {
-    std::vector<Eigen::Vector3d> waypoints;
-    for (int i = 0; i < n; i++) {
-      double t = last_update_time_.toSec() + time_resolution_ * idx;
-      /* query coordinator to get the future waypoints from broadcast trajectory */
-      coordinator_->getWaypoints(waypoints, i, t);
-      /* Get waypoints at the beginning of each time step, and modify map
-       * accordingly */
+  std::vector<bool> is_swarm_traj_valid;
+  is_swarm_traj_valid.resize(coordinator_->getNumAgents(), true);
+  createEgoParticlesVoxel();
+  int ego_id = coordinator_->getEgoID();
+  int n_rbts = coordinator_->getNumAgents();
+
+  for (int t_idx = 0; t_idx < PREDICTION_TIMES; t_idx++) {
+    std::vector<Eigen::Vector3d> particles;
+
+    double t = last_update_time_.toSec() + time_resolution_ * t_idx;
+    for (int i = 0; i < n_rbts; i++) {
+      if (i == ego_id || !is_swarm_traj_valid[i]) {
+        continue;
+      }
+      bool is_traj_valid     = coordinator_->getWaypoints(particles, i, t);
+      is_swarm_traj_valid[i] = is_traj_valid;
     }
-    /* Transfer to local frame */
-    for (auto &wp : waypoints) {
-      wp = wp - pose_.cast<double>();
+
+    /* filter */
+    for (auto &pt : particles) {
+      pt = pt - pose_.cast<double>();
     }
-    addObstacles(waypoints, robot_size, idx);
+    addObstaclesToRiskMap(particles, t_idx);
   }
-  // ros::Time toc = ros::Time::now();
-  // std::cout << "adding obstacles takes: " << (toc - tic).toSec() * 1000 << "ms" << std::endl;
+}
+
+/**
+ * @brief create ego particles voxel in the map coordinate, to reduce time when collision check
+ */
+void RiskVoxel::createEgoParticlesVoxel() {
+  /* add ego particles to the map */
+  std::vector<Eigen::Vector3d> particles = coordinator_->getEgoParticles();
+  if (particles.size() != inflate_kernel_.size() && particles.size() != 0) {
+    inflate_kernel_.clear();
+    for (auto &pt : particles) {
+      Eigen::Vector3f ptf = pt.cast<float>();
+      inflate_kernel_.push_back(getVoxelRelIndex(ptf));
+    }
+    ROS_INFO("[MAMapUpdate]: inflate kernel size: %lu", inflate_kernel_.size());
+  }
+}
+
+/**
+ * @brief add particles to map
+ * @param pts  a list of particles
+ * @param t_index time index
+ */
+void RiskVoxel::addObstaclesToRiskMap(const std::vector<Eigen::Vector3d> &pts, int t_index) {
+  for (auto &pt : pts) {
+    Eigen::Vector3f ptf = pt.cast<float>();
+    if (!isInRange(ptf)) continue;
+    int index                  = getVoxelIndex(ptf);
+    risk_maps_[index][t_index] = 1.0;
+  }
 }
 
 /**
@@ -327,16 +361,23 @@ int RiskVoxel::getInflateOccupancy(const Eigen::Vector3d &pos, double t) const {
  * @return 0: free, 1: occupied, -1: out of bound
  */
 int RiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos, int t) const {
-  Eigen::Vector3f pf = pos.cast<float>() - pose_;
-  Eigen::Vector3i pi = getVoxelRelIndex(pf);
-  if (!this->isInRange(pi)) return -1; /* query position out of range */
-  for (auto &inf_pts : inflate_kernel_) {
-    Eigen::Vector3i p = pi + inf_pts;
+  // to debug
+  Eigen::Vector3f pos_f = pos.cast<float>() - pose_;
+  Eigen::Vector3i pos_i = getVoxelRelIndex(pos_f);
+  if (!isInRange(pos_i)) return -1;
+  // if (risk_maps_[getVoxelIndex(pos_i)][t] > risk_threshold_) return 1;
+  // return 0;
+
+  float sum_risk = 0.0;
+  // std::cout << "inflate kernel size: " << inflate_kernel_.size() << std::endl;
+  for (auto &ego_i : inflate_kernel_) {
+    Eigen::Vector3i p = pos_i + ego_i;
+    // std::cout << "pos_i: " << pos_i.transpose() << ", ego_i: " << ego_i.transpose()
+    //           << ", p: " << p.transpose() << std::endl;
     if (!isInRange(p)) continue;
     int idx = getVoxelIndex(p);
-    // std::cout << "pf: " << pf.transpose() << "\tt:" << t << "\trisk:" << risk_maps_[idx][0]
-    //           << std::endl;
-    if (risk_maps_[idx][t] > risk_threshold_) return 1; /* collision */
+    sum_risk += risk_maps_[idx][t];
+    if (sum_risk > risk_threshold_) return 1; /* collision */
   }
   return 0;
 }

@@ -146,16 +146,13 @@ bool FakeBaselinePlanner::replan(double                 t,
   std::cout << "/*----- Path Searching on DSP Static -----*/" << std::endl;
   a_star_->reset();
   t1                 = ros::Time::now();
-  t0                 = map_->getMapTime();
-  double t_after_map = (t1 - t0).toSec();
+  double t_after_map = traj_start_time_ - map_->getMapTime().toSec();
   ROS_INFO("[Astar] start position on map: %f | %i", t_after_map,
-           int((t1 - t0).toSec() / cfg_.corridor_tau));
+           int(t_after_map / cfg_.corridor_tau));
   ASTAR_RET rst = a_star_->search(start_pos, start_vel, start_acc, goal_pos,
                                   Eigen::Vector3d(0, 0, 0), true, true, t_after_map);
   if (rst == 0) {
-    t1                 = ros::Time::now();
-    t0                 = map_->getMapTime();
-    double t_after_map = (t1 - t0).toSec();
+    double t_after_map = traj_start_time_ - map_->getMapTime().toSec();
     a_star_->reset();
     rst = a_star_->search(start_pos, start_vel, start_acc, goal_pos, Eigen::Vector3d(0, 0, 0),
                           false, true, t_after_map);
