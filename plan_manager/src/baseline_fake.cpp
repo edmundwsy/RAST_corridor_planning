@@ -17,7 +17,7 @@
  */
 void FakeBaselinePlanner::init() {
   /*** INITIALIZE MAP ***/
-  map_.reset(new FakeRiskVoxel());
+  map_.reset(new FakeParticleRiskVoxel());
   map_->init(nh_);
   ROS_INFO("Map initialized.");
 
@@ -33,10 +33,10 @@ void FakeBaselinePlanner::init() {
   ROS_INFO("Trajectory optimizer initialized.");
 
   /*** INITIALIZE MADER DECONFLICTION ***/
-  collision_avoider_.reset(new MADER(nh_));
+  collision_avoider_.reset(new ParticleATC(nh_));
   collision_avoider_->init();
   map_->setCoordinator(collision_avoider_);
-  ROS_INFO("MADER initialized.");
+  ROS_INFO("Collision avoider initialized.");
 
   /*** INITIALIZE VISUALIZATION ***/
   std::string ns = "world";
@@ -146,16 +146,13 @@ bool FakeBaselinePlanner::replan(double                 t,
   std::cout << "/*----- Path Searching on DSP Static -----*/" << std::endl;
   a_star_->reset();
   t1                 = ros::Time::now();
-  t0                 = map_->getMapTime();
-  double t_after_map = (t1 - t0).toSec();
+  double t_after_map = traj_start_time_ - map_->getMapTime().toSec();
   ROS_INFO("[Astar] start position on map: %f | %i", t_after_map,
-           int((t1 - t0).toSec() / cfg_.corridor_tau));
+           int(t_after_map / cfg_.corridor_tau));
   ASTAR_RET rst = a_star_->search(start_pos, start_vel, start_acc, goal_pos,
                                   Eigen::Vector3d(0, 0, 0), true, true, t_after_map);
   if (rst == 0) {
-    t1                 = ros::Time::now();
-    t0                 = map_->getMapTime();
-    double t_after_map = (t1 - t0).toSec();
+    double t_after_map = traj_start_time_ - map_->getMapTime().toSec();
     a_star_->reset();
     rst = a_star_->search(start_pos, start_vel, start_acc, goal_pos, Eigen::Vector3d(0, 0, 0),
                           false, true, t_after_map);

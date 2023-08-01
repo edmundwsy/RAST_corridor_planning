@@ -58,10 +58,6 @@ void FakeRiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::V
   iter_num_     = 0;
 }
 
-void FakeRiskHybridAstar::setEnvironment(const FakeRiskVoxel::Ptr& grid_map) {
-  grid_map_ = grid_map;
-}
-
 void FakeRiskHybridAstar::setParam(ros::NodeHandle& nh) {
   nh.param("search/max_tau", max_tau_, -1.0); /* 每次前向积分的时间，设为地图的时间长度 */
   nh.param("search/init_max_tau", init_max_tau_, -1.0); /* 按照之前的输入前向积分的时间 */
@@ -296,26 +292,30 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
         Eigen::Vector3d             pos;
         Eigen::Matrix<double, 6, 1> xt;
         bool                        is_occ = false;
+
         for (int k = 1; k <= check_num_; ++k) {
           double dt = tau * double(k) / double(check_num_);
           stateTransit(cur_state, xt, um, dt);
           pos      = xt.head(3);
           double t = cur_node->time + dt;
           if (is_testing_) {
-            // if (grid_map_->getInflateOccupancy(pos, t) != 0) {
-            if (grid_map_->getClearOcccupancy(pos, t) != 0) {
+            Eigen::Vector4d obs;
+            obs << pos, t;
+            auto it = std::find_if(occupied_voxels_.begin(), occupied_voxels_.end(),
+                                   [&obs](const Eigen::Vector4d& p) {
+                                     return std::abs(p.norm() - obs.norm()) < 1e-3;
+                                   });
+            if (it != occupied_voxels_.end()) {
               is_occ = true;
-              Eigen::Vector4d obs;
-              obs << pos, t;
+              break;
+            } else if (grid_map_->getClearOcccupancy(pos, t) != 0) {
+              is_occ = true;
               occupied_voxels_.push_back(obs);
               break;
             } else {
-              Eigen::Vector4d obs;
-              obs << pos, t;
               visited_voxels_.push_back(obs);
             }
           } else {
-            // if (grid_map_->getInflateOccupancy(pos, t) != 0) {
             if (grid_map_->getClearOcccupancy(pos, t) != 0) {
               is_occ = true;
               break;

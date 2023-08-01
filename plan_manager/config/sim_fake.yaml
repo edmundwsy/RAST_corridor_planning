@@ -11,7 +11,7 @@ search:
   max_tau: 1.8 # Astar search time horizon
   init_max_tau: 0.8 # Useless
   max_vel: 2.0
-  max_acc: 6.0
+  max_acc: 8.0
   w_time: 10.0
   horizon: 5.0
   lambda_heu: 5.0
@@ -20,7 +20,7 @@ search:
   margin: 0.4
   vel_margin: 0.0
   allocate_num: 100000
-  check_num: 5
+  check_num: 1
 
 corridor:
   init_range: 1.5

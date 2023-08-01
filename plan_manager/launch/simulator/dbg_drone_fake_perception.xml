@@ -60,6 +60,13 @@
     <remap from="/position_cmd" to="controller/pos_cmd" />
     <remap from="~odom" to="$(arg pose_topic)" />
     <param name="tf" value="true" />
+    <param name="init_x" value="$(arg init_x)" />
+    <param name="init_y" value="$(arg init_y)" />
+    <param name="init_z" value="$(arg init_z)" />
+    <param name="init_qx" value="$(arg init_qx)" />
+    <param name="init_qy" value="$(arg init_qy)" />
+    <param name="init_qz" value="$(arg init_qz)" />
+    <param name="init_qw" value="$(arg init_qw)" />
     <param name="replan_time_threshold" value="1.2" />
   </node>
 
