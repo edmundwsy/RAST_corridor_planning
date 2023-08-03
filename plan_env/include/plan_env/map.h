@@ -55,6 +55,7 @@ class MapBase {
   bool  if_pub_spatio_temporal_map_;
   bool  if_pub_in_world_frame_;
   bool  is_odom_local_;
+  int   dbg_pub_map_index_;
   float resolution_;
   float time_resolution_;
   float local_update_range_x_;
@@ -194,9 +195,9 @@ inline Eigen::Vector3f MapBase::getVoxelPosition(int index) const {
  * @param pos index in global frame
  */
 inline Eigen::Vector3i MapBase::getVoxelRelIndex(const Eigen::Vector3f &pos) const {
-  int x = (pos[0] + local_update_range_x_) / resolution_;
-  int y = (pos[1] + local_update_range_y_) / resolution_;
-  int z = (pos[2] + local_update_range_z_) / resolution_;
+  int x = static_cast<int>((pos[0] + local_update_range_x_) / resolution_);
+  int y = static_cast<int>((pos[1] + local_update_range_y_) / resolution_);
+  int z = static_cast<int>((pos[2] + local_update_range_z_) / resolution_);
   return Eigen::Vector3i(x, y, z);
 }
 

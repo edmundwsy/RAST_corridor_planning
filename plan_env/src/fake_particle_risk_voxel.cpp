@@ -10,6 +10,7 @@
  */
 
 #include <plan_env/fake_particle_risk_voxel.h>
+#include <plan_env/map_parameters.h>
 
 /* ----- Definition of these functions ----- */
 /**
@@ -23,7 +24,7 @@ void FakeParticleRiskVoxel::init(ros::NodeHandle &nh) {
   /* parameters */
   loadParameters();
 
-  resolution_           = 0.1F;
+  resolution_           = VOXEL_RESOLUTION;
   local_update_range_x_ = MAP_LENGTH_VOXEL_NUM / 2 * resolution_;
   local_update_range_y_ = MAP_WIDTH_VOXEL_NUM / 2 * resolution_;
   local_update_range_z_ = MAP_HEIGHT_VOXEL_NUM / 2 * resolution_;
@@ -36,7 +37,8 @@ void FakeParticleRiskVoxel::init(ros::NodeHandle &nh) {
   inflate_kernel_.reserve((2 * inf_step_ + 1) * (2 * inf_step_ + 1) * (2 * inf_step_ + 1));
   for (int x = -inf_step_; x <= inf_step_; x++) {
     for (int y = -inf_step_; y <= inf_step_; y++) {
-      for (int z = -inf_step_; z <= inf_step_; z++) {
+      for (int z = -0.3; z <= 0.3; z++) {
+        // std::cout << "[dbgastar] inf_voxel:" << x << "," << y << "," << z << std::endl;
         inflate_kernel_.push_back(Eigen::Vector3i(x, y, z));
       }
     }
@@ -168,7 +170,6 @@ void FakeParticleRiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &
   if (is_multi_agents_) {
     std::vector<bool> is_swarm_traj_valid;
     is_swarm_traj_valid.resize(coordinator_->getNumAgents(), true);
-    createEgoParticlesVoxel();
     int ego_id = coordinator_->getEgoID();
     int n_rbts = coordinator_->getNumAgents();
 
@@ -196,21 +197,21 @@ void FakeParticleRiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &
             << std::endl;
 }
 
-/**
- * @brief create ego particles voxel in the map coordinate, to reduce time when collision check
- */
-void FakeParticleRiskVoxel::createEgoParticlesVoxel() {
-  /* add ego particles to the map */
-  std::vector<Eigen::Vector3d> particles = coordinator_->getEgoParticles();
-  if (particles.size() != inflate_kernel_.size() && particles.size() != 0) {
-    inflate_kernel_.clear();
-    for (auto &pt : particles) {
-      Eigen::Vector3f ptf = pt.cast<float>();
-      inflate_kernel_.push_back(getVoxelRelIndex(ptf));
-    }
-    ROS_INFO("[MAMapUpdate]: inflate kernel size: %lu", inflate_kernel_.size());
-  }
-}
+// /**
+//  * @brief create ego particles voxel in the map coordinate, to reduce time when collision check
+//  */
+// void FakeParticleRiskVoxel::createEgoParticlesVoxel() {
+//   /* add ego particles to the map */
+//   std::vector<Eigen::Vector3d> particles = coordinator_->getEgoParticles();
+//   if (particles.size() != inflate_kernel_.size() && particles.size() != 0) {
+//     inflate_kernel_.clear();
+//     for (auto &pt : particles) {
+//       Eigen::Vector3f ptf = pt.cast<float>();
+//       inflate_kernel_.push_back(getVoxelRelIndex(ptf));
+//     }
+//     ROS_INFO("[MAMapUpdate]: inflate kernel size: %lu", inflate_kernel_.size());
+//   }
+// }
 
 /**
  * @brief
@@ -261,12 +262,18 @@ void FakeParticleRiskVoxel::addObstaclesToRiskMap(const std::vector<Eigen::Vecto
  * @return 0: free, 1: occupied, -1: out of bound
  */
 int FakeParticleRiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos, int t) const {
-  // to debug
   Eigen::Vector3f pos_f = pos.cast<float>() - pose_;
   Eigen::Vector3i pos_i = getVoxelRelIndex(pos_f);
+  // printf("map center: (%.2f, %.2f, %.2f)\n", pose_.x(), pose_.y(), pose_.z());
+
   if (!isInRange(pos_i)) return -1;
   // if (risk_maps_[getVoxelIndex(pos_i)][t] > risk_threshold_) return 1;
   // return 0;
+  // printf(
+  //     "[dbgastar] global: (%.2f, %.2f, %.2f), local: (%.2f, %.2f, %.2f), int: (%d, %d, %d),
+  //     index: %d, " "risk_value %.2f ", pos.x(), pos.y(), pos.z(), pos_f.x(), pos_f.y(),
+  //     pos_f.z(), pos_i.x(), pos_i.y(), pos_i.z(), getVoxelIndex(pos_i),
+  //     risk_maps_[getVoxelIndex(pos_i)][t]);
 
   float sum_risk = 0.0;
   // std::cout << "inflate kernel size: " << inflate_kernel_.size() << std::endl;
@@ -277,8 +284,15 @@ int FakeParticleRiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos, int t)
     if (!isInRange(p)) continue;
     int idx = getVoxelIndex(p);
     sum_risk += risk_maps_[idx][t];
-    if (sum_risk > risk_threshold_) return 1; /* collision */
+    if (sum_risk > risk_threshold_) {
+      // printf("sum_risk: %.2f\n", sum_risk);
+      // Eigen::Vector3f pt = getVoxelPosition(idx);
+      // printf("collision pos: (%.2f, %.2f, %.2f)\n", pt.x(), pt.y(), pt.z());
+      return 1; /* collision */
+    }
   }
+  // printf("sum_risk: %.2f\n", sum_risk);
+
   return 0;
 }
 

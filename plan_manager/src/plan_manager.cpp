@@ -102,14 +102,13 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       }
 
-      bool is_success = false;
       if (checkTimeLapse(1.0)) { /* plan a new trajectory every second */
         traj_start_time_ = ros::Time::now();
 
-        is_success =
+        is_success_ =
             planner_->replan(traj_start_time_.toSec(), odom_pos_, odom_vel_, odom_acc_, goal_pos_);
 
-        if (is_success) {
+        if (is_success_) {
           publishTrajectory();
           ROS_INFO("[FSM] New trajectory planned");
         } else {
@@ -117,7 +116,7 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
         }
       }
       /** TODO: time delay !!! */
-      if (is_exec_triggered_) { /* execute trajectory */
+      if (is_exec_triggered_ && is_success_) { /* execute trajectory */
         FSMChangeState(FSM_STATUS::EXEC_TRAJ);
       }
       break;
@@ -158,7 +157,7 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
         Eigen::Vector3d vel = planner_->getVel(start_time);
         Eigen::Vector3d acc = planner_->getAcc(start_time);
 
-        bool is_success = planner_->replan(start_time, pos, vel, acc, goal_pos_);
+        bool is_success_ = planner_->replan(start_time, pos, vel, acc, goal_pos_);
 
         // bool is_finished = isGoalReached(odom_pos_);
         // std::cout << termcolor::bright_red << "Target: " << goal_pos_.transpose() << " now "
@@ -169,7 +168,7 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
         //   FSMChangeState(FSM_STATUS::GOAL_REACHED);
         // }
 
-        if (is_success) { /* publish trajectory */
+        if (is_success_) { /* publish trajectory */
           publishTrajectory();
           FSMChangeState(FSM_STATUS::EXEC_TRAJ);
         } else {

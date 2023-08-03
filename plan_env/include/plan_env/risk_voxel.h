@@ -106,7 +106,7 @@ class RiskVoxel : public MapBase {
   int getClearOcccupancy(const Eigen::Vector3d &pos, int t) const;
   int getClearOcccupancy(const Eigen::Vector3d &pos, double t) const;
 
-  void createEgoParticlesVoxel();
+  // void createEgoParticlesVoxel();
   void addObstaclesToRiskMap(const std::vector<Eigen::Vector3d> &centers, int t_index);
 
   typedef std::shared_ptr<RiskVoxel> Ptr;

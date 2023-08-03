@@ -100,6 +100,7 @@ class FiniteStateMachineFake {
   bool is_velocity_received_;
   bool is_goal_preset_;
   bool is_goal_received_;
+  bool is_success_;
 
   /* ROS */
   ros::NodeHandle nh_;
@@ -113,14 +114,13 @@ class FiniteStateMachineFake {
   FakeBaselinePlanner::Ptr planner_;
 
   /* odometry */
-  Eigen::Vector3d    odom_pos_;       /** quadrotor's current position */
-  Eigen::Vector3d    odom_vel_;       /** quadrotor's current velocity */
-  Eigen::Vector3d    odom_acc_;       /** quadrotor's current acceleration */
-  Eigen::Quaterniond odom_att_;       /** quadrotor's current attitude as a quaternion */
-  Eigen::Vector3d    goal_pos_;       /** quadrotor's goal position */
-  Eigen::Vector3d    prev_odom_pos_;  /** quadrotor's previous position */
-  Eigen::Vector3d    prev_odom_vel_;  /** quadrotor's previous velocity */
-  double             prev_odom_time_; /** quadrotor's previous time */
+  Eigen::Vector3d    odom_pos_;      /** quadrotor's current position */
+  Eigen::Vector3d    odom_vel_;      /** quadrotor's current velocity */
+  Eigen::Vector3d    odom_acc_;      /** quadrotor's current acceleration */
+  Eigen::Quaterniond odom_att_;      /** quadrotor's current attitude as a quaternion */
+  Eigen::Vector3d    goal_pos_;      /** quadrotor's goal position */
+  Eigen::Vector3d    prev_odom_pos_; /** quadrotor's previous position */
+  Eigen::Vector3d    prev_odom_vel_; /** quadrotor's previous velocity */
 
   /* trajectory */
   std::queue<Eigen::Vector3d> waypoints_;

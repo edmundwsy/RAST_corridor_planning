@@ -122,6 +122,7 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
   occupied_voxels_.clear();
   visited_voxels_.clear();
   Eigen::Vector3f map_center_f;
+  ROS_INFO("Start searching path");
   map_center_ = grid_map_->getMapCenter().cast<double>();
   start_vel_  = start_v;
   start_acc_  = start_a;

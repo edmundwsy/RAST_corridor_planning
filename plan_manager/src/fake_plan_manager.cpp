@@ -34,6 +34,7 @@ void FiniteStateMachineFake::run() {
   is_odom_received_       = false;
   is_safety_mode_enabled_ = false;
   is_map_updated_         = false;
+  is_success_             = false;
 
   if (is_goal_preset_) {
     is_goal_received_ = true;
@@ -102,14 +103,13 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
         FSMChangeState(FSM_STATUS::WAIT_TARGET);
       }
 
-      bool is_success = false;
       if (checkTimeLapse(1.0)) { /* plan a new trajectory every second */
         traj_start_time_ = ros::Time::now();
 
-        is_success =
+        is_success_ =
             planner_->replan(traj_start_time_.toSec(), odom_pos_, odom_vel_, odom_acc_, goal_pos_);
 
-        if (is_success) {
+        if (is_success_) {
           publishTrajectory();
           ROS_INFO("[FSM] New trajectory planned");
         } else {
@@ -117,7 +117,7 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
         }
       }
       /** TODO: time delay !!! */
-      if (is_exec_triggered_) { /* execute trajectory */
+      if (is_exec_triggered_ && is_success_) { /* execute trajectory */
         FSMChangeState(FSM_STATUS::EXEC_TRAJ);
       }
       break;
@@ -158,7 +158,7 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
         Eigen::Vector3d vel = planner_->getVel(start_time);
         Eigen::Vector3d acc = planner_->getAcc(start_time);
 
-        bool is_success = planner_->replan(start_time, pos, vel, acc, goal_pos_);
+        bool is_success_ = planner_->replan(start_time, pos, vel, acc, goal_pos_);
 
         // bool is_finished = isGoalReached(odom_pos_);
         // std::cout << termcolor::bright_red << "Target: " << goal_pos_.transpose() << " now "
@@ -169,7 +169,7 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
         //   FSMChangeState(FSM_STATUS::GOAL_REACHED);
         // }
 
-        if (is_success) { /* publish trajectory */
+        if (is_success_) { /* publish trajectory */
           publishTrajectory();
           FSMChangeState(FSM_STATUS::EXEC_TRAJ);
         } else {
@@ -289,17 +289,21 @@ void FiniteStateMachineFake::PoseCallback(const geometry_msgs::PoseStampedPtr& m
   is_state_locked_ = false;
 
   if (!is_velocity_received_) {
-    double dt = msg->header.stamp.toSec() - prev_odom_time_;
+    static double prev_odom_time = msg->header.stamp.toSec();
+    double        dt             = msg->header.stamp.toSec() - prev_odom_time;
     if (dt < 0.0) {
-      ROS_WARN("[FSM] Negative time difference");
+      ROS_WARN(
+          "[FSM] Odometry negative time difference. Current: msg->header.stamp.toSec() = %f, "
+          "prev_odom_time = %f, dt = %f",
+          msg->header.stamp.toSec(), prev_odom_time, dt);
       return;
     }
     odom_vel_.x() = (msg->pose.position.x - prev_odom_pos_.x()) / dt;
     odom_vel_.y() = (msg->pose.position.y - prev_odom_pos_.y()) / dt;
     odom_vel_.z() = (msg->pose.position.z - prev_odom_pos_.z()) / dt;
 
-    prev_odom_time_ = msg->header.stamp.toSec();
-    prev_odom_pos_  = odom_pos_;
+    prev_odom_time = msg->header.stamp.toSec();
+    prev_odom_pos_ = odom_pos_;
   }
 }
 

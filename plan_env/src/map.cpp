@@ -24,6 +24,7 @@ void MapBase::loadParameters() {
   nh_.param("is_odom_local", is_odom_local_, false);
 
   nh_.param("map/booleans/sub_pose", is_pose_sub_, false);
+  nh_.param("map/pub_map_index", dbg_pub_map_index_, 0);
   nh_.param("map/booleans/pub_world_frame", if_pub_in_world_frame_, true);
   nh_.param("map/booleans/pub_spatio_temporal", if_pub_spatio_temporal_map_, false);
   nh_.param("map/resolution", filter_res_, 0.15F); /* resolution of the voxel filter */
@@ -39,8 +40,8 @@ void MapBase::init(ros::NodeHandle &nh) {
   nh_ = nh;
   loadParameters();
   resolution_           = VOXEL_RESOLUTION;
-  local_update_range_x_ = MAP_LENGTH_VOXEL_NUM / 2 * resolution_;
-  local_update_range_y_ = MAP_WIDTH_VOXEL_NUM / 2 * resolution_;
+  local_update_range_x_ = MAP_LENGTH_VOXEL_NUM / 2.f * resolution_;
+  local_update_range_y_ = MAP_WIDTH_VOXEL_NUM / 2.f * resolution_;
   local_update_range_z_ = MAP_HEIGHT_VOXEL_NUM / 2 * resolution_;
   ROS_INFO("[MAP_BASE] Local update range: %f, %f, %f", local_update_range_x_,
            local_update_range_y_, local_update_range_z_);
@@ -51,7 +52,7 @@ void MapBase::init(ros::NodeHandle &nh) {
   inflate_kernel_.reserve((2 * inf_step_ + 1) * (2 * inf_step_ + 1) * (2 * inf_step_ + 1));
   for (int x = -inf_step_; x <= inf_step_; x++) {
     for (int y = -inf_step_; y <= inf_step_; y++) {
-      for (int z = -inf_step_; z <= inf_step_; z++) {
+      for (int z = -0.45; z <= 0.45; z++) {
         inflate_kernel_.push_back(Eigen::Vector3i(x, y, z));
       }
     }
@@ -200,7 +201,8 @@ void MapBase::publishMap() {
     for (int i = 0; i < VOXEL_NUM; i++) {
       Eigen::Vector3f pt = getVoxelPosition(i);
       pcl::PointXYZ   p;
-      if (risk_maps_[i][0] > risk_threshold_) {
+      dbg_pub_map_index_ = (dbg_pub_map_index_ > PREDICTION_TIMES - 1) ? 0 : dbg_pub_map_index_;
+      if (risk_maps_[i][dbg_pub_map_index_] > risk_threshold_) {
         p.x = pt[0];
         p.y = pt[1];
         p.z = pt[2];
@@ -209,12 +211,12 @@ void MapBase::publishMap() {
     }
   }
 
-  if (if_pub_in_world_frame_ && !if_pub_spatio_temporal_map_) {
-    Eigen::Affine3f transform = Eigen::Affine3f::Identity();
-    transform.translate(pose_);
-    // transform.rotate(q_);
-    pcl::transformPointCloud(*cloud, *cloud, transform);
-  }
+  // if (if_pub_in_world_frame_ && !if_pub_spatio_temporal_map_) {
+  //   Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+  //   transform.translate(pose_);
+  //   // transform.rotate(q_);
+  //   pcl::transformPointCloud(*cloud, *cloud, transform);
+  // }
 
   sensor_msgs::PointCloud2 cloud_msg;
   pcl::toROSMsg(*cloud, cloud_msg);

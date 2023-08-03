@@ -100,6 +100,7 @@ class FiniteStateMachine {
   bool is_velocity_received_;
   bool is_goal_preset_;
   bool is_goal_received_;
+  bool is_success_;
 
   /* ROS */
   ros::NodeHandle nh_;

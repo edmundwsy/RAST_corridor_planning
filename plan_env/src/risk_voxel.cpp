@@ -240,7 +240,7 @@ void RiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
 void RiskVoxel::addOtherAgents() {
   std::vector<bool> is_swarm_traj_valid;
   is_swarm_traj_valid.resize(coordinator_->getNumAgents(), true);
-  createEgoParticlesVoxel();
+  // createEgoParticlesVoxel();
   int ego_id = coordinator_->getEgoID();
   int n_rbts = coordinator_->getNumAgents();
 
@@ -267,18 +267,18 @@ void RiskVoxel::addOtherAgents() {
 /**
  * @brief create ego particles voxel in the map coordinate, to reduce time when collision check
  */
-void RiskVoxel::createEgoParticlesVoxel() {
-  /* add ego particles to the map */
-  std::vector<Eigen::Vector3d> particles = coordinator_->getEgoParticles();
-  if (particles.size() != inflate_kernel_.size() && particles.size() != 0) {
-    inflate_kernel_.clear();
-    for (auto &pt : particles) {
-      Eigen::Vector3f ptf = pt.cast<float>();
-      inflate_kernel_.push_back(getVoxelRelIndex(ptf));
-    }
-    ROS_INFO("[MAMapUpdate]: inflate kernel size: %lu", inflate_kernel_.size());
-  }
-}
+// void RiskVoxel::createEgoParticlesVoxel() {
+//   /* add ego particles to the map */
+//   std::vector<Eigen::Vector3d> particles = coordinator_->getEgoParticles();
+//   if (particles.size() != inflate_kernel_.size() && particles.size() != 0) {
+//     inflate_kernel_.clear();
+//     for (auto &pt : particles) {
+//       Eigen::Vector3f ptf = pt.cast<float>();
+//       inflate_kernel_.push_back(getVoxelRelIndex(ptf));
+//     }
+//     ROS_INFO("[MAMapUpdate]: inflate kernel size: %lu", inflate_kernel_.size());
+//   }
+// }
 
 /**
  * @brief add particles to map
@@ -387,17 +387,14 @@ int RiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos) const {
 }
 
 int RiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos, double dt) const {
-  int tc = ceil(dt / time_resolution_);
-  tc     = tc > PREDICTION_TIMES ? PREDICTION_TIMES : tc;
-  int tf = floor(dt / time_resolution_);
-  tf     = tf > PREDICTION_TIMES ? PREDICTION_TIMES : tf;
-
-  int ret0 = getClearOcccupancy(pos, tc);
-  int ret1 = getClearOcccupancy(pos, tf);
-  if (ret0 == -1 || ret1 == -1) return -1;
-  if (ret0 == 0 && ret1 == 0) {
-    return 0;
-  } else {
-    return 1;
+  float t  = static_cast<float>(dt);
+  int   tc = PREDICTION_TIMES - 1;
+  for (int i = 0; i < PREDICTION_TIMES; ++i) {
+    if (t - prediction_future_time[i] < 0.01) {
+      tc = i;
+      break;
+    }
   }
+
+  return getClearOcccupancy(pos, tc);
 }
