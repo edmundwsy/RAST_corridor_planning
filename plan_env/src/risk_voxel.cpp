@@ -230,8 +230,8 @@ void RiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
   }
 
   clock_t t_update_1 = clock();
-  // std::cout << "update time (ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
-  //           << std::endl;
+  std::cout << "[RiskMap] update time (ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
+            << std::endl;
 }
 
 /**
