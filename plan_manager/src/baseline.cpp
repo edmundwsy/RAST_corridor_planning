@@ -21,7 +21,7 @@ void BaselinePlanner::init() {
   a_star_.reset(new RiskHybridAstar());
   a_star_->setParam(nh_);
   a_star_->setEnvironment(map_);
-  a_star_->init(Eigen::Vector3d::Zero(), Eigen::Vector3d(10, 10, 4));  // TODO: odom_pos_?
+  a_star_->init(Eigen::Vector3d::Zero(), Eigen::Vector3d(10, 10, 2.5));  // TODO: odom_pos_?
 
   /*** INITIALIZE BEZIER OPT ***/
   traj_optimizer_.reset(new traj_opt::BezierOpt());

@@ -361,7 +361,9 @@ int RiskVoxel::getInflateOccupancy(const Eigen::Vector3d &pos, double t) const {
  * @return 0: free, 1: occupied, -1: out of bound
  */
 int RiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos, int t) const {
-  // to debug
+  if (pos.z() < ground_height_) return 1;
+  if (pos.z() > ceiling_height_) return 1;
+
   Eigen::Vector3f pos_f = pos.cast<float>() - pose_;
   Eigen::Vector3i pos_i = getVoxelRelIndex(pos_f);
   if (!isInRange(pos_i)) return -1;

@@ -1,25 +1,26 @@
 planner:
-  corridor_tau: 0.2
+  corridor_tau: 0.3
 
 fsm:
   goal_tolerance: 1.0
   replan_tolerance: 1.0
-  replan_duration: 0.5
-  replan_start_time: 0.2
+  replan_duration: 0.1
+  replan_start_time: 0.1
 
 search:
   max_tau: 2.0
   init_max_tau: 0.8
-  max_vel: 2.0
-  max_acc: 6.0
-  w_time: 10.0
+  max_vel: 1.5
+  max_acc: 4.0
+  w_time: 5.0
   horizon: 5.0
   lambda_heu: 5.0
-  resolution_astar: 0.1
-  time_resolution: 0.2
+  resolution_astar: 0.15
+  time_resolution: 0.3
   vel_margin: 0.0
+  margin: 0.6
   allocate_num: 100000
-  check_num: 2
+  check_num: 1
 
 corridor:
   init_range: 1.2
@@ -36,7 +37,7 @@ optimizer:
   delta_corridor: 0.4
 
   max_vel_optimization: 2.0 # Constraint in optimization. A little larger than max_vel
-  max_acc_optimization: 6.0 # Constraint in optimization. A little larger than max_acc
+  max_acc_optimization: 4.0 # Constraint in optimization. A little larger than max_acc
 
 map:
   booleans:
@@ -69,12 +70,11 @@ map:
   local_update_range_z: 4.5
   obstacles_inflation: 0.3
   local_map_margin: 10
-  ground_height: -0.01
 
-  clearance: 0.15
-
-  virtual_ceil_height: 2.9
-  visualization_truncate_height: 1.8
+  ceiling_height: 2.0
+  ground_height: -0.1
+  clearance: 0.60
+  corridor_safety_distance: 0.5
   show_occ_time: false
   pose_type: 1
   frame_id: world

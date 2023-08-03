@@ -72,6 +72,9 @@ class MapBase {
   float filter_res_;
   float risk_threshold_;
   float clearance_;
+  float ceiling_height_;
+  float ground_height_;
+  float safety_margin_;
   int   inf_step_;
 
   std::vector<Eigen::Vector3i> inflate_kernel_;
