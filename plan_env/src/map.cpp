@@ -34,6 +34,9 @@ void MapBase::loadParameters() {
   nh_.param("map/local_update_range_z", local_update_range_z_, 4.0F);
   nh_.param("map/risk_threshold", risk_threshold_, 0.2F);
   nh_.param("map/clearance", clearance_, 0.3F);
+  nh_.param("map/ceiling_height", ceiling_height_, 2.0F);
+  nh_.param("map/ground_height", ground_height_, -1.0F);
+  nh_.param("map/corridor_safety_distance", safety_margin_, 0.4F);
 }
 
 void MapBase::init(ros::NodeHandle &nh) {
@@ -490,7 +493,24 @@ void MapBase::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
         int i = x + y * MAP_LENGTH_VOXEL_NUM + z * MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM;
         for (int j = idx_start; j <= idx_end; j++) {
           if (risk_maps_[i][j] > risk_threshold_) {
-            points.emplace_back(getVoxelPosition(i).cast<double>());
+            Eigen::Vector3d pt = getVoxelPosition(i).cast<double>();
+            points.emplace_back(pt);
+            points.emplace_back(pt +
+                                Eigen::Vector3d(safety_margin_, safety_margin_, safety_margin_));
+            points.emplace_back(pt +
+                                Eigen::Vector3d(safety_margin_, safety_margin_, -safety_margin_));
+            points.emplace_back(pt +
+                                Eigen::Vector3d(safety_margin_, -safety_margin_, safety_margin_));
+            points.emplace_back(pt +
+                                Eigen::Vector3d(safety_margin_, -safety_margin_, -safety_margin_));
+            points.emplace_back(pt +
+                                Eigen::Vector3d(-safety_margin_, safety_margin_, safety_margin_));
+            points.emplace_back(pt +
+                                Eigen::Vector3d(-safety_margin_, safety_margin_, -safety_margin_));
+            points.emplace_back(pt +
+                                Eigen::Vector3d(-safety_margin_, -safety_margin_, safety_margin_));
+            points.emplace_back(pt +
+                                Eigen::Vector3d(-safety_margin_, -safety_margin_, -safety_margin_));
           }
         }
       }
