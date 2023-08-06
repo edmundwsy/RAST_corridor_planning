@@ -223,15 +223,18 @@ void RiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
 
   /* inflate map */
   // inflateMap();
+  clock_t t_update_1 = clock();
+  std::cout << "[RiskMap] map update time (ms): "
+            << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC << std::endl;
 
   /* project other agents to the map */
   if (is_multi_agents_) {
     addOtherAgents();
   }
 
-  clock_t t_update_1 = clock();
-  // std::cout << "update time (ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
-  //           << std::endl;
+  t_update_1 = clock();
+  std::cout << "[RiskMap] agent particle update time (ms): "
+            << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC << std::endl;
 }
 
 /**

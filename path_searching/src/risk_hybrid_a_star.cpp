@@ -239,7 +239,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
       // for (double tau = time_res_init * init_max_tau_; tau <= init_max_tau_ + 1e-3;
       //      tau += time_res_init * init_max_tau_)
       //   durations.push_back(tau);
-      durations.push_back(0.2);
+      durations.push_back(time_resolution_);
       init_search = false;
     } else { /* otherwise: sample acceleration to generate motion primitives */
       for (double ax = -max_acc_; ax <= max_acc_ + 1e-3; ax += max_acc_ * res)
@@ -248,7 +248,7 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
             um << ax, ay, az;
             inputs.push_back(um);
           }
-      durations.push_back(0.2);
+      durations.push_back(time_resolution_);
       // for (double tau = time_res * max_tau_; tau <= max_tau_; tau += time_res * max_tau_)
       //   durations.push_back(tau);
     }
@@ -300,22 +300,31 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
           double          t = cur_node->time + dt;
           Eigen::Vector4d obs;
           obs << pos, t;
-          auto it = std::find_if(
+          // check if in the occupied voxel
+          auto occ_it = std::find_if(
               occupied_voxels_.begin(), occupied_voxels_.end(),
               [&obs](const Eigen::Vector4d& p) { return std::abs(p.norm() - obs.norm()) < 1e-3; });
-          if (it != occupied_voxels_.end()) {
+          if (occ_it != occupied_voxels_.end()) {
             is_occ = true;
             break;
-          } else if (grid_map_->getClearOcccupancy(pos, t) != 0) {
+          }
+
+          // check if in the visited voxel
+          auto visited_it = std::find_if(
+              visited_voxels_.begin(), visited_voxels_.end(),
+              [&obs](const Eigen::Vector4d& p) { return std::abs(p.norm() - obs.norm()) < 1e-3; });
+          if (visited_it != visited_voxels_.end()) {
+            is_occ = false;
+            continue;
+          }
+
+          // not checked before
+          if (grid_map_->getClearOcccupancy(pos, t) != 0) {
             is_occ = true;
-            Eigen::Vector4d obs;
-            obs << pos, t;
             occupied_voxels_.push_back(obs);
             break;
           } else {
-            Eigen::Vector4d free;
-            free << pos, t;
-            visited_voxels_.push_back(free);
+            visited_voxels_.push_back(obs);
           }
         }
 

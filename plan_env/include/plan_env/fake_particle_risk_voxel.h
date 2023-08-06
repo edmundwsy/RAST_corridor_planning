@@ -65,6 +65,12 @@ class FakeParticleRiskVoxel : public MapBase {
   void updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg);
   void pubCallback(const ros::TimerEvent &event) { MapBase::pubCallback(event); }
   void addObstaclesToRiskMap(const std::vector<Eigen::Vector3d> &centers, int t_index);
+  void addParticlesToRiskMap(const std::vector<Eigen::Vector3d> &centers,
+                             const std::vector<float>           &risks,
+                             int                                 t_index);
+  void addParticlesToRiskMap(const std::vector<Eigen::Vector3f> &centers,
+                             const std::vector<float>           &risks,
+                             int                                 t_index);
 
   int getClearOcccupancy(const Eigen::Vector3d &pos) const;
   int getClearOcccupancy(const Eigen::Vector3d &pos, int t) const;

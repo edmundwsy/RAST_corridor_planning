@@ -149,6 +149,7 @@ class FakeBaselinePlanner {
                                               const Eigen::Vector3d &right_lower_corner);
 
   void showObstaclePoints(const std::vector<Eigen::Vector3d> &points);
+  void showObstaclePoints(const std::vector<Eigen::Vector4d> &points, ros::Publisher &pub);
   void addAgentsTrajectoryToMap();
   void setEmptyTrajectory(const Eigen::Vector3d &pos);
 

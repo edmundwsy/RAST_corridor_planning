@@ -239,21 +239,23 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
       // for (double tau = time_res_init * init_max_tau_; tau <= init_max_tau_ + 1e-3;
       //      tau += time_res_init * init_max_tau_)
       //   durations.push_back(tau);
-      durations.push_back(0.2);
+      durations.push_back(time_resolution_);
       init_search = false;
     } else { /* otherwise: sample acceleration to generate motion primitives */
-      for (double ax = -max_acc_; ax <= max_acc_ + 1e-3; ax += max_acc_ * res)
-        for (double ay = -max_acc_; ay <= max_acc_ + 1e-3; ay += max_acc_ * res)
+      for (double ax = -max_acc_; ax <= max_acc_ + 1e-3; ax += max_acc_ * res) {
+        for (double ay = -max_acc_; ay <= max_acc_ + 1e-3; ay += max_acc_ * res) {
           for (double az = -0.5 * max_acc_; az <= 0.5 * max_acc_ + 1e-3; az += max_acc_ * res) {
             um << ax, ay, az;
             inputs.push_back(um);
           }
-      durations.push_back(0.2);
+        }
+      }
+      durations.push_back(time_resolution_);
       // for (double tau = time_res * max_tau_; tau <= max_tau_; tau += time_res * max_tau_)
       //   durations.push_back(tau);
     }
 
-    // cout << "cur state:" << cur_state.head(3).transpose() << endl;
+    // cout << "cur state:" << cur_state.head(3).transpose() << " t:" << cur_node->time << endl;
     /* traverse all accelerations and trajectory durations */
     for (unsigned int i = 0; i < inputs.size(); ++i)
       for (unsigned int j = 0; j < durations.size(); ++j) {
@@ -262,7 +264,7 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
         double tau = durations[j];
         stateTransit(cur_state, pro_state, um, tau);
         pro_t = cur_node->time + tau;
-        // std::cout << "pro_state: " << pro_state.transpose() << std::endl;
+        // std::cout << "pro_state: " << pro_state.transpose() << " t: " << pro_t << "\t";
         Eigen::Vector3d pro_pos = pro_state.head(3);
         // Check if in close set
         Eigen::Vector3i pro_id   = posToIndex(pro_pos);
@@ -295,36 +297,47 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
         bool                        is_occ = false;
 
         for (int k = 1; k <= check_num_; ++k) {
-          double dt = tau * double(k) / double(check_num_);
+          double dt = tau * static_cast<double>(k) / static_cast<double>(check_num_);
           stateTransit(cur_state, xt, um, dt);
-          pos      = xt.head(3);
-          double t = cur_node->time + dt;
-          if (is_testing_) {
-            Eigen::Vector4d obs;
-            obs << pos, t;
-            auto it = std::find_if(occupied_voxels_.begin(), occupied_voxels_.end(),
-                                   [&obs](const Eigen::Vector4d& p) {
-                                     return std::abs(p.norm() - obs.norm()) < 1e-3;
-                                   });
-            if (it != occupied_voxels_.end()) {
-              is_occ = true;
-              break;
-            } else if (grid_map_->getClearOcccupancy(pos, t) != 0) {
-              is_occ = true;
-              occupied_voxels_.push_back(obs);
-              break;
-            } else {
-              visited_voxels_.push_back(obs);
-            }
+          pos               = xt.head(3);
+          double          t = cur_node->time + dt;
+          Eigen::Vector4d obs;
+          obs << pos, t;
+
+          // check if in the occupied voxel
+          // auto occ_it = std::find_if(
+          //     occupied_voxels_.begin(), occupied_voxels_.end(),
+          //     [&obs](const Eigen::Vector4d& p) { return std::abs(p.norm() - obs.norm()) < 1e-3;
+          //     });
+          // if (occ_it != occupied_voxels_.end()) {
+          //   occupied_voxels_.push_back(obs);
+          //   is_occ = true;
+          //   break;
+          // }
+          //
+          // // check if in the visited voxel
+          // auto visited_it = std::find_if(
+          //     visited_voxels_.begin(), visited_voxels_.end(),
+          //     [&obs](const Eigen::Vector4d& p) { return std::abs(p.norm() - obs.norm()) < 1e-3;
+          //     });
+          // if (visited_it != visited_voxels_.end()) {
+          //   visited_voxels_.push_back(obs);
+          //   is_occ = false;
+          //   continue;
+          // }
+
+          // not checked before
+          if (grid_map_->getClearOcccupancy(pos, t) != 0) {
+            is_occ = true;
+            occupied_voxels_.push_back(obs);
+            break;
           } else {
-            if (grid_map_->getClearOcccupancy(pos, t) != 0) {
-              is_occ = true;
-              break;
-            }
+            visited_voxels_.push_back(obs);
           }
         }
 
         if (is_occ) {
+          // std::cout << "\txxxxx" << std::endl;
           if (init_search) std::cout << "safe" << std::endl;
           continue;
         }
@@ -339,7 +352,7 @@ ASTAR_RET FakeRiskHybridAstar::search(Eigen::Vector3d start_pt,
         for (int j = 0; j < tmp_expand_nodes.size(); ++j) {
           PathNodePtr expand_node = tmp_expand_nodes[j];
           // std::cout << " expand_node: " << expand_node->state.transpose();
-          // std::cout << " t: " << pro_t_id << " | " << expand_node->time;
+          // std::cout << " t: " << pro_t_id << " | " << expand_node->time << "\t";
           if ((pro_id - expand_node->getIndex()).norm() == 0 &&
               ((!dynamic) || pro_t_id == expand_node->time_idx)) {
             prune = true;
@@ -504,8 +517,9 @@ bool FakeRiskHybridAstar::computeShotTraj(Eigen::VectorXd state1,
         // return false;
       }
     }
-    std::cout << "coord: " << coord.transpose() << std::endl;
-    if (grid_map_->getClearOcccupancy(coord) != 0) {
+    std::cout << "coord: " << coord.transpose() << " t: " << time << std::endl;
+    if (grid_map_->getClearOcccupancy(coord, time) != 0) {
+      ROS_WARN("shot traj collide!");
       // if (grid_map_->getInflateOccupancy(coord) != 0) {
       return false;
     }

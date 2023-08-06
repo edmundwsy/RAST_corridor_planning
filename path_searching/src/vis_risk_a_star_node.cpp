@@ -143,14 +143,14 @@ void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
   a_star_->reset();
   auto      t1 = ros::Time::now();
   ASTAR_RET rst =
-      a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, true, true, 0);
+      a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, false, true, 0);
+  // if (rst == 0) {
+  //   a_star_->reset();
+  //   rst = a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, false, true,
+  //   0);
+  // }
   auto t2 = ros::Time::now();
   ROS_INFO("Time used: %f ms", (t2 - t1).toSec() * 1000);
-
-  if (rst == 0) {
-    a_star_->reset();
-    rst = a_star_->search(start_pos_, start_vel_, start_acc_, end_pos_, end_vel_, false, true, 0);
-  }
 
   std::vector<Eigen::Vector4d> visited_voxels  = a_star_->getTraversedObstacles();
   std::vector<Eigen::Vector4d> occupied_voxels = a_star_->getOccupiedObstacles();
