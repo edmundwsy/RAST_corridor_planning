@@ -19,6 +19,7 @@
 #include <map>
 #include <memory>
 #include <queue>
+#include <random>
 #include <traj_utils/bernstein.hpp>
 #include <vector>
 #include "separator.hpp"
@@ -54,6 +55,8 @@ class ParticleATC {
 
   int drone_id_;
   int num_robots_;
+
+  int num_resample_;
 
   // std::map<int, int> drone_id_to_index_;
   // std::map<int, int> index_to_drone_id_;
@@ -146,6 +149,18 @@ class ParticleATC {
    * @return
    */
   int getNumAgents() { return num_robots_; }
+
+  /**
+   * @brief get the number of particles
+   * @return
+   */
+  bool getParticlesWithRisk(std::vector<Eigen::Vector3d> &pts,
+                            std::vector<float>           &risks,
+                            int                           idx_agent,
+                            double                        t0);
+
+  float getPosStdTimeSync(int idx_agent, double t);
+  float getPosStdTracking(int idx_agent, double t);
 
   typedef std::shared_ptr<ParticleATC> Ptr;
 };

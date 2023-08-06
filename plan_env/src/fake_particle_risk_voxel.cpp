@@ -103,17 +103,14 @@ void FakeParticleRiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &
   pass_z.filter(*cloud_filtered);
 
   /* clear risk_maps_ */
-  for (int i = 0; i < VOXEL_NUM; i++) {
-    for (int j = 0; j < PREDICTION_TIMES; j++) {
-      risk_maps_[i][j] = 0.0F;
-    }
-  }
+  float tmp_risk_maps[VOXEL_NUM][PREDICTION_TIMES];
+  std::fill_n(&tmp_risk_maps[0][0], VOXEL_NUM * PREDICTION_TIMES, 0.0F);
 
   /* add points to map and inflation */
   for (auto &points : cloud_filtered->points) {
     Eigen::Vector3f pt = Eigen::Vector3f(points.x, points.y, points.z) - pose_;
     if (isInRange(pt)) {
-      risk_maps_[getVoxelIndex(pt)][0] = 1.0F;
+      tmp_risk_maps[getVoxelIndex(pt)][0] = 1.0F;
     }
   }
   std::vector<int> obs_idx_list(VOXEL_NUM);
@@ -121,7 +118,7 @@ void FakeParticleRiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &
   /* read ground truth and construct future maps */
   obs_idx_list.clear();
   for (int i = 0; i < VOXEL_NUM; i++) {
-    if (risk_maps_[i][0] > risk_threshold_) {
+    if (tmp_risk_maps[i][0] > risk_threshold_) {
       obs_idx_list.push_back(i);
     }
   }
@@ -157,10 +154,20 @@ void FakeParticleRiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &
     for (int k = 1; k < PREDICTION_TIMES; k++) {
       Eigen::Vector3f pt_pred = pt + vel * time_resolution_ * k - pose_;
       if (isInRange(pt_pred)) {
-        risk_maps_[getVoxelIndex(pt_pred)][k] = 1.0F;
+        tmp_risk_maps[getVoxelIndex(pt_pred)][k] = 1.0F;
       }
     }
   }
+
+  /* copy tmp to risk_maps_ */
+  std::copy(&tmp_risk_maps[0][0], &tmp_risk_maps[0][0] + VOXEL_NUM * PREDICTION_TIMES,
+            &risk_maps_[0][0]);
+  // for (int i = 0; i < VOXEL_NUM; i++) {
+  //   for (int j = 0; j < PREDICTION_TIMES; j++) {
+  //     risk_maps_[i][j] = tmp_risk_maps[i][j];
+  //   }
+  // }
+
   // ros::Time t4 = ros::Time::now();
   // ROS_INFO("construct future map time: %f", (t4 - t3).toSec());
 
@@ -175,13 +182,14 @@ void FakeParticleRiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &
 
     for (int t_idx = 0; t_idx < PREDICTION_TIMES; t_idx++) {
       std::vector<Eigen::Vector3d> particles;
+      std::vector<float>           risks;
 
       double t = last_update_time_.toSec() + time_resolution_ * t_idx;
       for (int i = 0; i < n_rbts; i++) {
         if (i == ego_id || !is_swarm_traj_valid[i]) {
           continue;
         }
-        bool is_traj_valid     = coordinator_->getWaypoints(particles, i, t);
+        bool is_traj_valid     = coordinator_->getParticlesWithRisk(particles, risks, i, t);
         is_swarm_traj_valid[i] = is_traj_valid;
       }
 
@@ -189,7 +197,7 @@ void FakeParticleRiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &
       for (auto &pt : particles) {
         pt = pt - pose_.cast<double>();
       }
-      addObstaclesToRiskMap(particles, t_idx);
+      addParticlesToRiskMap(particles, risks, t_idx);
     }
   }
   ros::Time toc = ros::Time::now();
@@ -254,6 +262,27 @@ void FakeParticleRiskVoxel::addObstaclesToRiskMap(const std::vector<Eigen::Vecto
   }
 }
 
+void FakeParticleRiskVoxel::addParticlesToRiskMap(const std::vector<Eigen::Vector3d> &pts,
+                                                  const std::vector<float>           &risks,
+                                                  int                                 t_index) {
+  for (int i = 0; i < pts.size(); i++) {
+    Eigen::Vector3f ptf = pts[i].cast<float>();
+    if (!isInRange(ptf)) continue;
+    int index = getVoxelIndex(ptf);
+    risk_maps_[index][t_index] += risks[i];
+  }
+}
+
+void FakeParticleRiskVoxel::addParticlesToRiskMap(const std::vector<Eigen::Vector3f> &pts,
+                                                  const std::vector<float>           &risks,
+                                                  int                                 t_index) {
+  for (int i = 0; i < pts.size(); i++) {
+    Eigen::Vector3f ptf = pts[i];
+    if (!isInRange(ptf)) continue;
+    int index = getVoxelIndex(ptf);
+    risk_maps_[index][t_index] += risks[i];
+  }
+}
 /**
  * @brief collision check on voxel map with clearance (none-inflated map)
  *
@@ -262,32 +291,18 @@ void FakeParticleRiskVoxel::addObstaclesToRiskMap(const std::vector<Eigen::Vecto
  * @return 0: free, 1: occupied, -1: out of bound
  */
 int FakeParticleRiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos, int t) const {
+  if (pos.z() < ground_height_ || pos.z() > ceiling_height_) return -1;
   Eigen::Vector3f pos_f = pos.cast<float>() - pose_;
   Eigen::Vector3i pos_i = getVoxelRelIndex(pos_f);
-  // printf("map center: (%.2f, %.2f, %.2f)\n", pose_.x(), pose_.y(), pose_.z());
 
   if (!isInRange(pos_i)) return -1;
-  // if (risk_maps_[getVoxelIndex(pos_i)][t] > risk_threshold_) return 1;
-  // return 0;
-  // printf(
-  //     "[dbgastar] global: (%.2f, %.2f, %.2f), local: (%.2f, %.2f, %.2f), int: (%d, %d, %d),
-  //     index: %d, " "risk_value %.2f ", pos.x(), pos.y(), pos.z(), pos_f.x(), pos_f.y(),
-  //     pos_f.z(), pos_i.x(), pos_i.y(), pos_i.z(), getVoxelIndex(pos_i),
-  //     risk_maps_[getVoxelIndex(pos_i)][t]);
-
   float sum_risk = 0.0;
-  // std::cout << "inflate kernel size: " << inflate_kernel_.size() << std::endl;
   for (auto &ego_i : inflate_kernel_) {
     Eigen::Vector3i p = pos_i + ego_i;
-    // std::cout << "pos_i: " << pos_i.transpose() << ", ego_i: " << ego_i.transpose()
-    //           << ", p: " << p.transpose() << std::endl;
     if (!isInRange(p)) continue;
     int idx = getVoxelIndex(p);
     sum_risk += risk_maps_[idx][t];
     if (sum_risk > risk_threshold_) {
-      // printf("sum_risk: %.2f\n", sum_risk);
-      // Eigen::Vector3f pt = getVoxelPosition(idx);
-      // printf("collision pos: (%.2f, %.2f, %.2f)\n", pt.x(), pt.y(), pt.z());
       return 1; /* collision */
     }
   }
@@ -308,17 +323,8 @@ int FakeParticleRiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos) const 
  * @return 0: free, 1: occupied, -1: out of bound
  */
 int FakeParticleRiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos, double dt) const {
-  int tc = ceil(dt / time_resolution_);
-  tc     = tc > PREDICTION_TIMES ? PREDICTION_TIMES : tc;
-  int tf = floor(dt / time_resolution_);
-  tf     = tf > PREDICTION_TIMES ? PREDICTION_TIMES : tf;
-
-  int ret0 = getClearOcccupancy(pos, tc);
+  int tf   = floor(dt / time_resolution_);
+  tf       = tf > (PREDICTION_TIMES - 1) ? PREDICTION_TIMES - 1 : tf;
   int ret1 = getClearOcccupancy(pos, tf);
-  if (ret0 == -1 || ret1 == -1) return -1;
-  if (ret0 == 0 && ret1 == 0) {
-    return 0;
-  } else {
-    return 1;
-  }
+  return ret1;
 }

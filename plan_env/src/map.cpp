@@ -195,7 +195,7 @@ void MapBase::publishMap() {
         if (risk_maps_[i][j] > risk_threshold_) {
           pt.x = pos.x();
           pt.y = pos.y();
-          pt.z = j * time_resolution_;
+          pt.z = j * time_resolution_ + 0.5 * time_resolution_;
           cloud->points.push_back(pt);
         }
       }
@@ -469,7 +469,12 @@ void MapBase::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
 
   int idx_start = floor((t_start - t0) / time_resolution_);
   int idx_end   = ceil((t_end - t0) / time_resolution_);
-  // std::cout << "idx_start" << idx_start << "idx_end" << idx_end << std::endl;
+  idx_start     = idx_start < 0 ? 0 : idx_start;
+  idx_start     = idx_start > PREDICTION_TIMES ? PREDICTION_TIMES : idx_start;
+  idx_end       = idx_end > PREDICTION_TIMES ? PREDICTION_TIMES : idx_end;
+  idx_end       = idx_end < 0 ? 0 : idx_end;
+
+  std::cout << "idx_start" << idx_start << "idx_end" << idx_end << std::endl;
   int lx = (lower_corner[0] - pose_.x() + local_update_range_x_) / resolution_;
   int ly = (lower_corner[1] - pose_.y() + local_update_range_y_) / resolution_;
   int lz = (lower_corner[2] - pose_.z() + local_update_range_z_) / resolution_;

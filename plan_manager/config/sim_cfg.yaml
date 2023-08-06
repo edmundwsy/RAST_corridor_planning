@@ -71,7 +71,7 @@ map:
   local_map_margin: 10
   ground_height: -0.01
 
-  clearance: 0.15
+  clearance: 0.3
 
   virtual_ceil_height: 2.9
   visualization_truncate_height: 1.8

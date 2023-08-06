@@ -44,6 +44,8 @@ void FakeBaselinePlanner::init() {
 
   /*** INITIALIZE SUBSCRIBER ***/
   obstacle_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 100);
+  // astar_visited_pub_  = nh_.advertise<sensor_msgs::PointCloud2>("vis_astar_visited", 100);
+  // astar_rejected_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("vis_astar_rejected", 100);
 
   ROS_INFO("Baseline planner initialized");
 }
@@ -71,6 +73,24 @@ void FakeBaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector3d> 
   cloud_msg.header.stamp    = ros::Time::now();
   cloud_msg.header.frame_id = "world";
   obstacle_pub_.publish(cloud_msg);
+}
+
+void FakeBaselinePlanner::showObstaclePoints(const std::vector<Eigen::Vector4d> &points,
+                                             ros::Publisher                     &pub) {
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  cloud->points.reserve(points.size());
+  for (auto &pt : points) {
+    pcl::PointXYZ p;
+    p.x = pt[0]; /* x */
+    p.y = pt[1]; /* y */
+    p.z = pt[3]; /* t */
+    cloud->points.push_back(p);
+  }
+  sensor_msgs::PointCloud2 cloud_msg;
+  pcl::toROSMsg(*cloud, cloud_msg);
+  cloud_msg.header.stamp    = ros::Time::now();
+  cloud_msg.header.frame_id = "world";
+  pub.publish(cloud_msg);
 }
 
 Eigen::Matrix<double, 6, 4> FakeBaselinePlanner::getInitCorridor(
@@ -147,8 +167,7 @@ bool FakeBaselinePlanner::replan(double                 t,
   a_star_->reset();
   t1                 = ros::Time::now();
   double t_after_map = traj_start_time_ - map_->getMapTime().toSec();
-  ROS_INFO("[Astar] start position on map: %f | %i", t_after_map,
-           int(t_after_map / cfg_.corridor_tau));
+  ROS_INFO("[Astar] start time on map: %f | %i", t_after_map, int(t_after_map / cfg_.corridor_tau));
   ASTAR_RET rst = a_star_->search(start_pos, start_vel, start_acc, goal_pos,
                                   Eigen::Vector3d(0, 0, 0), true, true, t_after_map);
   if (rst == 0) {
@@ -160,6 +179,14 @@ bool FakeBaselinePlanner::replan(double                 t,
 
   auto t2 = ros::Time::now();
   ROS_INFO("[Astar] cost: %f ms", (t2 - t1).toSec() * 1000);
+
+  // std::vector<Eigen::Vector4d> occupied_voxels = a_star_->getOccupiedObstacles();
+  // this->showObstaclePoints(occupied_voxels);
+  // std::vector<Eigen::Vector4d> visited_points = a_star_->getTraversedObstacles();
+  // this->showObstaclePoints(visited_points, astar_visited_pub_);
+
+  // std::vector<Eigen::Vector4d> occupied_voxels = a_star_->getOccupiedObstacles();
+  // this->showObstaclePoints(occupied_voxels, astar_rejected_pub_);
 
   /* if no path found, set empty trajectory */
   if (rst == NO_PATH) {
@@ -225,7 +252,7 @@ bool FakeBaselinePlanner::replan(double                 t,
     if (r.x() * r.y() * r.z() < cfg_.min_volumn) {
       std::cout << "ellipsoid radius  " << r.transpose() << " volumn: " << r.x() * r.y() * r.z()
                 << std::endl;
-      this->showObstaclePoints(pc);  // visualization
+      // this->showObstaclePoints(pc);  // visualization
       break;
     }
 
@@ -248,9 +275,10 @@ bool FakeBaselinePlanner::replan(double                 t,
   // std::cout << "route size: " << route.size() << std::endl;
 
   /* Goal position and time allocation */
-  Eigen::Vector3d local_goal_pos = route_vel.back().head(3);
-  Eigen::Vector3d local_goal_vel = route_vel.back().tail(3);
-
+  // Eigen::Vector3d local_goal_pos = route_vel.back().head(3);
+  // Eigen::Vector3d local_goal_vel = route_vel.back().tail(3);
+  Eigen::Vector3d     local_goal_pos = route_vel[hPolys.size() - 1].head(3);
+  Eigen::Vector3d     local_goal_vel = route_vel[hPolys.size() - 1].tail(3);
   std::vector<double> time_alloc;
   time_alloc.resize(hPolys.size(), cfg_.corridor_tau);
   std::cout << "time_alloc size: " << time_alloc.size() << std::endl;
