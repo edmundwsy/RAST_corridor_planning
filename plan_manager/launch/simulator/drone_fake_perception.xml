@@ -28,8 +28,8 @@
   <arg name="odom_topic" value="mavros/local_position/odom"/>
   <arg name="is_pose_subscribed" value="false" />
 
-  <node pkg="plan_manager" name="planner" type="fake_baseline" output="screen">
-  <!-- <node pkg="plan_manager" name="planner" type="fake_baseline"> -->
+  <!-- <node pkg="plan_manager" name="planner" type="fake_baseline" output="screen"> -->
+  <node pkg="plan_manager" name="planner" type="fake_baseline">
     <!-- Topics -->
     <remap from="~pose" to="$(arg pose_topic)" />
     <remap from="~map/odom" to="$(arg odom_topic)" />
@@ -85,12 +85,13 @@
   <node pkg="odom_visualization" name="odom_visualization" type="odom_visualization" output="screen">
     <remap from="~odom" to="$(arg odom_topic)" />
     <param name="color/a" value="1.0" />
-    <param name="mesh_resource" value="file:///home/siyuan/Downloads/quadrotor.dae" />
+    <!-- <param name="mesh_resource" value="file:///home/siyuan/Downloads/quadrotor.dae" /> -->
+    <param name="mesh_resource" value="file://$(find odom_visualization)/meshes/mantis.stl" />
     <!-- <param name="color/r" value="$(arg color_r)" />
     <param name="color/g" value="$(arg color_g)" />
     <param name="color/b" value="$(arg color_b)" /> -->
     <param name="covariance_scale" value="100.0" />
-    <param name="robot_scale" value="0.001" />
+    <param name="robot_scale" value="0.002" />
     <param name="tf45" value="true" />
     <param name="drone_id" value="$(arg drone_id)" />
   </node>

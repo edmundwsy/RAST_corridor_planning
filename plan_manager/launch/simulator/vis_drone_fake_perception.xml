@@ -20,9 +20,9 @@
 
 
   <!-- Assign color to the drone -->
-  <include file="$(find plan_manager)/launch/simulator/drone_colormap.launch">
-    <arg name="drone_id" value="$(arg drone_id)" />
-  </include>
+  <!-- <include file="$(find plan_manager)/launch/simulator/drone_colormap.launch"> -->
+  <!--   <arg name="drone_id" value="$(arg drone_id)" /> -->
+  <!-- </include> -->
 
   <arg name="pose_topic" value="mavros/local_position/pose"/>
   <arg name="odom_topic" value="mavros/local_position/odom"/>
@@ -68,6 +68,13 @@
     <param name="replan_threshold" value="0.3" />
   </node>
 
+  <node pkg="traj_server" name="color_traj" type="color_traj">
+    <remap from="~bezier_traj" to="planner/trajectory" />
+    <remap from="~color_traj" to="planner/color_traj" />
+    <param name="max_vel" value="2.5" />
+  </node>
+
+
 
   <node pkg="poscmd_2_odom" name="poscmd_2_odom" type="poscmd_2_odom" output="screen">
     <param name="init_x" value="$(arg init_x)" />
@@ -86,12 +93,13 @@
   <node pkg="odom_visualization" name="odom_visualization" type="odom_visualization" output="screen">
     <remap from="~odom" to="$(arg odom_topic)" />
     <param name="color/a" value="1.0" />
-    <param name="mesh_resource" value="file:///home/siyuan/Downloads/quadrotor.dae" />
-    <!-- <param name="color/r" value="$(arg color_r)" />
-    <param name="color/g" value="$(arg color_g)" />
-    <param name="color/b" value="$(arg color_b)" /> -->
+    <!-- <param name="mesh_resource" value="file:///home/siyuan/Downloads/quadrotor.dae" /> -->
+    <param name="mesh_resource" value="file://$(find odom_visualization)/meshes/mantis.dae" />
+    <param name="color/r" value="0.0" />
+    <param name="color/g" value="0.0" />
+    <param name="color/b" value="0.0" />
     <param name="covariance_scale" value="100.0" />
-    <param name="robot_scale" value="0.001" />
+    <param name="robot_scale" value="0.002" />
     <param name="tf45" value="true" />
     <param name="drone_id" value="$(arg drone_id)" />
   </node>

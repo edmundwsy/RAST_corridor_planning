@@ -1,3 +1,4 @@
+<?xml version="1.0"?>
 <launch>
 	<arg name="init_x" />
 	<arg name="init_y" />
@@ -28,20 +29,22 @@
 
 		<param name="ObstacleShape/seed" value="-1"/>
 		<param name="map/obs_num" value="$(eval arg('obs_num') / 2)"/>
+		<!-- <param name="map/obs_num" value="$(eval arg('obs_num') )"/> -->
 		<param name="ObstacleShape/lower_rad" value="0.5"/>
 		<param name="ObstacleShape/upper_rad" value="1.0"/>
 		<param name="ObstacleShape/lower_hei" value="4.0"/>
 		<param name="ObstacleShape/upper_hei" value="4.0"/>
-        <param name="ObstacleShape/upper_vel" value="0.1" />
+    <param name="ObstacleShape/upper_vel" value="0.1" />
 		<param name="ObstacleShape/set_cylinder" value="true"/>
 
-        <param name="map/circle_num" value="$(eval arg('obs_num') / 2)"/>        
-        <param name="ObstacleShape/radius_l" value="0.7"/>        
-        <param name="ObstacleShape/radius_h" value="2.5"/>        
-        <param name="ObstacleShape/z_l" value="0.8"/>        
-        <param name="ObstacleShape/z_h" value="2.0"/>        
-        <param name="ObstacleShape/dr" value="0.0"/>        
-        <param name="ObstacleShape/theta" value="0.2"/>        
+    <param name="map/circle_num" value="$(eval arg('obs_num') / 2)"/>        
+    <!-- <param name="map/circle_num" value="0"/>         -->
+    <param name="ObstacleShape/radius_l" value="0.7"/>        
+    <param name="ObstacleShape/radius_h" value="2.5"/>        
+    <param name="ObstacleShape/z_l" value="0.8"/>        
+    <param name="ObstacleShape/z_h" value="2.0"/>        
+    <param name="ObstacleShape/dr" value="0.0"/>        
+    <param name="ObstacleShape/theta" value="0.2"/>        
 
 		<param name="sensing/radius" value="5.0"/>
 		<param name="sensing/rate" value="10.0"/>

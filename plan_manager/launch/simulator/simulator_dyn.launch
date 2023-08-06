@@ -1,3 +1,4 @@
+<?xml version="1.0"?>
 <launch>
 	<arg name="init_x" />
 	<arg name="init_y" />
