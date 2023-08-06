@@ -27,10 +27,11 @@ void ParticleATC::init() {
 
   nh_.param("drone_id", drone_id_, 0);
   nh_.param("swarm/num_robots", num_robots_, 3);
-  nh_.param("map/tracking_stddev", tracking_stddev_, 0.0F);
-  nh_.param("map/tracking_mean_", tracking_mean_, 0.0F);
-  nh_.param("map/time_sync_stddev", time_sync_stddev_, 0.0F);
-  nh_.param("map/localization_stddev", localization_stddev_, 0.0F);
+  nh_.param("swarm/tracking_stddev", tracking_stddev_, 0.0F);
+  nh_.param("swarm/tracking_mean_", tracking_mean_, 0.0F);
+  nh_.param("swarm/time_sync_stddev", time_sync_stddev_, 0.0F);
+  nh_.param("swarm/localization_stddev", localization_stddev_, 0.0F);
+  nh_.param("swarm/num_resample", num_resample_, 10);
 
   /* Initialize Booleans */
   is_checking_                         = false;
@@ -76,8 +77,8 @@ void ParticleATC::reset() {
 
 void ParticleATC::initEgoParticles() {
   ego_particles_.clear();
-  double WIDTH = 0.6;
-  double STEP  = 0.3;
+  double WIDTH = 0.30;
+  double STEP  = 0.15;
   /* body particles, we use a cube to approximate the body */
   for (double x = -WIDTH; x <= WIDTH; x += STEP) {
     for (double y = -WIDTH; y <= WIDTH; y += STEP) {
@@ -356,4 +357,104 @@ bool ParticleATC::getWaypoints(std::vector<Eigen::Vector3d> &pts, int idx_agent,
     return false;
   }
   return false;
+}
+
+bool ParticleATC::getParticlesWithRisk(std::vector<Eigen::Vector3d> &pts,
+                                       std::vector<float>           &risks,
+                                       int                           idx_agent,
+                                       double                        t0) {
+  /* get waypoints */
+  std::vector<Eigen::Vector3d> pts_waypoints;
+
+  bool is_get_waypoints = this->getWaypoints(pts_waypoints, idx_agent, t0);
+  if (!is_get_waypoints) {
+    return false;
+  }
+  /* get covariance */
+  std::vector<SwarmParticleTraj>::iterator ptr =
+      std::find_if(swarm_trajs_.begin(), swarm_trajs_.end(),
+                   [=](const SwarmParticleTraj &tmp) { return tmp.id == idx_agent; });
+  if (ptr->time_start > t0) {
+    return true;
+  }
+
+  float pos_stddev_timesync = this->getPosStdTimeSync(idx_agent, t0);
+  float pos_stddev_tracking = this->getPosStdTracking(idx_agent, t0);
+  float localize_stddev =
+      std::sqrt(localization_stddev_ * localization_stddev_ +
+                localization_uncertainties_[idx_agent] * localization_uncertainties_[idx_agent]);
+  float pos_stddev =
+      std::sqrt(pos_stddev_timesync * pos_stddev_timesync +
+                pos_stddev_tracking * pos_stddev_tracking + localize_stddev * localize_stddev);
+
+  std::cout << "[CA|A" << idx_agent << "] time_sync: " << pos_stddev_timesync
+            << ", tracking: " << pos_stddev_tracking << ", localize: " << localize_stddev
+            << ", total: " << pos_stddev << std::endl;
+
+  /* resample particles */
+  pts.clear();
+  risks.clear();
+  pts.reserve(pts_waypoints.size() * num_resample_);
+  risks.reserve(pts_waypoints.size() * num_resample_);
+
+  std::default_random_engine      generator(time(NULL));
+  std::normal_distribution<float> n_x(0.0, pos_stddev);
+  std::normal_distribution<float> n_y(0.0, pos_stddev);
+  std::normal_distribution<float> n_z(0.0, pos_stddev);
+
+  for (auto &e : pts_waypoints) {
+    std::vector<float> risk_buf;
+    risk_buf.reserve(num_resample_);
+    for (int i = 0; i < num_resample_; i++) {
+      float nx = n_x(generator);
+      float ny = n_y(generator);
+      float nz = n_z(generator);
+
+      Eigen::Vector3d pt;
+      pt = e + Eigen::Vector3f(nx, ny, nz).cast<double>();
+
+      // weights follows the gaussian model
+      float risk = std::exp(-0.5f * (nx * nx + ny * ny + nz * nz) / (pos_stddev * pos_stddev));
+      pts.push_back(pt);
+      risk_buf.push_back(risk);
+    }
+    float sum = std::accumulate(risk_buf.begin(), risk_buf.end(), 0.0f);
+    for (auto &e : risk_buf) e = e * num_resample_ / sum;
+    risks.insert(risks.end(), risk_buf.begin(), risk_buf.end());
+  }
+
+  /* sum of weights and normalize */
+  float sum = std::accumulate(risks.begin(), risks.end(), 0.0f);
+  float N   = static_cast<float>(pts_waypoints.size());
+  for (auto &e : risks) e = e * N / sum;
+
+  // std::cout << "[CA|A" << idx_agent
+  //           << "] risks 10: " << std::accumulate(risks.begin(), risks.begin() + 10, 0.0f)
+  //           << std::endl;
+
+  return true;
+}
+
+float ParticleATC::getPosStdTimeSync(int idx_agent, double t) {
+  std::vector<SwarmParticleTraj>::iterator ptr =
+      std::find_if(swarm_trajs_.begin(), swarm_trajs_.end(),
+                   [=](const SwarmParticleTraj &tmp) { return tmp.id == idx_agent; });
+  Eigen::Vector3d v            = ptr->traj.getVel(t - ptr->time_start);
+  float           agent_stddev = time_sync_uncertainties_[idx_agent];
+  float           position_stddev =
+      static_cast<float>(v.norm()) *
+      std::sqrt(agent_stddev * agent_stddev + time_sync_stddev_ * time_sync_stddev_);
+  return position_stddev;
+}
+
+float ParticleATC::getPosStdTracking(int idx_agent, double t) {
+  std::vector<SwarmParticleTraj>::iterator ptr =
+      std::find_if(swarm_trajs_.begin(), swarm_trajs_.end(),
+                   [=](const SwarmParticleTraj &tmp) { return tmp.id == idx_agent; });
+  Eigen::Vector3d v            = ptr->traj.getVel(t - ptr->time_start);
+  float           agent_stddev = tracking_uncertainties_[idx_agent];
+  float           position_stddev =
+      static_cast<float>(v.norm()) *
+      std::sqrt(agent_stddev * agent_stddev + tracking_stddev_ * tracking_stddev_);
+  return position_stddev;
 }
