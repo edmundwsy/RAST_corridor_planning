@@ -182,15 +182,21 @@ void FakeParticleRiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &
 
     for (int t_idx = 0; t_idx < PREDICTION_TIMES; t_idx++) {
       std::vector<Eigen::Vector3d> particles;
-      std::vector<float>           risks;
+      particles.reserve(n_rbts * 1000);  // TODO: magic number
+      std::vector<float> risks;
 
       double t = last_update_time_.toSec() + time_resolution_ * t_idx;
       for (int i = 0; i < n_rbts; i++) {
         if (i == ego_id || !is_swarm_traj_valid[i]) {
           continue;
         }
-        bool is_traj_valid     = coordinator_->getParticlesWithRisk(particles, risks, i, t);
+        std::vector<Eigen::Vector3d> pts;
+        bool is_traj_valid = coordinator_->getParticlesWithRisk(pts, risks, i, t);
+        particles.insert(particles.end(), pts.begin(), pts.end());
         is_swarm_traj_valid[i] = is_traj_valid;
+        // ROS_INFO("[MAMapUpdate] agent %d, is_traj_valid: %d, particles: %lu", i, is_traj_valid,
+        //          particles.size());
+        // if (particles.size() > 0) std::cout << particles[0].transpose() << std::endl;
       }
 
       /* filter */
@@ -328,3 +334,50 @@ int FakeParticleRiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos, double
   int ret1 = getClearOcccupancy(pos, tf);
   return ret1;
 }
+
+// void FakeParticleRiskVoxel::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
+//                                               double                        t_start,
+//                                               double                        t_end,
+//                                               const Eigen::Vector3d        &lower_corner,
+//                                               const Eigen::Vector3d        &higher_corner) {
+//   double t0 = last_update_time_.toSec();
+//
+//   int idx_start = floor((t_start - t0) / time_resolution_);
+//   int idx_end   = ceil((t_end - t0) / time_resolution_);
+//   idx_start     = idx_start < 0 ? 0 : idx_start;
+//   idx_start     = idx_start > PREDICTION_TIMES ? PREDICTION_TIMES : idx_start;
+//   idx_end       = idx_end > PREDICTION_TIMES ? PREDICTION_TIMES : idx_end;
+//   idx_end       = idx_end < 0 ? 0 : idx_end;
+//
+//   std::cout << "idx_start" << idx_start << "idx_end" << idx_end << std::endl;
+//   int lx = (lower_corner[0] - pose_.x() + local_update_range_x_) / resolution_;
+//   int ly = (lower_corner[1] - pose_.y() + local_update_range_y_) / resolution_;
+//   int lz = (lower_corner[2] - pose_.z() + local_update_range_z_) / resolution_;
+//   int hx = (higher_corner[0] - pose_.x() + local_update_range_x_) / resolution_;
+//   int hy = (higher_corner[1] - pose_.y() + local_update_range_y_) / resolution_;
+//   int hz = (higher_corner[2] - pose_.z() + local_update_range_z_) / resolution_;
+//
+//   hx = std::min(hx, MAP_LENGTH_VOXEL_NUM - 1);
+//   hy = std::min(hy, MAP_WIDTH_VOXEL_NUM - 1);
+//   hz = std::min(hz, MAP_HEIGHT_VOXEL_NUM - 1);
+//   lx = std::max(lx, 0);
+//   ly = std::max(ly, 0);
+//   lz = std::max(lz, 0);
+//
+//   // std::cout << "z" << hz - lz << std::endl;
+//   // std::cout << "y" << hy - ly << std::endl;
+//   // std::cout << "x" << hx - lx << std::endl;
+//   for (int z = lz; z <= hz; z++) {
+//     for (int y = ly; y <= hy; y++) {
+//       for (int x = lx; x <= hx; x++) {
+//         int i = x + y * MAP_LENGTH_VOXEL_NUM + z * MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM;
+//         for (int j = idx_start; j <= idx_end; j++) {
+//           if (risk_maps_[i][j] > risk_threshold_) {
+//             Eigen::Vector3d pt = getVoxelPosition(i).cast<double>();
+//             points.emplace_back(pt);
+//           }
+//         }
+//       }
+//     }
+//   }
+// }

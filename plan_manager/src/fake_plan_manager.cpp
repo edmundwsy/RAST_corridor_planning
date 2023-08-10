@@ -12,23 +12,23 @@
 #include <plan_manager/fake_plan_manager.h>
 
 void FiniteStateMachineFake::run() {
-  nh_.param("drone_id", drone_id_, 0);
-  nh_.param("use_preset_goal", is_goal_preset_, false);
-  nh_.param("fsm/goal_tolerance", cfgs_.goal_tolerance, 1.0);
-  nh_.param("fsm/replan_tolerance", cfgs_.replan_tolerance, 1.0);
-  nh_.param("fsm/replan_duration", cfgs_.replan_duration, 0.1);
-  nh_.param("fsm/replan_start_time", cfgs_.replan_start_time, 0.4);
+  nh1_.param("drone_id", drone_id_, 0);
+  nh1_.param("use_preset_goal", is_goal_preset_, false);
+  nh1_.param("fsm/goal_tolerance", cfgs_.goal_tolerance, 1.0);
+  nh1_.param("fsm/replan_tolerance", cfgs_.replan_tolerance, 1.0);
+  nh1_.param("fsm/replan_duration", cfgs_.replan_duration, 0.1);
+  nh1_.param("fsm/replan_start_time", cfgs_.replan_start_time, 0.4);
 
   /* Initialize planner */
-  planner_.reset(new FakeBaselinePlanner(nh_, FakeBaselineParameters(nh_)));
+  planner_.reset(new FakeBaselinePlanner(nh2_, nh3_, nh4_, FakeBaselineParameters(nh2_)));
   planner_->init();
 
   /* ROS publishers */
-  traj_pub_           = nh_.advertise<traj_utils::BezierTraj>("trajectory", 1);
-  broadcast_traj_pub_ = nh_.advertise<traj_utils::BezierTraj>("/broadcast_traj", 1);
+  traj_pub_           = nh1_.advertise<traj_utils::BezierTraj>("trajectory", 1);
+  broadcast_traj_pub_ = nh1_.advertise<traj_utils::BezierTraj>("/broadcast_traj", 1);
   trigger_sub_ =
-      nh_.subscribe("/traj_start_trigger", 1, &FiniteStateMachineFake::TriggerCallback, this);
-  pose_sub_ = nh_.subscribe("pose", 10, &FiniteStateMachineFake::PoseCallback, this);
+      nh1_.subscribe("/traj_start_trigger", 1, &FiniteStateMachineFake::TriggerCallback, this);
+  pose_sub_ = nh1_.subscribe("pose", 10, &FiniteStateMachineFake::PoseCallback, this);
 
   is_exec_triggered_      = false;
   is_odom_received_       = false;
@@ -38,9 +38,9 @@ void FiniteStateMachineFake::run() {
 
   if (is_goal_preset_) {
     is_goal_received_ = true;
-    nh_.param("goal_x", goal_pos_[0], 0.0);
-    nh_.param("goal_y", goal_pos_[1], 0.0);
-    nh_.param("goal_z", goal_pos_[2], 0.0);
+    nh1_.param("goal_x", goal_pos_[0], 0.0);
+    nh1_.param("goal_y", goal_pos_[1], 0.0);
+    nh1_.param("goal_z", goal_pos_[2], 0.0);
     ROS_INFO("[FSM] Receive preset goal (%.2f, %.2f, %.2f)", goal_pos_[0], goal_pos_[1],
              goal_pos_[2]);
   } else {
@@ -61,8 +61,8 @@ void FiniteStateMachineFake::run() {
   ROS_INFO("[FSM] Initialization complete");
   // wait 2s
   ros::Duration(2.0).sleep();
-  fsm_timer_ = nh_.createTimer(ros::Duration(0.1), &FiniteStateMachineFake::FSMCallback, this);
-  vis_timer_ = nh_.createTimer(ros::Duration(0.1), &FiniteStateMachineFake::visCallback, this);
+  fsm_timer_ = nh1_.createTimer(ros::Duration(0.05), &FiniteStateMachineFake::FSMCallback, this);
+  vis_timer_ = nh1_.createTimer(ros::Duration(0.1), &FiniteStateMachineFake::visCallback, this);
 }
 
 /** ***********************************************************************************************
@@ -113,6 +113,7 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
           publishTrajectory();
           ROS_INFO("[FSM] New trajectory planned");
         } else {
+          publishEmptyTrajectory();
           ROS_WARN("[FSM] New trajectory planning failed");
         }
       }
@@ -138,6 +139,11 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
         FSMChangeState(FSM_STATUS::REPLAN);
       }
 
+      if (!planner_->isTrajSafe()) {
+        ROS_WARN("[FSM] Not safe, replan");
+        FSMChangeState(FSM_STATUS::REPLAN);
+      }
+
       if (isGoalReached(odom_pos_)) {
         ROS_INFO("[FSM] Goal reached");
         FSMChangeState(FSM_STATUS::GOAL_REACHED);
@@ -159,6 +165,7 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
         Eigen::Vector3d acc = planner_->getAcc(start_time);
 
         bool is_success_ = planner_->replan(start_time, pos, vel, acc, goal_pos_);
+        bool is_safe     = planner_->isTrajSafe();
 
         // bool is_finished = isGoalReached(odom_pos_);
         // std::cout << termcolor::bright_red << "Target: " << goal_pos_.transpose() << " now "
@@ -169,13 +176,19 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
         //   FSMChangeState(FSM_STATUS::GOAL_REACHED);
         // }
 
-        if (is_success_) { /* publish trajectory */
+        if (is_success_ && is_safe) { /* publish trajectory */
+          num_replan_failures_ = 0;
+          ROS_INFO("[FSM] Replanning success, costs %f", (ros::Time::now() - t1).toSec());
           publishTrajectory();
           FSMChangeState(FSM_STATUS::EXEC_TRAJ);
         } else {
           ROS_WARN("[FSM] Replanning failed");
-          if (planner_->isPrevTrajFinished(ros::Time::now().toSec() + cfgs_.replan_start_time)) {
+          num_replan_failures_++;
+          if (num_replan_failures_ > 0) {
+            // if (planner_->isPrevTrajFinished(ros::Time::now().toSec() + cfgs_.replan_start_time))
+            // {
             FSMChangeState(FSM_STATUS::NEW_PLAN);
+            publishEmptyTrajectory();
             traj_start_time_ = ros::Time::now() - ros::Duration(1.0);  // force new plan immediately
           }
         }
@@ -334,6 +347,7 @@ void FiniteStateMachineFake::clickCallback(const geometry_msgs::PoseStamped::Con
  * ********************************************************/
 
 void FiniteStateMachineFake::publishTrajectory() {
+  ROS_INFO("[FSM] Publishing trajectory");
   traj_idx_++;
   Trajectory traj = planner_->getTrajectory(); /* TODO: reduce copy */
   int        N    = traj.getOrder();
@@ -370,15 +384,16 @@ void FiniteStateMachineFake::publishTrajectory() {
  * @brief publish empty trajectory
  */
 void FiniteStateMachineFake::publishEmptyTrajectory() {
+  ROS_INFO("[FSM] Publishing emergency trajectory");
   traj_idx_++;
   TrajMsg msg;
   msg.drone_id   = drone_id_;
   msg.traj_id    = traj_idx_;
-  msg.start_time = traj_start_time_;
+  msg.start_time = ros::Time::now();
   msg.pub_time   = ros::Time::now();
   msg.order      = 4;
   msg.duration.resize(1);
-  msg.duration[0] = 0.5;
+  msg.duration[0] = 1.5;
   msg.cpts.resize(5);
   for (int i = 0; i < 5; i++) {
     msg.cpts[i].x = odom_pos_(0);

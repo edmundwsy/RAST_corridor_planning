@@ -18,12 +18,12 @@
 void FakeBaselinePlanner::init() {
   /*** INITIALIZE MAP ***/
   map_.reset(new FakeParticleRiskVoxel());
-  map_->init(nh_);
+  map_->init(nh_map_);
   ROS_INFO("Map initialized.");
 
   /*** INITIALIZE A STAR ***/
   a_star_.reset(new FakeRiskHybridAstar());
-  a_star_->setParam(nh_);
+  a_star_->setParam(nh_planner_);
   a_star_->setEnvironment(map_);
   a_star_->init(Eigen::Vector3d::Zero(), Eigen::Vector3d(10, 10, 4));
   ROS_INFO("Hybrid Astar initialized.");
@@ -33,22 +33,45 @@ void FakeBaselinePlanner::init() {
   ROS_INFO("Trajectory optimizer initialized.");
 
   /*** INITIALIZE MADER DECONFLICTION ***/
-  collision_avoider_.reset(new ParticleATC(nh_));
+  collision_avoider_.reset(new ParticleATC(nh_coordinator_));
   collision_avoider_->init();
   map_->setCoordinator(collision_avoider_);
   ROS_INFO("Collision avoider initialized.");
 
   /*** INITIALIZE VISUALIZATION ***/
   std::string ns = "world";
-  visualizer_.reset(new visualizer::Visualizer(nh_, ns));
+  visualizer_.reset(new visualizer::Visualizer(nh_planner_, ns));
 
   /*** INITIALIZE SUBSCRIBER ***/
-  obstacle_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 100);
+  obstacle_pub_ = nh_planner_.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 100);
   // astar_visited_pub_  = nh_.advertise<sensor_msgs::PointCloud2>("vis_astar_visited", 100);
   // astar_rejected_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("vis_astar_rejected", 100);
 
   ROS_INFO("Baseline planner initialized");
 }
+
+bool FakeBaselinePlanner::isTrajSafe() {
+  double T  = traj_.getDuration();
+  double t0 = ros::Time::now().toSec() - traj_start_time_;
+  if (t0 < 0) {
+    ROS_WARN("Trajectory not started yet.");
+    return true;
+  }
+  if (t0 > T) {
+    ROS_WARN("Trajectory finished.");
+    return true;
+  }
+  for (double t = t0; t < T; t += 0.1) {
+    Eigen::Vector3d pos = traj_.getPos(t);
+    double          dt  = t + traj_start_time_ - map_->getMapTime().toSec();
+    if (map_->getClearOcccupancy(pos, dt) == 1) {
+      ROS_WARN("[Planner] Trajectory not safe at relative time %.2f.", t);
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * @brief show A star results
  *
@@ -308,24 +331,26 @@ bool FakeBaselinePlanner::replan(double                 t,
   t2 = ros::Time::now();
   ROS_INFO("[TrajOpt] cost: %f ms", (t2 - t1).toSec() * 1000);
 
-  traj_optimizer_->getOptBezier(traj_);
+  Bernstein::Bezier traj;
+  traj_optimizer_->getOptBezier(traj);
 
   /*----- Trajectory Deconfliction -----*/
-  // t1 = ros::Time::now();
-  // if (!collision_avoider_->isSafeAfterOpt(traj_)) {
-  //   ROS_ERROR("Trajectory collides after optimization!");
-  //   t2 = ros::Time::now();
-  //   ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
-  //   return false;
-  // }
+  t1 = ros::Time::now();
+  if (!collision_avoider_->isSafeAfterOpt(traj)) {
+    ROS_ERROR("Trajectory collides after optimization!");
+    t2 = ros::Time::now();
+    ROS_INFO("[Deconflict] cost: %f ms", (t2 - t1).toSec() * 1000);
+    return false;
+  }
   // if (!collision_avoider_->isSafeAfterChk()) {
   //   ROS_ERROR("Trajectory published while checking!");
   //   t2 = ros::Time::now();
   //   ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
   //   return false;
   // }
-  // t2 = ros::Time::now();
-  // ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
+  t2 = ros::Time::now();
+  ROS_INFO("[Deconflict] cost: %f ms", (t2 - t1).toSec() * 1000);
   prev_traj_start_time_ = traj_start_time_;
+  traj_                 = traj;
   return true;
 }

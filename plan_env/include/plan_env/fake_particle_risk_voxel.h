@@ -76,6 +76,12 @@ class FakeParticleRiskVoxel : public MapBase {
   int getClearOcccupancy(const Eigen::Vector3d &pos, int t) const;
   int getClearOcccupancy(const Eigen::Vector3d &pos, double t) const;
 
+  // void getObstaclePoints(std::vector<Eigen::Vector3d> &points,
+  //                        double                        t_start,
+  //                        double                        t_end,
+  //                        const Eigen::Vector3d        &lower_corner,
+  //                        const Eigen::Vector3d        &higher_corner);
+  //
   void createEgoParticlesVoxel();
 
   typedef std::shared_ptr<FakeParticleRiskVoxel> Ptr;

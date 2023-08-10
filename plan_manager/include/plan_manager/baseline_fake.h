@@ -115,8 +115,11 @@ struct FakeBaselineParameters {
  */
 class FakeBaselinePlanner {
  public:
-  FakeBaselinePlanner(ros::NodeHandle &nh, const FakeBaselineParameters &params)
-      : nh_(nh), cfg_(params) {}
+  FakeBaselinePlanner(ros::NodeHandle              &nh2,
+                      ros::NodeHandle              &nh3,
+                      ros::NodeHandle              &nh4,
+                      const FakeBaselineParameters &params)
+      : nh_planner_(nh2), nh_coordinator_(nh3), nh_map_(nh4), cfg_(params) {}
   ~FakeBaselinePlanner() {}
 
   void init();
@@ -130,6 +133,8 @@ class FakeBaselinePlanner {
   void showAstarPath();
 
   Bernstein::Bezier getTrajectory() const { return traj_; }
+
+  bool isTrajSafe();
 
   inline bool            isPrevTrajFinished(double t) const;
   inline double          getPrevTrajStartTime() const;
@@ -155,7 +160,7 @@ class FakeBaselinePlanner {
 
  private:
   /* ROS */
-  ros::NodeHandle nh_;
+  ros::NodeHandle nh_map_, nh_coordinator_, nh_planner_;
   ros::Publisher  obstacle_pub_;
 
   FakeBaselineParameters cfg_;

@@ -18,8 +18,8 @@
 void ParticleATC::init() {
   separator_solver_ = new separator::Separator();
 
-  swarm_sub_     = nh_.subscribe("/broadcast_traj", 1, &ParticleATC::trajectoryCallback, this,
-                                 ros::TransportHints().tcpNoDelay());
+  swarm_sub_     = nh_.subscribe("/broadcast_traj_to_planner", 1, &ParticleATC::trajectoryCallback,
+                                 this, ros::TransportHints().tcpNoDelay());
   particles_sub_ = nh_.subscribe("/broadcast_particles", 1, &ParticleATC::particlesCallback, this);
   ego_particles_pub_   = nh_.advertise<geometry_msgs::PolygonStamped>("/broadcast_particles", 1);
   ego_particles_timer_ = nh_.createTimer(ros::Duration(2), &ParticleATC::egoParticlesCallback,
@@ -263,9 +263,14 @@ bool ParticleATC::isSafeAfterOpt(const Traj &traj) {
   std::vector<Eigen::Vector3d> pointsB;
 
   /* Push ego trajectory convex hull to buffer */
-  loadParticles(pointsA, cpts, drone_id_);
+  // loadParticles(pointsA, cpts, drone_id_);
+  for (int i = 0; i < cpts.rows(); i++) {
+    pointsA.push_back(cpts.row(i));
+  }
 
   /* checkin: check other trajectories */
+  // std::cout << "swarm_trajs_.size(): " << swarm_trajs_.size() << std::endl;
+  std::cout << "pointsA.size(): " << pointsA.size() << std::endl;
   for (auto &traj : swarm_trajs_) {
     if (traj.id == drone_id_) {
       continue;
@@ -282,8 +287,17 @@ bool ParticleATC::isSafeAfterOpt(const Traj &traj) {
       int piece_idx = traj.traj.locatePiece(t0 - traj.time_start);
       cpts          = cpts.bottomRows(cpts.rows() - piece_idx * order);
 
+      for (int i = 0; i < cpts.rows(); i++) {
+        pointsB.push_back(cpts.row(i));
+      }
+
       /* add current control points */
-      loadParticles(pointsB, cpts, traj.id);
+      // std::cout << "particle_buffer_.size(): " << particles_buffer_.size() << std::endl;
+      // std::cout << "cpts.rows(): " << cpts.rows() << std::endl;
+      // loadParticles(pointsB, cpts, traj.id);
+      std::cout << "pointsB.size(): " << pointsB.size() << std::endl;
+      // DEBUG: if we use the above function, pointB will be too large
+      // Alternative: use quick hull algorithm to get convex hull of pointsB
       ROS_INFO("[CA|A%i] time span (%f, %f)", traj.id, traj.time_start - t0, traj.time_end - t0);
 
       if (!separator_solver_->solveModel(n_k, d_k, pointsA, pointsB)) {
@@ -308,6 +322,7 @@ bool ParticleATC::isSafeAfterOpt(const Traj &traj) {
 void ParticleATC::loadParticles(std::vector<Eigen::Vector3d> &pts,
                                 const Eigen::MatrixXd        &cpts,
                                 int                           idx_agent) {
+  if (particles_buffer_[idx_agent].empty()) return;
   for (int i = 0; i < cpts.rows(); i++) {
     /* Add trajectory control point */
     Eigen::Vector3d pt = cpts.row(i);
@@ -318,6 +333,7 @@ void ParticleATC::loadParticles(std::vector<Eigen::Vector3d> &pts,
 void ParticleATC::loadParticles(std::vector<Eigen::Vector3d> &pts,
                                 const Eigen::Vector3d        &pt,
                                 int                           idx_agent) {
+  if (particles_buffer_[idx_agent].empty()) return;
   for (auto &e : particles_buffer_[idx_agent]) pts.push_back(pt + e);
 }
 
@@ -366,6 +382,7 @@ bool ParticleATC::getParticlesWithRisk(std::vector<Eigen::Vector3d> &pts,
   /* get waypoints */
   std::vector<Eigen::Vector3d> pts_waypoints;
 
+  /* get waypoints and particles */
   bool is_get_waypoints = this->getWaypoints(pts_waypoints, idx_agent, t0);
   if (!is_get_waypoints) {
     return false;
@@ -378,59 +395,70 @@ bool ParticleATC::getParticlesWithRisk(std::vector<Eigen::Vector3d> &pts,
     return true;
   }
 
-  float pos_stddev_timesync = this->getPosStdTimeSync(idx_agent, t0);
-  float pos_stddev_tracking = this->getPosStdTracking(idx_agent, t0);
-  float localize_stddev =
-      std::sqrt(localization_stddev_ * localization_stddev_ +
-                localization_uncertainties_[idx_agent] * localization_uncertainties_[idx_agent]);
-  float pos_stddev =
-      std::sqrt(pos_stddev_timesync * pos_stddev_timesync +
-                pos_stddev_tracking * pos_stddev_tracking + localize_stddev * localize_stddev);
+  float pos_stddev = 0.0f;
 
-  std::cout << "[CA|A" << idx_agent << "] time_sync: " << pos_stddev_timesync
-            << ", tracking: " << pos_stddev_tracking << ", localize: " << localize_stddev
-            << ", total: " << pos_stddev << std::endl;
-
+  // float pos_stddev_timesync = this->getPosStdTimeSync(idx_agent, t0);
+  // float pos_stddev_tracking = this->getPosStdTracking(idx_agent, t0);
+  // float localize_stddev =
+  //     std::sqrt(localization_stddev_ * localization_stddev_ +
+  //               localization_uncertainties_[idx_agent] *
+  //               localization_uncertainties_[idx_agent]);
+  // float pos_stddev =
+  //     std::sqrt(pos_stddev_timesync * pos_stddev_timesync +
+  //               pos_stddev_tracking * pos_stddev_tracking + localize_stddev *
+  //               localize_stddev);
+  //
+  // // std::cout << "[CA|A" << idx_agent << "] time_sync: " << pos_stddev_timesync
+  //           << ", tracking: " << pos_stddev_tracking << ", localize: " << localize_stddev
+  //           << ", total: " << pos_stddev << std::endl;
   /* resample particles */
   pts.clear();
   risks.clear();
   pts.reserve(pts_waypoints.size() * num_resample_);
   risks.reserve(pts_waypoints.size() * num_resample_);
 
-  std::default_random_engine      generator(time(NULL));
-  std::normal_distribution<float> n_x(0.0, pos_stddev);
-  std::normal_distribution<float> n_y(0.0, pos_stddev);
-  std::normal_distribution<float> n_z(0.0, pos_stddev);
-
-  for (auto &e : pts_waypoints) {
-    std::vector<float> risk_buf;
-    risk_buf.reserve(num_resample_);
-    for (int i = 0; i < num_resample_; i++) {
-      float nx = n_x(generator);
-      float ny = n_y(generator);
-      float nz = n_z(generator);
-
-      Eigen::Vector3d pt;
-      pt = e + Eigen::Vector3f(nx, ny, nz).cast<double>();
-
-      // weights follows the gaussian model
-      float risk = std::exp(-0.5f * (nx * nx + ny * ny + nz * nz) / (pos_stddev * pos_stddev));
-      pts.push_back(pt);
-      risk_buf.push_back(risk);
+  if (pos_stddev < 1e-3) {
+    for (auto &e : pts_waypoints) {
+      pts.push_back(e);
+      risks.push_back(1.0f);
     }
-    float sum = std::accumulate(risk_buf.begin(), risk_buf.end(), 0.0f);
-    for (auto &e : risk_buf) e = e * num_resample_ / sum;
-    risks.insert(risks.end(), risk_buf.begin(), risk_buf.end());
+  } else {
+    std::default_random_engine      generator(time(NULL));
+    std::normal_distribution<float> n_x(0.0, pos_stddev);
+    std::normal_distribution<float> n_y(0.0, pos_stddev);
+    std::normal_distribution<float> n_z(0.0, pos_stddev);
+
+    for (auto &e : pts_waypoints) {
+      std::vector<float> risk_buf;
+      risk_buf.reserve(num_resample_);
+      for (int i = 0; i < num_resample_; i++) {
+        float nx = n_x(generator);
+        float ny = n_y(generator);
+        float nz = n_z(generator);
+
+        Eigen::Vector3d pt;
+        pt = e + Eigen::Vector3f(nx, ny, nz).cast<double>();
+
+        // weights follows the gaussian model
+        float risk = std::exp(-0.5f * (nx * nx + ny * ny + nz * nz) / (pos_stddev * pos_stddev));
+        pts.push_back(pt);
+        risk_buf.push_back(risk);
+      }
+      float sum = std::accumulate(risk_buf.begin(), risk_buf.end(), 0.0f);
+      for (auto &r : risk_buf) r = r * num_resample_ / sum;
+      risks.insert(risks.end(), risk_buf.begin(), risk_buf.end());
+    }
+
+    /* sum of weights and normalize */
+    float sum = std::accumulate(risks.begin(), risks.end(), 0.0f);
+    float N   = static_cast<float>(pts_waypoints.size());
+    for (auto &e : risks) e = e * N / sum;
   }
 
-  /* sum of weights and normalize */
-  float sum = std::accumulate(risks.begin(), risks.end(), 0.0f);
-  float N   = static_cast<float>(pts_waypoints.size());
-  for (auto &e : risks) e = e * N / sum;
-
-  // std::cout << "[CA|A" << idx_agent
-  //           << "] risks 10: " << std::accumulate(risks.begin(), risks.begin() + 10, 0.0f)
-  //           << std::endl;
+  std::cout << "[CA|A" << idx_agent << "] particles: " << pts.size() << std::endl;
+  std::cout << "[CA|A" << idx_agent
+            << "] risks 10: " << std::accumulate(risks.begin(), risks.begin() + 10, 0.0f)
+            << std::endl;
 
   return true;
 }

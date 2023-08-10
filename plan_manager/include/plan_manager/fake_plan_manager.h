@@ -53,7 +53,11 @@ struct FSMParameters {
 
 class FiniteStateMachineFake {
  public:
-  FiniteStateMachineFake(ros::NodeHandle &nh) : nh_(nh) {}
+  FiniteStateMachineFake(ros::NodeHandle &nh1,
+                         ros::NodeHandle &nh2,
+                         ros::NodeHandle &nh3,
+                         ros::NodeHandle &nh4)
+      : nh1_(nh1), nh2_(nh2), nh3_(nh3), nh4_(nh4) {}
   ~FiniteStateMachineFake() = default;
 
   void run();
@@ -88,6 +92,7 @@ class FiniteStateMachineFake {
 
   int drone_id_;
   int traj_idx_;
+  int num_replan_failures_;
 
   /********** BOOLEANS **********/
   bool is_map_updated_;
@@ -103,7 +108,7 @@ class FiniteStateMachineFake {
   bool is_success_;
 
   /* ROS */
-  ros::NodeHandle nh_;
+  ros::NodeHandle nh1_, nh2_, nh3_, nh4_;
   ros::Subscriber trigger_sub_, click_sub_, pose_sub_, swarm_traj_sub_;
   ros::Timer      fsm_timer_, vis_timer_;
   ros::Publisher  traj_pub_, broadcast_traj_pub_;
