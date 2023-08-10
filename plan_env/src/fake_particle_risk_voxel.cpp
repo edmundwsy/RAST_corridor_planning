@@ -30,6 +30,7 @@ void FakeParticleRiskVoxel::init(ros::NodeHandle &nh) {
   local_update_range_z_ = MAP_HEIGHT_VOXEL_NUM / 2 * resolution_;
   ROS_INFO("[FAKE_MAP] Local update range: %f, %f, %f", local_update_range_x_,
            local_update_range_y_, local_update_range_z_);
+  ROS_INFO("[FAKE_MAP] Prediction times: %d", PREDICTION_TIMES);
   ROS_INFO("[FAKE_MAP] Init fake risk voxel map");
 
   /* initialize inflated kernel */
@@ -160,13 +161,13 @@ void FakeParticleRiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &
   }
 
   /* copy tmp to risk_maps_ */
-  std::copy(&tmp_risk_maps[0][0], &tmp_risk_maps[0][0] + VOXEL_NUM * PREDICTION_TIMES,
-            &risk_maps_[0][0]);
-  // for (int i = 0; i < VOXEL_NUM; i++) {
-  //   for (int j = 0; j < PREDICTION_TIMES; j++) {
-  //     risk_maps_[i][j] = tmp_risk_maps[i][j];
-  //   }
-  // }
+  // std::copy(&tmp_risk_maps[0][0], &tmp_risk_maps[0][0] + VOXEL_NUM * PREDICTION_TIMES,
+  //           &risk_maps_[0][0]);
+  for (int i = 0; i < VOXEL_NUM; i++) {
+    for (int j = 0; j < PREDICTION_TIMES; j++) {
+      risk_maps_[i][j] = tmp_risk_maps[i][j];
+    }
+  }
 
   // ros::Time t4 = ros::Time::now();
   // ROS_INFO("construct future map time: %f", (t4 - t3).toSec());
@@ -177,13 +178,18 @@ void FakeParticleRiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &
   if (is_multi_agents_) {
     std::vector<bool> is_swarm_traj_valid;
     is_swarm_traj_valid.resize(coordinator_->getNumAgents(), true);
-    int ego_id = coordinator_->getEgoID();
-    int n_rbts = coordinator_->getNumAgents();
+    int ego_id          = coordinator_->getEgoID();
+    int n_rbts          = coordinator_->getNumAgents();
+    int n_ego_particles = coordinator_->getEgoParticlesNum();
 
     for (int t_idx = 0; t_idx < PREDICTION_TIMES; t_idx++) {
+      std::cout << "t_idx: " << t_idx << std::endl;
       std::vector<Eigen::Vector3d> particles;
-      particles.reserve(n_rbts * 1000);  // TODO: magic number
+      particles.clear();
+      particles.reserve(n_rbts * n_ego_particles * 20);
       std::vector<float> risks;
+      risks.clear();
+      risks.reserve(n_rbts * n_ego_particles * 20);
 
       double t = last_update_time_.toSec() + time_resolution_ * t_idx;
       for (int i = 0; i < n_rbts; i++) {
@@ -203,7 +209,11 @@ void FakeParticleRiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &
       for (auto &pt : particles) {
         pt = pt - pose_.cast<double>();
       }
+      std::cout << "[MAMapUpdate] map index" << t_idx << "  particles size: " << particles.size()
+                << "  risk size:" << risks.size() << std::endl;
       addParticlesToRiskMap(particles, risks, t_idx);
+      std::cout << "[MAmapUpdate] map index" << t_idx << "  added particles to risk map"
+                << std::endl;
     }
   }
   ros::Time toc = ros::Time::now();

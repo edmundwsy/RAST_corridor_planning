@@ -33,8 +33,6 @@ struct SwarmParticleTraj {
   double time_received;  // ros time
   double time_start;     // ros time
   double time_end;       // ros time
-  double tracking_uncertainty;
-  double time_sync_uncertainty;
   Traj   traj;
 };
 
@@ -56,7 +54,9 @@ class ParticleATC {
   int drone_id_;
   int num_robots_;
 
-  int num_resample_;
+  double drone_size_x_;
+  double drone_size_y_;
+  double drone_size_z_;
 
   // std::map<int, int> drone_id_to_index_;
   // std::map<int, int> index_to_drone_id_;
@@ -68,12 +68,9 @@ class ParticleATC {
   std::vector<Eigen::Vector3d>              ego_particles_;
   std::vector<std::vector<Eigen::Vector3d>> particles_buffer_;
 
-  /* uncertainties */
-  float              tracking_stddev_, time_sync_stddev_, localization_stddev_;
-  float              tracking_mean_;
-  std::vector<float> tracking_uncertainties_;
-  std::vector<float> time_sync_uncertainties_;
-  std::vector<float> localization_uncertainties_;
+  /* collision risk */
+  int   num_resample_;
+  float replan_risk_rate_;
 
  public:
   /* constructor */
@@ -86,6 +83,7 @@ class ParticleATC {
   void initEgoParticles();
 
   int                                 getEgoID() { return drone_id_; }
+  int                                 getEgoParticlesNum() { return ego_particles_.size(); }
   const std::vector<Eigen::Vector3d> &getEgoParticles() const { return ego_particles_; }
   const std::vector<Eigen::Vector3d> &getParticlesBuffer(int idx) const {
     return particles_buffer_[idx];
@@ -158,9 +156,6 @@ class ParticleATC {
                             std::vector<float>           &risks,
                             int                           idx_agent,
                             double                        t0);
-
-  float getPosStdTimeSync(int idx_agent, double t);
-  float getPosStdTracking(int idx_agent, double t);
 
   typedef std::shared_ptr<ParticleATC> Ptr;
 };

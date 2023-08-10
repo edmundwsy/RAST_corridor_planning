@@ -25,6 +25,9 @@
 #include <traj_coordinator/particle.hpp>
 #include <vector>
 
+#undef PREDICTION_TIMES
+#define PREDICTION_TIMES 9
+
 struct Cylinder {
   int    type;
   double x;   // x coordinate
