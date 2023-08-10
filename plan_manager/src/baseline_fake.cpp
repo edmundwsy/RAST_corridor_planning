@@ -54,11 +54,11 @@ bool FakeBaselinePlanner::isTrajSafe() {
   double T  = traj_.getDuration();
   double t0 = ros::Time::now().toSec() - traj_start_time_;
   if (t0 < 0) {
-    ROS_WARN("Trajectory not started yet.");
+    ROS_WARN("[Planner] Check trajectory safety before start.");
     return true;
   }
   if (t0 > T) {
-    ROS_WARN("Trajectory finished.");
+    ROS_WARN("[Planner] Check trajectory after finished .");
     return true;
   }
   for (double t = t0; t < T; t += 0.1) {

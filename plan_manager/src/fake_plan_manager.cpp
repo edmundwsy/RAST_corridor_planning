@@ -184,7 +184,7 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
         } else {
           ROS_WARN("[FSM] Replanning failed");
           num_replan_failures_++;
-          if (num_replan_failures_ > 0) {
+          if (num_replan_failures_ > 1) {
             // if (planner_->isPrevTrajFinished(ros::Time::now().toSec() + cfgs_.replan_start_time))
             // {
             FSMChangeState(FSM_STATUS::NEW_PLAN);
