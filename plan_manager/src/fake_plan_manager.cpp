@@ -18,6 +18,8 @@ void FiniteStateMachineFake::run() {
   nh1_.param("fsm/replan_tolerance", cfgs_.replan_tolerance, 1.0);
   nh1_.param("fsm/replan_duration", cfgs_.replan_duration, 0.1);
   nh1_.param("fsm/replan_start_time", cfgs_.replan_start_time, 0.4);
+  nh1_.param("fsm/colli_check_duration", cfgs_.colli_check_duration, 2.0);
+  nh1_.param("fsm/replan_max_failures", cfgs_.replan_max_failures, 3);
 
   /* Initialize planner */
   planner_.reset(new FakeBaselinePlanner(nh2_, nh3_, nh4_, FakeBaselineParameters(nh2_)));
@@ -139,7 +141,7 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
         FSMChangeState(FSM_STATUS::REPLAN);
       }
 
-      if (!planner_->isTrajSafe()) {
+      if (!planner_->isTrajSafe(cfgs_.colli_check_duration)) {
         ROS_WARN("[FSM] Not safe, replan");
         FSMChangeState(FSM_STATUS::REPLAN);
       }
@@ -165,7 +167,8 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
         Eigen::Vector3d acc = planner_->getAcc(start_time);
 
         bool is_success_ = planner_->replan(start_time, pos, vel, acc, goal_pos_);
-        bool is_safe     = planner_->isTrajSafe();
+        bool is_safe     = true;
+        // bool is_safe     = planner_->isTrajSafe(2.0);
 
         // bool is_finished = isGoalReached(odom_pos_);
         // std::cout << termcolor::bright_red << "Target: " << goal_pos_.transpose() << " now "
@@ -184,7 +187,7 @@ void FiniteStateMachineFake::FSMCallback(const ros::TimerEvent& event) {
         } else {
           ROS_WARN("[FSM] Replanning failed");
           num_replan_failures_++;
-          if (num_replan_failures_ > 1) {
+          if (num_replan_failures_ > cfgs_.replan_max_failures) {
             // if (planner_->isPrevTrajFinished(ros::Time::now().toSec() + cfgs_.replan_start_time))
             // {
             FSMChangeState(FSM_STATUS::NEW_PLAN);
@@ -403,5 +406,3 @@ void FiniteStateMachineFake::publishEmptyTrajectory() {
   traj_pub_.publish(msg);
   broadcast_traj_pub_.publish(msg);
 }
-
-bool FiniteStateMachineFake::isTrajectorySafe() { return true; }

@@ -49,6 +49,9 @@ struct FSMParameters {
   double replan_tolerance  = 1.0;
   double replan_duration   = 0.1;
   double replan_start_time = 0.4;
+
+  int    replan_max_failures  = 3;
+  double colli_check_duration = 2.0;
 };
 
 class FiniteStateMachineFake {

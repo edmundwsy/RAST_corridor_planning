@@ -500,22 +500,29 @@ void MapBase::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
           if (risk_maps_[i][j] > risk_threshold_) {
             Eigen::Vector3d pt = getVoxelPosition(i).cast<double>();
             points.emplace_back(pt);
-            points.emplace_back(pt +
-                                Eigen::Vector3d(safety_margin_, safety_margin_, safety_margin_));
-            points.emplace_back(pt +
-                                Eigen::Vector3d(safety_margin_, safety_margin_, -safety_margin_));
-            points.emplace_back(pt +
-                                Eigen::Vector3d(safety_margin_, -safety_margin_, safety_margin_));
-            points.emplace_back(pt +
-                                Eigen::Vector3d(safety_margin_, -safety_margin_, -safety_margin_));
-            points.emplace_back(pt +
-                                Eigen::Vector3d(-safety_margin_, safety_margin_, safety_margin_));
-            points.emplace_back(pt +
-                                Eigen::Vector3d(-safety_margin_, safety_margin_, -safety_margin_));
-            points.emplace_back(pt +
-                                Eigen::Vector3d(-safety_margin_, -safety_margin_, safety_margin_));
-            points.emplace_back(pt +
-                                Eigen::Vector3d(-safety_margin_, -safety_margin_, -safety_margin_));
+            // points.emplace_back(pt +
+            //                     Eigen::Vector3d(safety_margin_, safety_margin_, safety_margin_));
+            // points.emplace_back(pt +
+            //                     Eigen::Vector3d(safety_margin_, safety_margin_,
+            //                     -safety_margin_));
+            // points.emplace_back(pt +
+            //                     Eigen::Vector3d(safety_margin_, -safety_margin_,
+            //                     safety_margin_));
+            // points.emplace_back(pt +
+            //                     Eigen::Vector3d(safety_margin_, -safety_margin_,
+            //                     -safety_margin_));
+            // points.emplace_back(pt +
+            //                     Eigen::Vector3d(-safety_margin_, safety_margin_,
+            //                     safety_margin_));
+            // points.emplace_back(pt +
+            //                     Eigen::Vector3d(-safety_margin_, safety_margin_,
+            //                     -safety_margin_));
+            // points.emplace_back(pt +
+            //                     Eigen::Vector3d(-safety_margin_, -safety_margin_,
+            //                     safety_margin_));
+            // points.emplace_back(pt +
+            //                     Eigen::Vector3d(-safety_margin_, -safety_margin_,
+            //                     -safety_margin_));
           }
         }
       }

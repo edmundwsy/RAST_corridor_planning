@@ -4,18 +4,20 @@ planner:
 fsm:
   goal_tolerance: 1.0
   replan_tolerance: 1.0
-  replan_duration: 0.5
-  replan_start_time: 0.2
+  replan_duration: 0.2
+  replan_start_time: 0.05
+  colli_check_duration: 1.0
+  replan_max_failures: 2
 
 search:
   max_tau: 2.0 # Astar search time horizon
   init_max_tau: 0.8 # Useless
   max_vel: 2.0
   max_acc: 8.0
-  w_time: 10.0
+  w_time: 5.0
   horizon: 5.0
   lambda_heu: 5.0
-  resolution_astar: 0.10
+  resolution_astar: 0.15
   time_resolution: 0.2
   margin: 0.6
   # vel_margin: 0.0
@@ -24,13 +26,14 @@ search:
   is_test: false
 
 corridor:
-  init_range: 1.5
-  min_volumn: 0.01
+  init_range: 1.2
+  min_volumn: 0.001
+  shrink_size: 0.3
   risk_threshold_single_voxel: 0.15 # Useless
   risk_threshold_corridor: 3.0 # Useless
 
 optimizer: # Useless
-  max_vel_optimization: 3 # Constraint in optimization. A little larger than max_vel
+  max_vel_optimization: 2 # Constraint in optimization. A little larger than max_vel
   max_acc_optimization: 8 # Constraint in optimization. A little larger than max_acc
 
 map:
@@ -42,7 +45,7 @@ map:
   local_update_range_y: 4.5
   local_update_range_z: 3.5
   resolution: 0.15
-  risk_threshold: 0.1
+  risk_threshold: 0.5
 
   angle_resolution: 3
   time_resolution: 0.2
@@ -64,7 +67,7 @@ map:
   local_map_margin: 10
   ground_height: -0.01
   ceiling_height: 3.00
-  safety_margin: 0.0 # for corridor generation
+  corridor_safety_distance: 0.0 # for corridor generation
   clearance: 0.30 # for astar collision check
 
   publish_spatio_temporal: true
@@ -78,10 +81,8 @@ visualization:
   rviz_map_center_locked: false
 
 swarm:
-  num_robots: 4
+  num_robots: 8
   drone_size_x: 0.3
   drone_size_y: 0.3
   drone_size_z: 0.4
-  tracking_stddev: 0.01
-  time_sync_stddev: 0.001
-  localization_stdev: 0.1
+  replan_risk_rate: 0.00

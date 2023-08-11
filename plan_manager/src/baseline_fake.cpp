@@ -50,17 +50,20 @@ void FakeBaselinePlanner::init() {
   ROS_INFO("Baseline planner initialized");
 }
 
-bool FakeBaselinePlanner::isTrajSafe() {
-  double T  = traj_.getDuration();
+bool FakeBaselinePlanner::isTrajSafe(double T) {
   double t0 = ros::Time::now().toSec() - traj_start_time_;
   if (t0 < 0) {
-    ROS_WARN("[Planner] Check trajectory safety before start.");
-    return true;
+    // ROS_WARN("[Planner] Check trajectory safety before start: dt:%.2f ", -t0);
+    t0 = 0;
   }
   if (t0 > T) {
     ROS_WARN("[Planner] Check trajectory after finished .");
     return true;
   }
+
+  double dur = traj_.getDuration();
+  T          = T > dur ? dur : T;
+
   for (double t = t0; t < T; t += 0.1) {
     Eigen::Vector3d pos = traj_.getPos(t);
     double          dt  = t + traj_start_time_ - map_->getMapTime().toSec();
@@ -130,6 +133,30 @@ Eigen::Matrix<double, 6, 4> FakeBaselinePlanner::getInitCorridor(
   corridor.block<3, 1>(0, 3) = -left_higher_corner;
   corridor.block<3, 1>(3, 3) = right_lower_corner;
   return corridor;
+}
+
+bool FakeBaselinePlanner::checkCorridorValidity(const Eigen::MatrixX4d &corridor) {
+  int                          m = corridor.rows();
+  Eigen::Matrix<double, 3, 1>  c = Eigen::Matrix<double, 3, 1>::Zero();
+  Eigen::Matrix<double, 3, 1>  x;
+  Eigen::Matrix<double, -1, 1> b;
+  Eigen::Matrix<double, -1, 3> A;
+  A.resize(m, 3);
+  b.resize(m);
+  A.leftCols<3>() = corridor.leftCols<3>();
+  b               = -corridor.rightCols<1>();
+
+  const double rst = sdlp::linprog<3>(c, A, b, x);
+  return !std::isinf(rst);
+}
+
+void FakeBaselinePlanner::ShrinkCorridor(Eigen::MatrixX4d &corridor) {
+  for (int i = 0; i < corridor.rows(); i++) {
+    double A = corridor(i, 0);
+    double B = corridor(i, 1);
+    double C = corridor(i, 2);
+    corridor(i, 3) += std::sqrt(A * A + B * B + C * C) * cfg_.shrink_size;
+  }
 }
 
 /**
@@ -272,15 +299,20 @@ bool FakeBaselinePlanner::replan(double                 t,
     Eigen::Vector3d  r = Eigen::Vector3d::Ones();
     firi::firi(bd, m_pc, wpts[i], wpts[i + 1], hPoly, r, 2);
     ros::Time t4 = ros::Time::now();
-    if (r.x() * r.y() * r.z() < cfg_.min_volumn) {
-      std::cout << "ellipsoid radius  " << r.transpose() << " volumn: " << r.x() * r.y() * r.z()
-                << std::endl;
-      // this->showObstaclePoints(pc);  // visualization
+    // if (r.x() * r.y() * r.z() < cfg_.min_volumn) {
+    //   std::cout << "ellipsoid radius  " << r.transpose() << " volumn: " << r.x() * r.y() * r.z()
+    //             << std::endl;
+    //   // this->showObstaclePoints(pc);  // visualization
+    //   break;
+    // }
+    ShrinkCorridor(hPoly);
+    if (!checkCorridorValidity(hPoly)) {
+      ROS_INFO("[FIRI] %ith corridor takes %f ms, check failed", i, (t4 - t3).toSec() * 1000);
       break;
+    } else {
+      ROS_INFO("[FIRI] %ith corridor takes %f ms", i, (t4 - t3).toSec() * 1000);
+      hPolys.push_back(hPoly);
     }
-
-    ROS_INFO("[FIRI] %ith corridor takes %f ms", i, (t4 - t3).toSec() * 1000);
-    hPolys.push_back(hPoly);
   }
   this->showObstaclePoints(pc);  // visualization
 
@@ -325,7 +357,7 @@ bool FakeBaselinePlanner::replan(double                 t,
   if (!traj_optimizer_->optimize()) {
     t2 = ros::Time::now();
     ROS_INFO("[TrajOpt] cost: %f ms", (t2 - t1).toSec() * 1000);
-    ROS_ERROR("Trajectory optimization failed!");
+    ROS_ERROR("Trajectory optimization failed! Traj pieces: %lu", hPolys.size());
     return false;
   }
   t2 = ros::Time::now();

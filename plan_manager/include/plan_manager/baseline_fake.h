@@ -26,6 +26,7 @@
 // #include <plan_manager/mader_deconfliction.hpp>
 #include <sfc_gen/firi.hpp>
 // #include <traj_coordinator/mader.hpp>
+#include <sfc_gen/sdlp.hpp>
 #include <traj_coordinator/particle.hpp>
 #include <traj_utils/bernstein.hpp>
 #include <traj_utils/corridor.hpp>
@@ -47,6 +48,7 @@ struct FakeBaselineParameters {
   double delta_corridor = 0.3;
   double init_range     = 1.0;
   double min_volumn     = 0.5;
+  double shrink_size    = 0.2;
 
   bool  use_height_limit = true;
   float height_limit_max = 2.2f;
@@ -87,6 +89,7 @@ struct FakeBaselineParameters {
     nh.getParam("planner/trajectory_piece_max_size", trajectory_piece_max_size);
     nh.getParam("corridor/init_range", init_range);
     nh.getParam("corridor/min_volumn", min_volumn);
+    nh.getParam("corridor/shrink_size", shrink_size);
 
     nh.getParam("optimizer/max_vel_optimization", opt_max_vel);
     nh.getParam("optimizer/max_acc_optimization", opt_max_acc);
@@ -134,7 +137,7 @@ class FakeBaselinePlanner {
 
   Bernstein::Bezier getTrajectory() const { return traj_; }
 
-  bool isTrajSafe();
+  bool isTrajSafe(double);
 
   inline bool            isPrevTrajFinished(double t) const;
   inline double          getPrevTrajStartTime() const;
@@ -153,6 +156,8 @@ class FakeBaselinePlanner {
   Eigen::Matrix<double, 6, 4> getInitCorridor(const Eigen::Vector3d &left_higher_corner,
                                               const Eigen::Vector3d &right_lower_corner);
 
+  bool checkCorridorValidity(const Eigen::MatrixX4d &corridor);
+  void ShrinkCorridor(Eigen::MatrixX4d &corridor);
   void showObstaclePoints(const std::vector<Eigen::Vector3d> &points);
   void showObstaclePoints(const std::vector<Eigen::Vector4d> &points, ros::Publisher &pub);
   void addAgentsTrajectoryToMap();
