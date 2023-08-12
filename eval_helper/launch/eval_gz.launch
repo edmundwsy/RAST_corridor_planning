@@ -3,10 +3,10 @@
 <arg name="num_agents" default="4" />
 <arg name="query_rate" default="50" />
 
-<node pkg="eval_helper" type="multi_eval" name="multi_eval">
+<node pkg="eval_helper" type="multi_eval_gz" name="multi_eval" >
     <param name="num_agents" value="$(arg num_agents)" />
     <param name="query_rate" value="$(arg query_rate)" />
-    <param name="cmd_topic" value="/uav0/controller/pos_cmd" />
-    <param name="gt_topic" value="/ground_truth_state" />
+    <param name="cmd_topic" value="/uav0/command_process/position_control" />
+    <!-- <param name="gt_topic" value="/ga" /> -->
 </node>
 </launch>

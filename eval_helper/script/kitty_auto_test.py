@@ -9,16 +9,16 @@ Email: 947089399@qq.com
 thesis-planner | kitty
 """
 
-import os
-import time
-import sys
-import re
-import subprocess
 import argparse
 import csv
-import numpy as np
+import os
+import re
+import subprocess
+import sys
+import time
 
 import calculate
+import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -28,9 +28,11 @@ parser.add_argument(
     help="world name",
 )
 parser.add_argument("--iters", type=int, default="1", help="number of agents")
-parser.add_argument("--num_agents", type=int, default="4", help="number of agents")
+parser.add_argument("--num_agents", type=int,
+                    default="4", help="number of agents")
 parser.add_argument("--save_path", type=str, default="", help="folder name")
-parser.add_argument("--waiting_time", type=float, default="20", help="waiting time")
+parser.add_argument("--waiting_time", type=float,
+                    default="20", help="waiting time")
 parser.add_argument(
     "--node_name", type=str, default="/uav0/planner", help="key planning node name"
 )
@@ -44,7 +46,7 @@ parser.add_argument(
 parser.add_argument(
     "--cmd_recorder",
     type=str,
-    default="roslaunch eval_helper eval.launch",
+    default="roslaunch eval_helper eval.launch num_agents:=8",
 )
 parser.add_argument(
     "--cmd_launch",
@@ -52,7 +54,8 @@ parser.add_argument(
     # default="roslaunch plan_manager sim_baseline_fkpcp_4.launch rviz:=false",
     default="roslaunch plan_manager sim_fkpcp_4_case_3.launch rviz:=true obs_num:=50",
 )
-parser.add_argument("--cmd_trigger", type=str, default="rosrun eval_helper trigger")
+parser.add_argument("--cmd_trigger", type=str,
+                    default="rosrun eval_helper trigger")
 
 
 def startPlanner():
@@ -66,7 +69,8 @@ def checkIfNodeRunning(node_name):
 
 
 def cleanROSLog():
-    os.system("kitty @ launch bash -c '%s; rosclean purge -y'" % "source ~/.bashrc")
+    os.system("kitty @ launch bash -c '%s; rosclean purge -y'" %
+              "source ~/.bashrc")
 
 
 def stopNode(node_name):
@@ -78,13 +82,16 @@ def stopNode(node_name):
 
 def startAll(arg):
     # Start the planner
-    os.system("kitty @ launch bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_launch))
+    os.system("kitty @ launch bash -c '%s; %s;'" %
+              (arg.cmd_source, arg.cmd_launch))
     time.sleep(1)
     # Start the recorder
-    os.system("kitty @ launch bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_recorder))
+    os.system("kitty @ launch bash -c '%s; %s;'" %
+              (arg.cmd_source, arg.cmd_recorder))
     time.sleep(4)
     # Start planning
-    os.system("kitty @ launch bash -c '%s; %s;'" % (arg.cmd_source, arg.cmd_trigger))
+    os.system("kitty @ launch bash -c '%s; %s;'" %
+              (arg.cmd_source, arg.cmd_trigger))
 
 
 def stopAll():
@@ -113,16 +120,20 @@ def findAndRecord(args, save_path):
     # extract data from file:
     data = calculate.get_data(args.num_agents, eval_log_path)
 
-    ctrl_efforts = np.array([calculate.get_sum_control_efforts(d) for d in data])
+    ctrl_efforts = np.array(
+        [calculate.get_sum_control_efforts(d) for d in data])
     flight_times = np.array([calculate.get_avg_flight_time(d) for d in data])
 
-    n_cld_obs = np.array([calculate.get_collision_occurance(d, 12) for d in data])
+    n_cld_obs = np.array(
+        [calculate.get_collision_occurance(d, 12) for d in data])
     d_cld_obs = np.array([np.min(d[:, 12]) for d in data])
 
-    n_cld_uav = np.array([calculate.get_collision_occurance(d, 13) for d in data])
+    n_cld_uav = np.array(
+        [calculate.get_collision_occurance(d, 13, 0.30) for d in data])
     d_cld_uav = np.array([np.min(d[:, 13]) for d in data])
 
-    n_no_path_cld = np.array([calculate.get_no_path_collision(d) for d in data])
+    n_no_path_cld = np.array(
+        [calculate.get_no_path_collision(d) for d in data])
 
     arr_to_write = np.hstack(
         [

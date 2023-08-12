@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_conversions
   quadrotor_msgs
   visualization_msgs
+  traj_utils
 )
 
 find_package(PCL 1.7 REQUIRED)
@@ -41,8 +42,14 @@ link_directories(${PCL_LIBRARY_DIRS})
 add_executable(noise_maker src/noise_maker.cpp)
 target_link_libraries(noise_maker ${catkin_LIBRARIES})
 
+add_executable(traj_noise_maker src/traj_noise_maker.cpp)
+target_link_libraries(traj_noise_maker ${catkin_LIBRARIES})
+
 add_executable(multi_eval src/multi_eval_node.cpp)
 target_link_libraries(multi_eval ${catkin_LIBRARIES})
+
+add_executable(multi_eval_gz src/multi_eval_gz_node.cpp)
+target_link_libraries(multi_eval_gz ${catkin_LIBRARIES})
 
 add_executable(trigger src/trigger.cpp)
 target_link_libraries(trigger ${catkin_LIBRARIES})
@@ -51,9 +58,9 @@ add_executable(odom_local2global src/odom_local2global.cpp)
 target_link_libraries(odom_local2global ${catkin_LIBRARIES})
 
 add_executable(calculate_density src/calculate_density.cpp)
-target_link_libraries(calculate_density ${catkin_LIBRARIES}     ${PCL_LIBRARIES}
+target_link_libraries(calculate_density ${catkin_LIBRARIES} ${PCL_LIBRARIES}
 )
 
 add_executable(predictor src/predictor.cpp)
-target_link_libraries(predictor ${catkin_LIBRARIES}     ${PCL_LIBRARIES}
+target_link_libraries(predictor ${catkin_LIBRARIES} ${PCL_LIBRARIES}
 )
