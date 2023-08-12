@@ -44,6 +44,7 @@ class RiskVoxel : public MapBase {
   float observation_stddev_;
   float localization_stddev_;
   float num_newborn_particles_;
+  float risk_threshold_astar_;
 
   /* Multi Agents */
   bool             is_multi_agents_ = false;
@@ -108,6 +109,12 @@ class RiskVoxel : public MapBase {
 
   // void createEgoParticlesVoxel();
   void addObstaclesToRiskMap(const std::vector<Eigen::Vector3d> &centers, int t_index);
+  void addParticlesToRiskMap(const std::vector<Eigen::Vector3d> &centers,
+                             const std::vector<float>           &risks,
+                             int                                 t_index);
+  void addParticlesToRiskMap(const std::vector<Eigen::Vector3f> &centers,
+                             const std::vector<float>           &risks,
+                             int                                 t_index);
 
   typedef std::shared_ptr<RiskVoxel> Ptr;
 };

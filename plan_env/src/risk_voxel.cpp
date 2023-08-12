@@ -9,6 +9,7 @@
  *
  */
 
+#include <plan_env/map_parameters.h>
 #include <plan_env/risk_voxel.h>
 
 void RiskVoxel::init(ros::NodeHandle &nh) {
@@ -19,6 +20,7 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
   nh_.param("map/sigma_observation", observation_stddev_, 0.05F);
   nh_.param("map/sigma_localization", localization_stddev_, 0.05F);
   nh_.param("map/num_newborn_particles", num_newborn_particles_, 0.05F);
+  nh_.param("map/risk_threshold_region", risk_threshold_astar_, 0.2F);
 
   resolution_           = VOXEL_RESOLUTION;
   local_update_range_x_ = MAP_LENGTH_VOXEL_NUM / 2 * resolution_;
@@ -46,7 +48,7 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
   dsp_map_->setNewBornParticleWeight(0.0001);  // Initial weight of particles.
   dsp_map::DSPMap::setOriginalVoxelFilterResolution(filter_res_);
   // Resolution of the voxel filter used for point cloud pre-process.
-  dsp_map_->setParticleRecordFlag(0, 19.0);
+  // dsp_map_->setParticleRecordFlag(0, 19.0);
   // Set the first parameter to 1 to save particles at a time: e.g. 19.0s. Saving
   // will take a long time. Don't use it in realtime applications.
   ROS_INFO("[RiskMap] Init risk voxel map");
@@ -152,9 +154,32 @@ void RiskVoxel::publishMap() {
   // clock_t t1           = clock();
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
   cloud->points.reserve(VOXEL_NUM);
-  int num_occupied = 0;
-  dsp_map_->getOccupancyMapWithFutureStatus(num_occupied, *cloud, &risk_maps_[0][0],
+  int   num_occupied = 0;
+  float temp_risk_map[VOXEL_NUM][PREDICTION_TIMES];
+  dsp_map_->getOccupancyMapWithFutureStatus(num_occupied, *cloud, &temp_risk_map[0][0],
                                             risk_threshold_);
+  for (auto &ego_i : inflate_kernel_) {
+    int idx               = getVoxelIndex(ego_i);
+    temp_risk_map[idx][0] = 0.0;
+    temp_risk_map[idx][1] = 0.0;
+    temp_risk_map[idx][2] = 0.0;
+  }
+
+  for (int i = 0; i < VOXEL_NUM; i++) {
+    for (int j = 0; j < PREDICTION_TIMES; j++) {
+      risk_maps_[i][j] = temp_risk_map[i][j];
+    }
+  }
+  /* set current to zero to prevent deadlock */
+
+  clock_t t0 = clock();
+  /* project other agents to the map */
+  if (is_multi_agents_) {
+    addOtherAgents();
+  }
+  clock_t t1 = clock();
+  std::cout << "[RiskMap] agent particle update time (ms): " << (t1 - t0) * 1000 / CLOCKS_PER_SEC
+            << std::endl;
 
   std::string st_msg  = (if_pub_spatio_temporal_map_) ? "true" : "false";
   std::string wrd_msg = (if_pub_in_world_frame_) ? "true" : "false";
@@ -221,19 +246,8 @@ void RiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
     return;
   }
 
-  /* inflate map */
-  // inflateMap();
   clock_t t_update_1 = clock();
   std::cout << "[RiskMap] map update time (ms): "
-            << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC << std::endl;
-
-  /* project other agents to the map */
-  if (is_multi_agents_) {
-    addOtherAgents();
-  }
-
-  t_update_1 = clock();
-  std::cout << "[RiskMap] agent particle update time (ms): "
             << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC << std::endl;
 }
 
@@ -243,12 +257,17 @@ void RiskVoxel::updateMap(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg) {
 void RiskVoxel::addOtherAgents() {
   std::vector<bool> is_swarm_traj_valid;
   is_swarm_traj_valid.resize(coordinator_->getNumAgents(), true);
-  // createEgoParticlesVoxel();
-  int ego_id = coordinator_->getEgoID();
-  int n_rbts = coordinator_->getNumAgents();
+  int ego_id          = coordinator_->getEgoID();
+  int n_rbts          = coordinator_->getNumAgents();
+  int n_ego_particles = coordinator_->getEgoParticlesNum();
 
   for (int t_idx = 0; t_idx < PREDICTION_TIMES; t_idx++) {
     std::vector<Eigen::Vector3d> particles;
+    particles.clear();
+    particles.reserve(n_rbts * n_ego_particles * 20);
+    std::vector<float> risks;
+    risks.clear();
+    risks.reserve(n_rbts * n_ego_particles * 20);
 
     double t = last_update_time_.toSec() + time_resolution_ * t_idx;
     for (int i = 0; i < n_rbts; i++) {
@@ -294,6 +313,27 @@ void RiskVoxel::addObstaclesToRiskMap(const std::vector<Eigen::Vector3d> &pts, i
     if (!isInRange(ptf)) continue;
     int index                  = getVoxelIndex(ptf);
     risk_maps_[index][t_index] = 1.0;
+  }
+}
+void RiskVoxel::addParticlesToRiskMap(const std::vector<Eigen::Vector3d> &pts,
+                                      const std::vector<float>           &risks,
+                                      int                                 t_index) {
+  for (int i = 0; i < pts.size(); i++) {
+    Eigen::Vector3f ptf = pts[i].cast<float>();
+    if (!isInRange(ptf)) continue;
+    int index = getVoxelIndex(ptf);
+    risk_maps_[index][t_index] += risks[i];
+  }
+}
+
+void RiskVoxel::addParticlesToRiskMap(const std::vector<Eigen::Vector3f> &pts,
+                                      const std::vector<float>           &risks,
+                                      int                                 t_index) {
+  for (int i = 0; i < pts.size(); i++) {
+    Eigen::Vector3f ptf = pts[i];
+    if (!isInRange(ptf)) continue;
+    int index = getVoxelIndex(ptf);
+    risk_maps_[index][t_index] += risks[i];
   }
 }
 
@@ -382,7 +422,7 @@ int RiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos, int t) const {
     if (!isInRange(p)) continue;
     int idx = getVoxelIndex(p);
     sum_risk += risk_maps_[idx][t];
-    if (sum_risk > risk_threshold_) return 1; /* collision */
+    if (sum_risk > risk_threshold_astar_) return 1; /* collision */
   }
   return 0;
 }
@@ -392,14 +432,7 @@ int RiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos) const {
 }
 
 int RiskVoxel::getClearOcccupancy(const Eigen::Vector3d &pos, double dt) const {
-  float t  = static_cast<float>(dt);
-  int   tc = PREDICTION_TIMES - 1;
-  for (int i = 0; i < PREDICTION_TIMES; ++i) {
-    if (t - prediction_future_time[i] < 0.01) {
-      tc = i;
-      break;
-    }
-  }
-
-  return getClearOcccupancy(pos, tc);
+  int tf = floor(dt / time_resolution_);
+  tf     = tf > (PREDICTION_TIMES - 1) ? PREDICTION_TIMES - 1 : tf;
+  return getClearOcccupancy(pos, tf);
 }

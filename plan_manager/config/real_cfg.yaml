@@ -66,7 +66,8 @@ map:
   local_map_margin: 10
   ground_height: -0.01
 
-  clearance: 0.15
+  corridor_safety_distance: 0.1 # for corridor generation
+  clearance: 0.15 # for astar collision check
 
   virtual_ceil_height: 2.9
   visualization_truncate_height: 1.8

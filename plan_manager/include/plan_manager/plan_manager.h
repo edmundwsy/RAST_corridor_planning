@@ -49,11 +49,18 @@ struct FSMParameters {
   double replan_tolerance  = 1.0;
   double replan_duration   = 0.1;
   double replan_start_time = 0.4;
+
+  int    replan_max_failures  = 3;
+  double colli_check_duration = 2.0;
 };
 
 class FiniteStateMachine {
  public:
-  FiniteStateMachine(ros::NodeHandle &nh) : nh_(nh) {}
+  FiniteStateMachine(ros::NodeHandle &nh1,
+                     ros::NodeHandle &nh2,
+                     ros::NodeHandle &nh3,
+                     ros::NodeHandle &nh4)
+      : nh1_(nh1), nh2_(nh2), nh3_(nh3), nh4_(nh4) {}
   ~FiniteStateMachine() = default;
 
   void run();
@@ -61,6 +68,7 @@ class FiniteStateMachine {
   void FSMCallback(const ros::TimerEvent &event);
   void TriggerCallback(const geometry_msgs::PoseStampedPtr &msg);
   void PoseCallback(const geometry_msgs::PoseStampedPtr &msg);
+  void OdomCallback(const nav_msgs::OdometryPtr &msg);
   void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
   void visCallback(const ros::TimerEvent &event);
 
@@ -88,6 +96,7 @@ class FiniteStateMachine {
 
   int drone_id_;
   int traj_idx_;
+  int num_replan_failures_;
 
   /********** BOOLEANS **********/
   bool is_map_updated_;
@@ -101,10 +110,11 @@ class FiniteStateMachine {
   bool is_goal_preset_;
   bool is_goal_received_;
   bool is_success_;
+  bool is_pose_subscribed_;
 
   /* ROS */
-  ros::NodeHandle nh_;
-  ros::Subscriber trigger_sub_, click_sub_, pose_sub_, swarm_traj_sub_;
+  ros::NodeHandle nh1_, nh2_, nh3_, nh4_;
+  ros::Subscriber trigger_sub_, click_sub_, pose_sub_, odom_sub_, swarm_traj_sub_;
   ros::Timer      fsm_timer_, vis_timer_;
   ros::Publisher  traj_pub_, broadcast_traj_pub_;
 

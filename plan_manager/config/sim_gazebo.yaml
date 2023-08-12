@@ -6,11 +6,13 @@ fsm:
   replan_tolerance: 1.0
   replan_duration: 0.1
   replan_start_time: 0.1
+  colli_check_duration: 1.0
+  replan_max_failures: 2
 
 search:
   max_tau: 2.0
   init_max_tau: 0.8
-  max_vel: 1.5
+  max_vel: 2.0
   max_acc: 4.0
   w_time: 5.0
   horizon: 5.0
@@ -25,8 +27,7 @@ search:
 corridor:
   init_range: 1.2
   min_volumn: 0.1
-  risk_threshold_single_voxel: 0.05
-  risk_threshold_corridor: 3.0
+  shrink_size: 0.5
 
 optimizer:
   pos_factor: 0.0
@@ -36,12 +37,12 @@ optimizer:
   snap_factor: 1.0 # minimum snap
   delta_corridor: 0.4
 
-  max_vel_optimization: 2.0 # Constraint in optimization. A little larger than max_vel
-  max_acc_optimization: 4.0 # Constraint in optimization. A little larger than max_acc
+  max_vel_optimization: 2.5 # Constraint in optimization. A little larger than max_vel
+  max_acc_optimization: 5.0 # Constraint in optimization. A little larger than max_acc
 
 map:
   booleans:
-    sub_pose: true
+    sub_pose: false
     pub_world_frame: true
     pub_spatio_temporal: false
   voxel_size_x: 65
@@ -65,16 +66,19 @@ map:
   half_fov_horizontal: 48
   half_fov_vertical: 36
 
+  risk_threshold_voxel: 0.05
+  risk_threshold_region: 4.0
+
   local_update_range_x: 5.5
   local_update_range_y: 5.5
   local_update_range_z: 4.5
-  obstacles_inflation: 0.3
+  obstacles_inflation: 0.3 # deprecated
   local_map_margin: 10
+  clearance: 0.60 # for astar collision check
 
   ceiling_height: 2.0
   ground_height: -0.1
-  clearance: 0.60
-  corridor_safety_distance: 0.5
+  corridor_safety_distance: 0.0 # deprecated
   show_occ_time: false
   pose_type: 1
   frame_id: world
@@ -87,3 +91,4 @@ swarm:
   drone_size_x: 0.3
   drone_size_y: 0.3
   drone_size_z: 0.4
+  replan_risk_rate: 0.00

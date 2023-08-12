@@ -32,7 +32,7 @@ void MapBase::loadParameters() {
   nh_.param("map/local_update_range_x", local_update_range_x_, 5.0F);
   nh_.param("map/local_update_range_y", local_update_range_y_, 5.0F);
   nh_.param("map/local_update_range_z", local_update_range_z_, 4.0F);
-  nh_.param("map/risk_threshold", risk_threshold_, 0.2F);
+  nh_.param("map/risk_threshold_voxel", risk_threshold_, 0.2F);
   nh_.param("map/clearance", clearance_, 0.3F);
   nh_.param("map/ceiling_height", ceiling_height_, 2.0F);
   nh_.param("map/ground_height", ground_height_, -1.0F);

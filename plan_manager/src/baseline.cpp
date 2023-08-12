@@ -15,11 +15,11 @@
 void BaselinePlanner::init() {
   /*** INITIALIZE MAP ***/
   map_.reset(new RiskVoxel());
-  map_->init(nh_);
+  map_->init(nh_map_);
 
   /*** INITIALIZE A STAR ***/
   a_star_.reset(new RiskHybridAstar());
-  a_star_->setParam(nh_);
+  a_star_->setParam(nh_planner_);
   a_star_->setEnvironment(map_);
   a_star_->init(Eigen::Vector3d::Zero(), Eigen::Vector3d(10, 10, 2.5));  // TODO: odom_pos_?
 
@@ -28,18 +28,43 @@ void BaselinePlanner::init() {
   ROS_INFO("Trajectory optimizer initialized.");
 
   /*** INITIALIZE MADER DECONFLICTION ***/
-  collision_avoider_.reset(new ParticleATC(nh_));
+  collision_avoider_.reset(new ParticleATC(nh_coordinator_));
   collision_avoider_->init();
   map_->setCoordinator(collision_avoider_);
 
   /*** INITIALIZE VISUALIZATION ***/
   std::string ns = "world";
-  visualizer_.reset(new visualizer::Visualizer(nh_, ns));
+  visualizer_.reset(new visualizer::Visualizer(nh_planner_, ns));
 
   /*** INITIALIZE SUBSCRIBER ***/
-  obstacle_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 100);
+  obstacle_pub_ = nh_planner_.advertise<sensor_msgs::PointCloud2>("vis_obstacle", 100);
 
   ROS_INFO("Baseline planner initialized");
+}
+
+bool BaselinePlanner::isTrajSafe(double T) {
+  double t0 = ros::Time::now().toSec() - traj_start_time_;
+  if (t0 < 0) {
+    // ROS_WARN("[Planner] Check trajectory safety before start: dt:%.2f ", -t0);
+    t0 = 0;
+  }
+  if (t0 > T) {
+    ROS_WARN("[Planner] Check trajectory after finished .");
+    return true;
+  }
+
+  double dur = traj_.getDuration();
+  T          = T > dur ? dur : T;
+
+  for (double t = t0; t < T; t += 0.1) {
+    Eigen::Vector3d pos = traj_.getPos(t);
+    double          dt  = t + traj_start_time_ - map_->getMapTime().toSec();
+    if (map_->getClearOcccupancy(pos, dt) == 1) {
+      ROS_WARN("[Planner] Trajectory not safe at relative time %.2f.", t);
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -113,6 +138,71 @@ Eigen::Matrix<double, 6, 4> BaselinePlanner::getInitCorridor(
   corridor.block<3, 1>(0, 3) = -left_higher_corner;
   corridor.block<3, 1>(3, 3) = right_lower_corner;
   return corridor;
+}
+
+bool BaselinePlanner::checkGoalReachability(const Eigen::MatrixX4d &corridor,
+                                            const Eigen::Vector3d  &start_pos,
+                                            Eigen::Vector3d        &goal_pos) {
+  Eigen::Vector4d g;
+  g << goal_pos, 1.0;
+  Eigen::VectorXd rst = corridor * g;
+  // std::cout << corridor.rows() << std::endl;
+  // std::cout << "rst: " << rst.transpose() << std::endl;
+  if (rst.size() <= 0) {
+    return true;
+  }
+  if (rst.maxCoeff() <= 0) {
+    return true;
+  } else {
+    ROS_INFO("[Planner] Goal not reachable, projecting goal to the corridor.");
+    /* put goal to the vertices of corridor */
+
+    Eigen::Matrix<double, 3, 1>  c = -goal_pos + start_pos;
+    Eigen::Matrix<double, 3, 1>  x;
+    Eigen::Matrix<double, -1, 1> b;
+    Eigen::Matrix<double, -1, 3> A;
+
+    int m = corridor.rows();
+    A.resize(m, 3);
+    b.resize(m);
+    A = corridor.leftCols<3>();
+    b = -corridor.rightCols<1>();
+
+    double          rst      = sdlp::linprog<3>(c, A, b, x);
+    Eigen::Vector3d goal_max = x;
+
+    c                        = goal_pos - start_pos;
+    double          rst2     = sdlp::linprog<3>(c, A, b, x);
+    Eigen::Vector3d goal_min = x;
+
+    goal_pos = 0.5 * (goal_max + goal_min);
+
+    return false;
+  }
+}
+
+bool BaselinePlanner::checkCorridorValidity(const Eigen::MatrixX4d &corridor) {
+  int                          m = corridor.rows();
+  Eigen::Matrix<double, 3, 1>  c = Eigen::Matrix<double, 3, 1>::Zero();
+  Eigen::Matrix<double, 3, 1>  x;
+  Eigen::Matrix<double, -1, 1> b;
+  Eigen::Matrix<double, -1, 3> A;
+  A.resize(m, 3);
+  b.resize(m);
+  A = corridor.leftCols<3>();
+  b = -corridor.rightCols<1>();
+
+  double rst = sdlp::linprog<3>(c, A, b, x);
+  return !std::isinf(rst);
+}
+
+void BaselinePlanner::ShrinkCorridor(Eigen::MatrixX4d &corridor) {
+  for (int i = 0; i < corridor.rows(); i++) {
+    double A = corridor(i, 0);
+    double B = corridor(i, 1);
+    double C = corridor(i, 2);
+    corridor(i, 3) += std::sqrt(A * A + B * B + C * C) * cfg_.shrink_size;
+  }
 }
 
 // /**
@@ -198,8 +288,8 @@ bool BaselinePlanner::replan(double                 t,
   std::vector<Eigen::Vector3d> pc;
   pc.reserve(2000);
 
-  Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, -1) + start_pos;
-  Eigen::Vector3d higher_corner = Eigen::Vector3d(4, 4, 1) + start_pos;
+  Eigen::Vector3d lower_corner  = Eigen::Vector3d(-4, -4, -cfg_.init_range) + start_pos;
+  Eigen::Vector3d higher_corner = Eigen::Vector3d(4, 4, cfg_.init_range) + start_pos;
   if (lower_corner.z() < 0) lower_corner.z() = 0;
   if (higher_corner.z() > 4) higher_corner.z() = 4;
   Eigen::Matrix<double, 6, 4> init_corridor = getInitCorridor(higher_corner, lower_corner);
@@ -233,15 +323,14 @@ bool BaselinePlanner::replan(double                 t,
     Eigen::Vector3d  r = Eigen::Vector3d::Ones();
     firi::firi(bd, m_pc, wpts[i], wpts[i + 1], hPoly, r, 2);
     ros::Time t4 = ros::Time::now();
-    if (r.x() * r.y() * r.z() < cfg_.min_volumn) {
-      std::cout << "Narrow corridor, reject! Ellipsoid radius " << r.transpose()
-                << " volumn: " << r.x() * r.y() * r.z() << std::endl;
-      this->showObstaclePoints(pc);  // visualization
+    ShrinkCorridor(hPoly);
+    if (!checkCorridorValidity(hPoly)) {
+      ROS_INFO("[FIRI] %ith corridor takes %f ms, check failed", i, (t4 - t3).toSec() * 1000);
       break;
+    } else {
+      ROS_INFO("[FIRI] %ith corridor takes %f ms", i, (t4 - t3).toSec() * 1000);
+      hPolys.push_back(hPoly);
     }
-
-    ROS_INFO("[FIRI] %ith corridor takes %f ms", i, (t4 - t3).toSec() * 1000);
-    hPolys.push_back(hPoly);
   }
   this->showObstaclePoints(pc);  // visualization
 
@@ -259,12 +348,19 @@ bool BaselinePlanner::replan(double                 t,
   // std::cout << "route size: " << route.size() << std::endl;
 
   /* Goal position and time allocation */
-  Eigen::Vector3d local_goal_pos = route_vel.back().head(3);
-  Eigen::Vector3d local_goal_vel = route_vel.back().tail(3);
+  Eigen::Vector3d local_goal_pos = route_vel[hPolys.size() - 1].head(3);
+  Eigen::Vector3d local_goal_vel = route_vel[hPolys.size() - 1].tail(3);
+  if (!checkGoalReachability(hPolys[hPolys.size() - 1], start_pos, local_goal_pos)) {
+    ROS_WARN("[Planner] Goal not reachable, revised to local goal: %f, %f, %f", local_goal_pos(0),
+             local_goal_pos(1), local_goal_pos(2));
+  }
+  visualizer_->visualizeStartGoal(start_pos);       // visualization
+  visualizer_->visualizeStartGoal(local_goal_pos);  // visualization
 
   std::vector<double> time_alloc;
   time_alloc.resize(hPolys.size(), cfg_.corridor_tau);
   std::cout << "time_alloc size: " << time_alloc.size() << std::endl;
+
   traj_optimizer_.reset(new traj_opt::BezierOpt());
   Eigen::Matrix3d init_state, final_state;
   init_state.row(0)  = start_pos;
@@ -274,19 +370,22 @@ bool BaselinePlanner::replan(double                 t,
   final_state.row(1) = local_goal_vel;
   final_state.row(2) = Eigen::Vector3d(0, 0, 0);
 
-  // std::cout << "init_state: " << init_state << std::endl;
-  // std::cout << "final_state: " << final_state << std::endl;
-  visualizer_->visualizeStartGoal(start_pos);       // visualization
-  visualizer_->visualizeStartGoal(local_goal_pos);  // visualization
-
   t1 = ros::Time::now();
   traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.opt_max_vel,
                          cfg_.opt_max_acc);
   if (!traj_optimizer_->optimize()) {
     t2 = ros::Time::now();
-    ROS_INFO("[TrajOpt] cost: %f ms", (t2 - t1).toSec() * 1000);
-    ROS_ERROR("Trajectory optimization failed!");
-    return false;
+    traj_optimizer_.reset();
+    final_state.row(1) = Eigen::Vector3d(0, 0, 0);
+    traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.opt_max_vel,
+                           cfg_.opt_max_acc);
+    if (!traj_optimizer_->optimize()) {
+      t2 = ros::Time::now();
+      ROS_INFO("[TrajOpt] cost: %f ms", (t2 - t1).toSec() * 1000);
+      ROS_ERROR("Trajectory optimization failed!, trajectory piece %lu", hPolys.size());
+      traj_optimizer_.reset();
+      return false;
+    }
   }
   t2 = ros::Time::now();
   ROS_INFO("[TrajOpt] cost: %f ms", (t2 - t1).toSec() * 1000);
@@ -294,21 +393,19 @@ bool BaselinePlanner::replan(double                 t,
   traj_optimizer_->getOptBezier(traj_);
 
   /*----- Trajectory Deconfliction -----*/
-  // t1 = ros::Time::now();
-  // if (!collision_avoider_->isSafeAfterOpt(traj_)) {
-  //   ROS_ERROR("Trajectory collides after optimization!");
-  //   t2 = ros::Time::now();
-  //   ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
-  //   return false;
-  // }
-  // if (!collision_avoider_->isSafeAfterChk()) {
-  //   ROS_ERROR("Trajectory published while checking!");
-  //   t2 = ros::Time::now();
-  //   ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
-  //   return false;
-  // }
-  // t2 = ros::Time::now();
-  // ROS_INFO("[MADER] cost: %f ms", (t2 - t1).toSec() * 1000);
+  Bernstein::Bezier traj;
+  traj_optimizer_->getOptBezier(traj);
+
+  /*----- Trajectory Deconfliction -----*/
+  t1 = ros::Time::now();
+  if (!collision_avoider_->isSafeAfterOpt(traj)) {
+    ROS_ERROR("Trajectory collides after optimization!");
+    t2 = ros::Time::now();
+    ROS_INFO("[Deconflict] cost: %f ms", (t2 - t1).toSec() * 1000);
+    return false;
+  }
+  t2 = ros::Time::now();
+  ROS_INFO("[Deconflict] cost: %f ms", (t2 - t1).toSec() * 1000);
   prev_traj_start_time_ = traj_start_time_;
   return true;
 }

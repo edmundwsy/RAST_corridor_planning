@@ -27,6 +27,7 @@
 #include <bernstein/bezier_optimizer.hpp>
 // #include <plan_manager/mader_deconfliction.hpp>
 #include <sfc_gen/firi.hpp>
+#include <sfc_gen/sdlp.hpp>
 #include <traj_coordinator/particle.hpp>
 // #include <traj_coordinator/mader.hpp>
 #include <traj_utils/bernstein.hpp>
@@ -60,6 +61,7 @@ struct BaselineParameters {
 
   // float  a_star_acc_sample_step  = 2.f;
   double corridor_tau = 0.4f; /* time span for corridor generation */
+  double shrink_size  = 0.2;
   // float  a_star_search_time_step = 0.4f;
   // float  expand_safety_distance  = 0.2f;
 
@@ -79,49 +81,25 @@ struct BaselineParameters {
 
   /* New */
   BaselineParameters(const ros::NodeHandle &nh) {
-    // nh.getParam("init_x", init_x);
-    // nh.getParam("init_y", init_y);
-    // nh.getParam("init_z", init_z);
-    // nh.getParam("init_qx", init_qx);
-    // nh.getParam("init_qy", init_qy);
-    // nh.getParam("init_qz", init_qz);
-    // nh.getParam("init_qw", init_qw);
-    // nh.getParam("is_odom_local", is_odom_local);
-    // nh.getParam("is_fake_perception", is_fake_perception);
     nh.getParam("planner/corridor_tau", corridor_tau);
 
     nh.getParam("corridor/init_range", init_range);
     nh.getParam("corridor/min_volumn", min_volumn);
+    nh.getParam("corridor/shrink_size", shrink_size);
 
     nh.getParam("optimizer/max_vel_optimization", opt_max_vel);
     nh.getParam("optimizer/max_acc_optimization", opt_max_acc);
-    // nh.getParam("optimizer/delta_corridor", delta_corridor);
-
-    // nh.getParam("astar/use_height_limit", use_height_limit);
-    // nh.getParam("astar/height_limit_max", height_limit_max);
-    // nh.getParam("astar/height_limit_min", height_limit_min);
-    // nh.getParam("astar/sample_z_acc", sample_z_acc);
-    // nh.getParam("astar/a_star_acc_sample_step", a_star_acc_sample_step);
-    // nh.getParam("astar/a_star_search_time_step", a_star_search_time_step);
-    // nh.getParam("astar/risk_threshold_motion_primitive", risk_threshold_motion_primitive);
-    // nh.getParam("astar/expand_safety_distance", expand_safety_distance);
-    // nh.getParam("astar/nmpc_receive_points_num", nmpc_receive_points_num);
-    //
-    // nh.getParam("corridor/risk_threshold_single_voxel", risk_threshold_single_voxel);
-    // nh.getParam("corridor/risk_threshold_corridor", risk_threshold_corridor);
-    //
-    // nh.getParam("rviz_map_center_locked", is_rviz_map_center_locked);
   }
 };
 
 class BaselinePlanner {
  public:
-  BaselinePlanner(ros::NodeHandle &nh, const BaselineParameters &params) : nh_(nh), cfg_(params) {}
+  BaselinePlanner(ros::NodeHandle          &nh2,
+                  ros::NodeHandle          &nh3,
+                  ros::NodeHandle          &nh4,
+                  const BaselineParameters &params)
+      : nh_planner_(nh2), nh_coordinator_(nh3), nh_map_(nh4), cfg_(params) {}
   ~BaselinePlanner() {}
-
-  void PoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
-  void OdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
-  void clickCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
 
   void init();
   bool replan(double                 t,
@@ -134,6 +112,8 @@ class BaselinePlanner {
   void showAstarPath();
 
   Bernstein::Bezier getTrajectory() const { return traj_; }
+
+  bool isTrajSafe(double);
 
   inline bool            isPrevTrajFinished(double t) const;
   inline double          getPrevTrajStartTime() const;
@@ -152,13 +132,18 @@ class BaselinePlanner {
   Eigen::Matrix<double, 6, 4> getInitCorridor(const Eigen::Vector3d &left_higher_corner,
                                               const Eigen::Vector3d &right_lower_corner);
 
+  bool checkCorridorValidity(const Eigen::MatrixX4d &corridor);
+  bool checkGoalReachability(const Eigen::MatrixX4d &corridor,
+                             const Eigen::Vector3d  &start_pos,
+                             Eigen::Vector3d        &goal_pos);
+  void ShrinkCorridor(Eigen::MatrixX4d &corridor);
   void showObstaclePoints(const std::vector<Eigen::Vector3d> &points);
   void addAgentsTrajectoryToMap();
   void setEmptyTrajectory(const Eigen::Vector3d &pos);
 
  private:
   /* ROS */
-  ros::NodeHandle nh_;
+  ros::NodeHandle nh_map_, nh_coordinator_, nh_planner_;
   ros::Publisher  obstacle_pub_;
 
   BaselineParameters cfg_;

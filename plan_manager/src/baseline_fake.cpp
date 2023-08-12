@@ -135,6 +135,47 @@ Eigen::Matrix<double, 6, 4> FakeBaselinePlanner::getInitCorridor(
   return corridor;
 }
 
+bool FakeBaselinePlanner::checkGoalReachability(const Eigen::MatrixX4d &corridor,
+                                                const Eigen::Vector3d  &start_pos,
+                                                Eigen::Vector3d        &goal_pos) {
+  Eigen::Vector4d g;
+  g << goal_pos, 1.0;
+  Eigen::VectorXd rst = corridor * g;
+  // std::cout << corridor.rows() << std::endl;
+  // std::cout << "rst: " << rst.transpose() << std::endl;
+  if (rst.size() <= 0) {
+    return true;
+  }
+  if (rst.maxCoeff() <= 0) {
+    return true;
+  } else {
+    ROS_INFO("[Planner] Goal not reachable, projecting goal to the corridor.");
+    /* put goal to the vertices of corridor */
+
+    Eigen::Matrix<double, 3, 1>  c = -goal_pos + start_pos;
+    Eigen::Matrix<double, 3, 1>  x;
+    Eigen::Matrix<double, -1, 1> b;
+    Eigen::Matrix<double, -1, 3> A;
+
+    int m = corridor.rows();
+    A.resize(m, 3);
+    b.resize(m);
+    A = corridor.leftCols<3>();
+    b = -corridor.rightCols<1>();
+
+    double          rst      = sdlp::linprog<3>(c, A, b, x);
+    Eigen::Vector3d goal_max = x;
+
+    c                        = goal_pos - start_pos;
+    double          rst2     = sdlp::linprog<3>(c, A, b, x);
+    Eigen::Vector3d goal_min = x;
+
+    goal_pos = 0.5 * (goal_max + goal_min);
+
+    return false;
+  }
+}
+
 bool FakeBaselinePlanner::checkCorridorValidity(const Eigen::MatrixX4d &corridor) {
   int                          m = corridor.rows();
   Eigen::Matrix<double, 3, 1>  c = Eigen::Matrix<double, 3, 1>::Zero();
@@ -143,10 +184,10 @@ bool FakeBaselinePlanner::checkCorridorValidity(const Eigen::MatrixX4d &corridor
   Eigen::Matrix<double, -1, 3> A;
   A.resize(m, 3);
   b.resize(m);
-  A.leftCols<3>() = corridor.leftCols<3>();
-  b               = -corridor.rightCols<1>();
+  A = corridor.leftCols<3>();
+  b = -corridor.rightCols<1>();
 
-  const double rst = sdlp::linprog<3>(c, A, b, x);
+  double rst = sdlp::linprog<3>(c, A, b, x);
   return !std::isinf(rst);
 }
 
@@ -229,14 +270,6 @@ bool FakeBaselinePlanner::replan(double                 t,
 
   auto t2 = ros::Time::now();
   ROS_INFO("[Astar] cost: %f ms", (t2 - t1).toSec() * 1000);
-
-  // std::vector<Eigen::Vector4d> occupied_voxels = a_star_->getOccupiedObstacles();
-  // this->showObstaclePoints(occupied_voxels);
-  // std::vector<Eigen::Vector4d> visited_points = a_star_->getTraversedObstacles();
-  // this->showObstaclePoints(visited_points, astar_visited_pub_);
-
-  // std::vector<Eigen::Vector4d> occupied_voxels = a_star_->getOccupiedObstacles();
-  // this->showObstaclePoints(occupied_voxels, astar_rejected_pub_);
 
   /* if no path found, set empty trajectory */
   if (rst == NO_PATH) {
@@ -332,11 +365,21 @@ bool FakeBaselinePlanner::replan(double                 t,
   /* Goal position and time allocation */
   // Eigen::Vector3d local_goal_pos = route_vel.back().head(3);
   // Eigen::Vector3d local_goal_vel = route_vel.back().tail(3);
-  Eigen::Vector3d     local_goal_pos = route_vel[hPolys.size() - 1].head(3);
-  Eigen::Vector3d     local_goal_vel = route_vel[hPolys.size() - 1].tail(3);
+  Eigen::Vector3d local_goal_pos = route_vel[hPolys.size() - 1].head(3);
+  Eigen::Vector3d local_goal_vel = route_vel[hPolys.size() - 1].tail(3);
+  if (!checkGoalReachability(hPolys[hPolys.size() - 1], start_pos, local_goal_pos)) {
+    ROS_WARN("[Planner] Goal not reachable, revised to local goal: %f, %f, %f", local_goal_pos(0),
+             local_goal_pos(1), local_goal_pos(2));
+  }
+  visualizer_->visualizeStartGoal(start_pos);       // visualization
+  visualizer_->visualizeStartGoal(local_goal_pos);  // visualization
+
+  t1 = ros::Time::now();
+
   std::vector<double> time_alloc;
   time_alloc.resize(hPolys.size(), cfg_.corridor_tau);
   std::cout << "time_alloc size: " << time_alloc.size() << std::endl;
+
   traj_optimizer_.reset(new traj_opt::BezierOpt());
   Eigen::Matrix3d init_state, final_state;
   init_state.row(0)  = start_pos;
@@ -345,13 +388,8 @@ bool FakeBaselinePlanner::replan(double                 t,
   final_state.row(0) = local_goal_pos;
   final_state.row(1) = local_goal_vel;
   final_state.row(2) = Eigen::Vector3d(0, 0, 0);
-
   // std::cout << "init_state: " << init_state << std::endl;
   // std::cout << "final_state: " << final_state << std::endl;
-  visualizer_->visualizeStartGoal(start_pos);       // visualization
-  visualizer_->visualizeStartGoal(local_goal_pos);  // visualization
-
-  t1 = ros::Time::now();
   traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.opt_max_vel,
                          cfg_.opt_max_acc);
   if (!traj_optimizer_->optimize()) {

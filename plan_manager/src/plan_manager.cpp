@@ -12,23 +12,31 @@
 #include <plan_manager/plan_manager.h>
 
 void FiniteStateMachine::run() {
-  nh_.param("drone_id", drone_id_, 0);
-  nh_.param("use_preset_goal", is_goal_preset_, false);
-  nh_.param("fsm/goal_tolerance", cfgs_.goal_tolerance, 1.0);
-  nh_.param("fsm/replan_tolerance", cfgs_.replan_tolerance, 1.0);
-  nh_.param("fsm/replan_duration", cfgs_.replan_duration, 0.1);
-  nh_.param("fsm/replan_start_time", cfgs_.replan_start_time, 0.4);
+  nh1_.param("drone_id", drone_id_, 0);
+  nh1_.param("use_preset_goal", is_goal_preset_, false);
+  nh1_.param("subscribe_pose", is_pose_subscribed_, false);
+  nh1_.param("fsm/goal_tolerance", cfgs_.goal_tolerance, 1.0);
+  nh1_.param("fsm/replan_tolerance", cfgs_.replan_tolerance, 1.0);
+  nh1_.param("fsm/replan_duration", cfgs_.replan_duration, 0.1);
+  nh1_.param("fsm/replan_start_time", cfgs_.replan_start_time, 0.4);
+  nh1_.param("fsm/colli_check_duration", cfgs_.colli_check_duration, 2.0);
+  nh1_.param("fsm/replan_max_failures", cfgs_.replan_max_failures, 3);
 
   /* Initialize planner */
-  planner_.reset(new BaselinePlanner(nh_, BaselineParameters(nh_)));
+  planner_.reset(new BaselinePlanner(nh2_, nh3_, nh4_, BaselineParameters(nh2_)));
   planner_->init();
 
   /* ROS publishers */
-  traj_pub_           = nh_.advertise<traj_utils::BezierTraj>("trajectory", 1);
-  broadcast_traj_pub_ = nh_.advertise<traj_utils::BezierTraj>("/broadcast_traj", 1);
+  traj_pub_           = nh1_.advertise<traj_utils::BezierTraj>("trajectory", 1);
+  broadcast_traj_pub_ = nh1_.advertise<traj_utils::BezierTraj>("/broadcast_traj", 1);
   trigger_sub_ =
-      nh_.subscribe("/traj_start_trigger", 1, &FiniteStateMachine::TriggerCallback, this);
-  pose_sub_ = nh_.subscribe("pose", 10, &FiniteStateMachine::PoseCallback, this);
+      nh1_.subscribe("/traj_start_trigger", 1, &FiniteStateMachine::TriggerCallback, this);
+
+  if (is_pose_subscribed_) {
+    pose_sub_ = nh1_.subscribe("pose", 10, &FiniteStateMachine::PoseCallback, this);
+  } else {
+    odom_sub_ = nh1_.subscribe("odom", 10, &FiniteStateMachine::OdomCallback, this);
+  }
 
   is_exec_triggered_      = false;
   is_odom_received_       = false;
@@ -37,9 +45,9 @@ void FiniteStateMachine::run() {
 
   if (is_goal_preset_) {
     is_goal_received_ = true;
-    nh_.param("goal_x", goal_pos_[0], 0.0);
-    nh_.param("goal_y", goal_pos_[1], 0.0);
-    nh_.param("goal_z", goal_pos_[2], 0.0);
+    nh1_.param("goal_x", goal_pos_[0], 0.0);
+    nh1_.param("goal_y", goal_pos_[1], 0.0);
+    nh1_.param("goal_z", goal_pos_[2], 0.0);
     ROS_INFO("[FSM] Receive preset goal (%.2f, %.2f, %.2f)", goal_pos_[0], goal_pos_[1],
              goal_pos_[2]);
   } else {
@@ -60,8 +68,8 @@ void FiniteStateMachine::run() {
   ROS_INFO("[FSM] Initialization complete");
   // wait 2s
   ros::Duration(2.0).sleep();
-  fsm_timer_ = nh_.createTimer(ros::Duration(0.1), &FiniteStateMachine::FSMCallback, this);
-  vis_timer_ = nh_.createTimer(ros::Duration(0.1), &FiniteStateMachine::visCallback, this);
+  fsm_timer_ = nh1_.createTimer(ros::Duration(0.1), &FiniteStateMachine::FSMCallback, this);
+  vis_timer_ = nh1_.createTimer(ros::Duration(0.1), &FiniteStateMachine::visCallback, this);
 }
 
 /** ***********************************************************************************************
@@ -112,6 +120,7 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
           publishTrajectory();
           ROS_INFO("[FSM] New trajectory planned");
         } else {
+          publishEmptyTrajectory();
           ROS_WARN("[FSM] New trajectory planning failed");
         }
       }
@@ -134,6 +143,11 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
       std::cout << termcolor::bright_red << "Target: " << waypoints_.front().transpose() << " now "
                 << odom_pos_.transpose() << std::endl;
       if (checkTimeLapse(cfgs_.replan_duration)) {
+        FSMChangeState(FSM_STATUS::REPLAN);
+      }
+
+      if (!planner_->isTrajSafe(cfgs_.colli_check_duration)) {
+        ROS_WARN("[FSM] Not safe, replan");
         FSMChangeState(FSM_STATUS::REPLAN);
       }
 
@@ -168,13 +182,19 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
         //   FSMChangeState(FSM_STATUS::GOAL_REACHED);
         // }
 
+        ROS_INFO("[FSM] Replanning costs %f ms", (ros::Time::now() - t1).toSec() * 1000.0);
         if (is_success_) { /* publish trajectory */
+          ROS_INFO("[FSM] Replanning success");
           publishTrajectory();
           FSMChangeState(FSM_STATUS::EXEC_TRAJ);
         } else {
           ROS_WARN("[FSM] Replanning failed");
-          if (planner_->isPrevTrajFinished(ros::Time::now().toSec() + cfgs_.replan_start_time)) {
+          num_replan_failures_++;
+          if (num_replan_failures_ > cfgs_.replan_max_failures) {
+            // if (planner_->isPrevTrajFinished(ros::Time::now().toSec() + cfgs_.replan_start_time))
+            // {
             FSMChangeState(FSM_STATUS::NEW_PLAN);
+            publishEmptyTrajectory();
             traj_start_time_ = ros::Time::now() - ros::Duration(1.0);  // force new plan immediately
           }
         }
@@ -202,7 +222,7 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
       is_exec_triggered_ = false;
       waypoints_.pop();
       ROS_INFO("[FSM] Goal reached");
-      // ros::shutdown();
+      ros::shutdown();
       FSMChangeState(FSM_STATUS::WAIT_TARGET);
       break;
 
@@ -302,6 +322,24 @@ void FiniteStateMachine::PoseCallback(const geometry_msgs::PoseStampedPtr& msg) 
   }
 }
 
+void FiniteStateMachine::OdomCallback(const nav_msgs::OdometryPtr& msg) {
+  if (!is_state_locked_) {
+    is_state_locked_      = true;
+    odom_pos_.x()         = msg->pose.pose.position.x;
+    odom_pos_.y()         = msg->pose.pose.position.y;
+    odom_pos_.z()         = msg->pose.pose.position.z;
+    odom_att_.x()         = msg->pose.pose.orientation.x;
+    odom_att_.y()         = msg->pose.pose.orientation.y;
+    odom_att_.z()         = msg->pose.pose.orientation.z;
+    odom_att_.w()         = msg->pose.pose.orientation.w;
+    odom_vel_.x()         = msg->twist.twist.linear.x;
+    odom_vel_.y()         = msg->twist.twist.linear.y;
+    odom_vel_.z()         = msg->twist.twist.linear.z;
+    is_velocity_received_ = true;
+    is_odom_received_     = true;
+  }
+  is_state_locked_ = false;
+}
 /**
  * @brief update rviz visualization
  */
