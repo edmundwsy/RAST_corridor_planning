@@ -43,6 +43,7 @@ void RiskVoxel::init(ros::NodeHandle &nh) {
   dsp_map_->setPredictionVariance(0.05, 0.05);
   // StdDev for prediction. velocity StdDev, position StdDev, respectively.
   dsp_map_->setObservationStdDev(observation_stddev_);  // StdDev for update. position StdDev.
+  dsp_map_->setLocalizationStdDev(localization_stddev_);
   dsp_map_->setNewBornParticleNumberofEachPoint(20);
   // Number of new particles generated from one measurement point.
   dsp_map_->setNewBornParticleWeight(0.0001);  // Initial weight of particles.

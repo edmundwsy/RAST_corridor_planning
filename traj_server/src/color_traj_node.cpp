@@ -19,6 +19,7 @@
 double MAX_VEL  = 3.0;
 double SCALE    = 0.1;
 double MAX_ACC  = 5.0;
+double ALPHA    = 0.5;
 int    AGENT_ID = 0;
 int    N_AGENTS = 1;
 
@@ -45,7 +46,7 @@ std_msgs::ColorRGBA getColorJet(double v, double vmin, double vmax) {
   c.r = 1;
   c.g = 1;
   c.b = 1;
-  c.a = 1;
+  c.a = ALPHA;
   // white
   double dv;
 
@@ -76,6 +77,7 @@ visualization_msgs::MarkerArray trajectory2ColoredMarkerArray(const trajectory& 
                                                               std::string       ns,
                                                               double            scale,
                                                               std::string       color_type,
+                                                              double            alpha,
                                                               int               id_agent,
                                                               int               n_agents) {
   visualization_msgs::MarkerArray marker_array;
@@ -107,6 +109,7 @@ visualization_msgs::MarkerArray trajectory2ColoredMarkerArray(const trajectory& 
     } else {
       m.color = getColorJet(id_agent, 0, n_agents);  // note that par_.v_max is per axis!
     }
+    m.color.a = alpha;
     m.scale.x = scale;
     m.scale.y = 0.0000001;  // rviz complains if not
     m.scale.z = 0.0000001;  // rviz complains if not
@@ -167,15 +170,16 @@ void BezierCallback(const traj_utils::BezierTrajConstPtr& msg) {
     trajs[i].pos = bezier_traj.getPos(t);
     trajs[i].vel = bezier_traj.getVel(t);
     trajs[i].acc = bezier_traj.getAcc(t);
-    std::cout << t << " " << trajs[i].pos.transpose() << std::endl;
+    // std::cout << t << " " << trajs[i].pos.transpose() << std::endl;
   }
 
   // ROS_DEBUG("Bezier trajectory converted to trajectory, id: %d, order: %d, duration: %f", id, N,
   //          duration);
 
   visualization_msgs::MarkerArray marker_array_traj;
-  marker_array_traj = trajectory2ColoredMarkerArray(trajs, MAX_VEL, 1, "drone" + std::to_string(id),
-                                                    SCALE, "vel", AGENT_ID, N_AGENTS);
+  marker_array_traj =
+      trajectory2ColoredMarkerArray(trajs, MAX_VEL, 1, "drone" + std::to_string(msg->drone_id),
+                                    SCALE, "vel", ALPHA, AGENT_ID, N_AGENTS);
   // ROS_DEBUG("Bezier trajectory converted to marker array, id: %d, order: %d, duration: %f", id,
   // N, duration);
   colored_traj_pub_.publish(marker_array_traj);
@@ -188,6 +192,7 @@ int main(int argc, char** argv) {
   nh.param("n_agents", N_AGENTS, 1);
   nh.param("max_vel", MAX_VEL, 3.0);
   nh.param("scale", SCALE, 0.1);
+  nh.param("alpha", ALPHA, 0.3);
 
   ros::Subscriber sub_odom = nh.subscribe("bezier_traj", 100, BezierCallback);
   colored_traj_pub_        = nh.advertise<visualization_msgs::MarkerArray>("color_traj", 100);

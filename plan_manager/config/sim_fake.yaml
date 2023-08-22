@@ -4,10 +4,10 @@ planner:
 fsm:
   goal_tolerance: 1.0
   replan_tolerance: 1.0
-  replan_duration: 0.2
-  replan_start_time: 0.05
-  colli_check_duration: 1.0
-  replan_max_failures: 2
+  replan_duration: 0.1
+  replan_start_time: 0.02
+  colli_check_duration: 0.2
+  replan_max_failures: 5
 
 search:
   max_tau: 2.0 # Astar search time horizon
@@ -28,7 +28,7 @@ search:
 corridor:
   init_range: 1.2
   min_volumn: 0.001
-  shrink_size: 0.3
+  shrink_size: 0.30
   risk_threshold_single_voxel: 0.15 # Useless
   risk_threshold_corridor: 3.0 # Useless
 
@@ -68,7 +68,7 @@ map:
   ground_height: -0.01
   ceiling_height: 3.00
   corridor_safety_distance: 0.0 # for corridor generation
-  clearance: 0.30 # for astar collision check
+  clearance: 0.45 # for astar collision check
 
   publish_spatio_temporal: true
   virtual_ceil_height: 2.9

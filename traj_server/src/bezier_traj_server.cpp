@@ -10,6 +10,7 @@
  */
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
 
 #include <Eigen/Eigen>
@@ -199,7 +200,7 @@ void pushToTrajQueue(double                 t,
   getYaw(vel, yaw, yaw_dot);
   ros::Time t0 = ros::Time().fromSec(ts_ + t);
   TrajPoint p  = {t0, pos, vel, acc, jrk, yaw, yaw_dot};
-  traj_queue_.emplace_back(p);
+  traj_queue_.push_back(p);
 }
 
 /**
@@ -357,7 +358,15 @@ void triggerCallback(const geometry_msgs::PoseStampedPtr &msg) {
   te_ = ts_ + duration_;
 }
 
-void odomCallback(const geometry_msgs::PoseStampedPtr &msg) {
+void odomCallback(const nav_msgs::OdometryPtr &msg) {
+  is_odom_received_ = true;
+  odom_pos_         = Eigen::Vector3d(msg->pose.pose.position.x, msg->pose.pose.position.y,
+                                      msg->pose.pose.position.z);
+  odom_q_           = Eigen::Quaterniond(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x,
+                                         msg->pose.pose.orientation.y, msg->pose.pose.orientation.z);
+}
+
+void poseCallback(const geometry_msgs::PoseStampedPtr &msg) {
   is_odom_received_ = true;
   odom_pos_ = Eigen::Vector3d(msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
   odom_q_   = Eigen::Quaterniond(msg->pose.orientation.w, msg->pose.orientation.x,
@@ -425,6 +434,10 @@ void PubCallback(const ros::TimerEvent &e) {
   } else if (!is_triggered_) {
     ROS_INFO_ONCE("[TrajSrv] waiting for trigger");
   } else {
+    if (traj_queue_.empty()) {
+      ROS_INFO("[TrajSrv] traj queue empty");
+      return;
+    }
     if (traj_queue_.size() == 1) {
       p         = traj_queue_.front();
       p.vel     = Eigen::Vector3d::Zero();
@@ -465,6 +478,7 @@ int main(int argc, char **argv) {
   ros::Timer      cmd_timer   = nh.createTimer(ros::Duration(0.01), PubCallback);
   ros::Subscriber traj_sub    = nh.subscribe("trajectory", 1, bezierCallback);
   ros::Subscriber trigger_sub = nh.subscribe("/traj_start_trigger", 10, triggerCallback);
+  ros::Subscriber pose_sub    = nh.subscribe("pose", 10, poseCallback);
   ros::Subscriber odom_sub    = nh.subscribe("odom", 10, odomCallback);
   pva_pub_     = nh.advertise<trajectory_msgs::JointTrajectoryPoint>("/pva_setpoint", 1);
   pos_cmd_pub_ = nh.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 1);

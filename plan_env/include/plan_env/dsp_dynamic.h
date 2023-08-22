@@ -110,6 +110,8 @@ static float delt_t_from_last_observation = 0.f;
 /** Storage for Gaussian randoms and Gaussian PDF**/
 static float p_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
 static float v_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
+static float localization_gaussian_randoms[GAUSSIAN_RANDOMS_NUM];
+
 static float standard_gaussian_pdf[20000];
 
 class DSPMap {
@@ -127,9 +129,11 @@ class DSPMap {
       max_particle_num_voxel(MAX_PARTICLE_NUM_VOXEL)
       , velocity_gaussian_random_seq(0)
       , position_gaussian_random_seq(0)
+      , localization_gaussian_random_seq(0)
       , position_prediction_stddev(0.2f)
       , velocity_prediction_stddev(0.1f)
-      , sigma_ob(0.2f)
+      , sigma_observation(0.2f)
+      , sigma_localization(0.f)
       , kappa(0.01f)
       , P_detection(0.95f)
       , update_time(0.f)
@@ -245,14 +249,14 @@ class DSPMap {
                                rotated_point_this);
 
       // Store in pcl point cloud for velocity estimation of new born particles
+      pcl::PointXYZ p_this;
+      p_this.x = rotated_point_this[0];
+      p_this.y = rotated_point_this[1];
+      p_this.z = rotated_point_this[2];
+      cloud_in_current_view_rotated->push_back(p_this);
 
       // Store in pyramids for update
       if (ifInPyramidsArea(rotated_point_this[0], rotated_point_this[1], rotated_point_this[2])) {
-        pcl::PointXYZ p_this;
-        p_this.x = rotated_point_this[0];
-        p_this.y = rotated_point_this[1];
-        p_this.z = rotated_point_this[2];
-        cloud_in_current_view_rotated->push_back(p_this);
         int pyramid_index_h, pyramid_index_v;
         pyramid_index_h = findPointPyramidHorizontalIndex(
             rotated_point_this[0], rotated_point_this[1], rotated_point_this[2]);
@@ -366,7 +370,20 @@ class DSPMap {
     generateGaussianRandomsVectorZeroCenter();
   }
 
-  void setObservationStdDev(float ob_stddev) { sigma_ob = ob_stddev; }
+  void setObservationStdDev(float ob_stddev) {
+    sigma_observation = ob_stddev;
+    sigma_update      = sigma_observation;
+
+    cout << "Observation stddev changed to " << sigma_observation << endl;
+  }
+
+  void setLocalizationStdDev(float lo_stddev) {
+    float tuned_scale_factor = 0.1f;
+    sigma_localization       = lo_stddev * tuned_scale_factor;
+    cout << "Localization stddev changed to " << sigma_localization << endl;
+    // regenerate randoms
+    generateGaussianRandomsVectorZeroCenter();
+  }
 
   void setNewBornParticleWeight(float weight) { new_born_particle_weight = weight; }
 
@@ -494,7 +511,9 @@ class DSPMap {
   float position_prediction_stddev;
   float velocity_prediction_stddev;
 
-  float sigma_ob;
+  float sigma_observation;
+  float sigma_localization;
+  float sigma_update;
 
   float P_detection;
 
@@ -503,6 +522,7 @@ class DSPMap {
 
   /** Variables **/
   int position_gaussian_random_seq;
+  int localization_gaussian_random_seq;
   int velocity_gaussian_random_seq;
 
   float kappa;
@@ -544,6 +564,8 @@ class DSPMap {
  private:
   void setInitParameters() {
     /*** Set parameters **/
+    sigma_update = sigma_observation;
+
     map_length_x_half = (voxel_resolution * (float)voxel_num_x) * 0.5f;
     map_length_y_half = (voxel_resolution * (float)voxel_num_y) * 0.5f;
     map_length_z_half = (voxel_resolution * (float)voxel_num_z) * 0.5f;
@@ -675,12 +697,21 @@ class DSPMap {
           voxels_with_particle[v_index][p][3] = 0.f;
 #endif
 
+#if (CONSIDER_LOCALIZATION_UNCERTAINTY)
+          voxels_with_particle[v_index][p][4] += delt_t * voxels_with_particle[v_index][p][1] +
+                                                 odom_delt_px + getLocalizationGaussianZeroCenter();
+          voxels_with_particle[v_index][p][5] += delt_t * voxels_with_particle[v_index][p][2] +
+                                                 odom_delt_py + getLocalizationGaussianZeroCenter();
+          voxels_with_particle[v_index][p][6] += delt_t * voxels_with_particle[v_index][p][3] +
+                                                 odom_delt_pz + getLocalizationGaussianZeroCenter();
+#else
           voxels_with_particle[v_index][p][4] +=
               delt_t * voxels_with_particle[v_index][p][1] + odom_delt_px;  // px
           voxels_with_particle[v_index][p][5] +=
               delt_t * voxels_with_particle[v_index][p][2] + odom_delt_py;  // py
           voxels_with_particle[v_index][p][6] +=
               delt_t * voxels_with_particle[v_index][p][3] + odom_delt_pz;  // pz
+#endif
 
           int particle_voxel_index_new;
           if (getParticleVoxelsIndex(
@@ -741,13 +772,13 @@ class DSPMap {
               float gk =
                   queryNormalPDF(
                       voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][4],
-                      point_cloud[i][j][0], sigma_ob) *
+                      point_cloud[i][j][0], sigma_update) *
                   queryNormalPDF(
                       voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][5],
-                      point_cloud[i][j][1], sigma_ob) *
+                      point_cloud[i][j][1], sigma_update) *
                   queryNormalPDF(
                       voxels_with_particle[particle_voxel_index][particle_voxel_inner_index][6],
-                      point_cloud[i][j][2], sigma_ob);
+                      point_cloud[i][j][2], sigma_update);
 
               point_cloud[i][j][3] +=
                   P_detection *
@@ -799,9 +830,10 @@ class DSPMap {
             for (int z_seq = 0; z_seq < observation_num_each_pyramid[neighbor_index];
                  ++z_seq)  // for all observation points in a neighbor pyramid
             {
-              float gk = queryNormalPDF(px_this, point_cloud[neighbor_index][z_seq][0], sigma_ob) *
-                         queryNormalPDF(py_this, point_cloud[neighbor_index][z_seq][1], sigma_ob) *
-                         queryNormalPDF(pz_this, point_cloud[neighbor_index][z_seq][2], sigma_ob);
+              float gk =
+                  queryNormalPDF(px_this, point_cloud[neighbor_index][z_seq][0], sigma_update) *
+                  queryNormalPDF(py_this, point_cloud[neighbor_index][z_seq][1], sigma_update) *
+                  queryNormalPDF(pz_this, point_cloud[neighbor_index][z_seq][2], sigma_update);
 
               sum_by_zk += P_detection * gk / point_cloud[neighbor_index][z_seq][3];
               ++operation_counter_update;
@@ -1185,13 +1217,15 @@ class DSPMap {
   }
 
   void generateGaussianRandomsVectorZeroCenter() const {
-    std::default_random_engine       random(time(NULL));
-    std::normal_distribution<double> n1(0, position_prediction_stddev);
-    std::normal_distribution<double> n2(0, velocity_prediction_stddev);
+    std::default_random_engine      random(time(NULL));
+    std::normal_distribution<float> n1(0, position_prediction_stddev);
+    std::normal_distribution<float> n2(0, velocity_prediction_stddev);
+    std::normal_distribution<float> n3(0, sigma_localization);
 
     for (int i = 0; i < GAUSSIAN_RANDOMS_NUM; i++) {
-      *(p_gaussian_randoms + i) = n1(random);
-      *(v_gaussian_randoms + i) = n2(random);
+      *(p_gaussian_randoms + i)            = n1(random);
+      *(v_gaussian_randoms + i)            = n2(random);
+      *(localization_gaussian_randoms + i) = n3(random);
     }
   }
 
@@ -1200,6 +1234,15 @@ class DSPMap {
     position_gaussian_random_seq += 1;
     if (position_gaussian_random_seq >= GAUSSIAN_RANDOMS_NUM) {
       position_gaussian_random_seq = 0;
+    }
+    return delt_p;
+  }
+
+  float getLocalizationGaussianZeroCenter() {
+    float delt_p = localization_gaussian_randoms[localization_gaussian_random_seq];
+    localization_gaussian_random_seq += 1;
+    if (localization_gaussian_random_seq >= GAUSSIAN_RANDOMS_NUM) {
+      localization_gaussian_random_seq = 0;
     }
     return delt_p;
   }
@@ -1670,6 +1713,16 @@ class DSPMap {
       return 0;
     }
     return 1;
+  }
+  bool removeParticlesAtMapPosition(const float &px, const float &py, const float &pz) {
+    int index;
+    if (getPointVoxelsIndexPublic(px, py, pz, index)) {
+      for (int i = 0; i < SAFE_PARTICLE_NUM_VOXEL; ++i) {
+        voxels_with_particle[index][i][0] = 0.f;
+      }
+      return true;
+    }
+    return false;
   }
 };
 

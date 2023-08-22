@@ -14,7 +14,7 @@
 
 void BaselinePlanner::init() {
   /*** INITIALIZE MAP ***/
-  map_.reset(new RiskVoxel());
+  map_.reset(new RiskBase());
   map_->init(nh_map_);
 
   /*** INITIALIZE A STAR ***/
@@ -338,7 +338,7 @@ bool BaselinePlanner::replan(double                 t,
   ROS_INFO("[CrdGen] Gen %i corridors cost: %f ms", hPolys.size(), (t2 - t1).toSec() * 1000);
   visualizer_->visualizePolytope(hPolys);
 
-  if (hPolys.size() == 0) {
+  if (hPolys.size() <= 1) {
     ROS_ERROR("Cannot find safety corridors!");
     return false;
   }
@@ -374,18 +374,16 @@ bool BaselinePlanner::replan(double                 t,
   traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.opt_max_vel,
                          cfg_.opt_max_acc);
   if (!traj_optimizer_->optimize()) {
+    // traj_optimizer_.reset();
+    // final_state.row(1) = Eigen::Vector3d(0, 0, 0);
+    // traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.opt_max_vel,
+    //                        cfg_.opt_max_acc);
+    // if (!traj_optimizer_->optimize()) {
     t2 = ros::Time::now();
-    traj_optimizer_.reset();
-    final_state.row(1) = Eigen::Vector3d(0, 0, 0);
-    traj_optimizer_->setup(init_state, final_state, time_alloc, hPolys, cfg_.opt_max_vel,
-                           cfg_.opt_max_acc);
-    if (!traj_optimizer_->optimize()) {
-      t2 = ros::Time::now();
-      ROS_INFO("[TrajOpt] cost: %f ms", (t2 - t1).toSec() * 1000);
-      ROS_ERROR("Trajectory optimization failed!, trajectory piece %lu", hPolys.size());
-      traj_optimizer_.reset();
-      return false;
-    }
+    ROS_INFO("[TrajOpt] cost: %f ms", (t2 - t1).toSec() * 1000);
+    ROS_ERROR("Trajectory optimization failed!, trajectory piece %lu", hPolys.size());
+    return false;
+    // }
   }
   t2 = ros::Time::now();
   ROS_INFO("[TrajOpt] cost: %f ms", (t2 - t1).toSec() * 1000);

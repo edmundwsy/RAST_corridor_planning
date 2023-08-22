@@ -13,6 +13,7 @@
 #include <ros/ros.h>
 #include <Eigen/Dense>
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
 

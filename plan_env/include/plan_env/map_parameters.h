@@ -6,8 +6,8 @@
 #define MAP_WIDTH_VOXEL_NUM        66
 #define MAP_HEIGHT_VOXEL_NUM       40
 #define VOXEL_RESOLUTION           0.15
-#define ANGLE_RESOLUTION           3
-#define MAX_PARTICLE_NUM_VOXEL     9  // 20
+#define ANGLE_RESOLUTION           1
+#define MAX_PARTICLE_NUM_VOXEL     25  // 20
 #define LIMIT_MOVEMENT_IN_XY_PLANE 1
 
 #define PREDICTION_TIMES 6
@@ -19,9 +19,9 @@
 static const float prediction_future_time[PREDICTION_TIMES] = {0.3f, 0.6f, 0.9f, 1.2f, 1.5f, 1.8f};
 // static const float prediction_future_time[PREDICTION_TIMES] = {0.4f, 0.6f, 0.8f, 1.0f, 1.2f,
 //                                                                1.4f, 1.6f, 1.8f, 2.0f};
-const int half_fov_h = 42;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
+const int half_fov_h = 43;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
                             // or make half_fov_h a smaller value than the real FOV angle
-const int half_fov_v = 24;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
+const int half_fov_v = 32;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION
                             // or make half_fov_h a smaller value than the real FOV angle
 
 #define DYNAMIC_CLUSTER_MAX_POINT_NUM 200

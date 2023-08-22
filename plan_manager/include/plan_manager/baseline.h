@@ -21,7 +21,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
 // #include <plan_env/fake_dsp_map.h>
-#include <plan_env/risk_voxel.h>
+// #include <plan_env/risk_voxel.h>
+#include <plan_env/risk_base.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <traj_utils/BezierTraj.h>
 #include <bernstein/bezier_optimizer.hpp>
@@ -149,7 +150,7 @@ class BaselinePlanner {
   BaselineParameters cfg_;
 
   /* Shared Pointers */
-  RiskVoxel::Ptr           map_;
+  RiskBase::Ptr            map_;
   RiskHybridAstar::Ptr     a_star_;
   traj_opt::BezierOpt::Ptr traj_optimizer_;    /** Trajectory optimizer */
   ParticleATC::Ptr         collision_avoider_; /* multi-agent collision avoidance policy*/

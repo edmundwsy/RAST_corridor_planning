@@ -54,9 +54,10 @@ add_library(plan_env
     src/grid_map.cpp
     src/raycast.cpp
     src/obj_predictor.cpp
-    src/dsp_map_new.cpp
+    # src/dsp_map_new.cpp
     src/risk_voxel.cpp
-    src/fake_dsp_map.cpp
+    # src/fake_dsp_map.cpp
+    src/risk_base.cpp
     src/fake_particle_risk_voxel.cpp
 )
 target_link_libraries(plan_env
@@ -102,8 +103,14 @@ target_link_libraries(risk_voxel_node
     ${catkin_LIBRARIES}
 )
 
-add_executable(risk_voxel_moving src/risk_voxel_moving.cpp)
-target_link_libraries(risk_voxel_moving
+add_executable(risk_mapping src/risk_mapping_node.cpp)
+target_link_libraries(risk_mapping
     plan_env
     ${catkin_LIBRARIES}
 )
+
+# add_executable(risk_voxel_moving src/risk_voxel_moving.cpp)
+# target_link_libraries(risk_voxel_moving
+#     plan_env
+#     ${catkin_LIBRARIES}
+# )

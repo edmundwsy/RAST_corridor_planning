@@ -57,7 +57,7 @@ void RiskHybridAstar::init(const Eigen::Vector3d& map_center, const Eigen::Vecto
   iter_num_     = 0;
 }
 
-void RiskHybridAstar::setEnvironment(const RiskVoxel::Ptr& grid_map) { grid_map_ = grid_map; }
+void RiskHybridAstar::setEnvironment(const RiskBase::Ptr& grid_map) { grid_map_ = grid_map; }
 
 void RiskHybridAstar::setParam(ros::NodeHandle& nh) {
   nh.param("search/max_tau", max_tau_, -1.0); /* 每次前向积分的时间，设为地图的时间长度 */
@@ -301,22 +301,24 @@ ASTAR_RET RiskHybridAstar::search(Eigen::Vector3d start_pt,
           Eigen::Vector4d obs;
           obs << pos, t;
           // check if in the occupied voxel
-          auto occ_it = std::find_if(
-              occupied_voxels_.begin(), occupied_voxels_.end(),
-              [&obs](const Eigen::Vector4d& p) { return std::abs(p.norm() - obs.norm()) < 1e-3; });
-          if (occ_it != occupied_voxels_.end()) {
-            is_occ = true;
-            break;
-          }
-
-          // check if in the visited voxel
-          auto visited_it = std::find_if(
-              visited_voxels_.begin(), visited_voxels_.end(),
-              [&obs](const Eigen::Vector4d& p) { return std::abs(p.norm() - obs.norm()) < 1e-3; });
-          if (visited_it != visited_voxels_.end()) {
-            is_occ = false;
-            continue;
-          }
+          // auto occ_it = std::find_if(
+          //     occupied_voxels_.begin(), occupied_voxels_.end(),
+          //     [&obs](const Eigen::Vector4d& p) { return std::abs(p.norm() - obs.norm()) < 1e-3;
+          //     });
+          // if (occ_it != occupied_voxels_.end()) {
+          //   is_occ = true;
+          //   break;
+          // }
+          //
+          // // check if in the visited voxel
+          // auto visited_it = std::find_if(
+          //     visited_voxels_.begin(), visited_voxels_.end(),
+          //     [&obs](const Eigen::Vector4d& p) { return std::abs(p.norm() - obs.norm()) < 1e-3;
+          //     });
+          // if (visited_it != visited_voxels_.end()) {
+          //   is_occ = false;
+          //   continue;
+          // }
 
           // not checked before
           if (grid_map_->getClearOcccupancy(pos, t) != 0) {

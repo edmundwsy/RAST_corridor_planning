@@ -11,7 +11,6 @@
 
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <plan_env/dsp_map_new.h>
 // #include <plan_env/dsp_map.h>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -139,7 +138,7 @@ void publishMap() {
 }
 
 /**
- * @brief publish point clouds in a fixed frequency 
+ * @brief publish point clouds in a fixed frequency
  *
  * @param event
  */
@@ -152,9 +151,9 @@ void pubCallback(const ros::TimerEvent &event) { publishMap(); }
  * @param odom_msg
  */
 void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
-                       const nav_msgs::Odometry::ConstPtr &      odom_msg) {
+                       const nav_msgs::Odometry::ConstPtr       &odom_msg) {
   Eigen::Vector3f    pos(odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y,
-                      odom_msg->pose.pose.position.z);
+                         odom_msg->pose.pose.position.z);
   Eigen::Quaternionf q(odom_msg->pose.pose.orientation.w, odom_msg->pose.pose.orientation.x,
                        odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z);
   Eigen::Matrix3f    R = q.toRotationMatrix();
@@ -193,7 +192,8 @@ void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
     return;
   }
   clock_t t_update_1 = clock();
-  std::cout << "update time(ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC << std::endl;
+  std::cout << "update time(ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
+            << std::endl;
 }
 
 /**
@@ -202,10 +202,10 @@ void cloudOdomCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg,
  * @param cloud_msg
  * @param pose_msg
  */
-void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cloud_msg,
+void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr   &cloud_msg,
                        const geometry_msgs::PoseStamped::ConstPtr &pose_msg) {
   Eigen::Vector3f    pos(pose_msg->pose.position.x, pose_msg->pose.position.y,
-                      pose_msg->pose.position.z);
+                         pose_msg->pose.position.z);
   Eigen::Quaternionf q(pose_msg->pose.orientation.w, pose_msg->pose.orientation.x,
                        pose_msg->pose.orientation.y, pose_msg->pose.orientation.z);
   Eigen::Matrix3f    R = q.toRotationMatrix();
@@ -244,7 +244,8 @@ void cloudPoseCallback(const sensor_msgs::PointCloud2::ConstPtr &  cloud_msg,
     return;
   }
   clock_t t_update_1 = clock();
-  std::cout << "update time (ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC << std::endl;
+  std::cout << "update time (ms): " << (t_update_1 - t_update_0) * 1000 / CLOCKS_PER_SEC
+            << std::endl;
 }
 
 int main(int argc, char **argv) {
