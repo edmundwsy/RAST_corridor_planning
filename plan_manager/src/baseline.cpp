@@ -181,6 +181,13 @@ bool BaselinePlanner::checkGoalReachability(const Eigen::MatrixX4d &corridor,
   }
 }
 
+bool BaselinePlanner::checkCorridorIntersect(const Eigen::MatrixX4d &corridor1,
+                                             const Eigen::MatrixX4d &corridor2) {
+  Eigen::MatrixX4d intersect(corridor1.rows() + corridor2.rows(), 4);
+  intersect << corridor1, corridor2;
+  return checkCorridorValidity(intersect);
+}
+
 bool BaselinePlanner::checkCorridorValidity(const Eigen::MatrixX4d &corridor) {
   int                          m = corridor.rows();
   Eigen::Matrix<double, 3, 1>  c = Eigen::Matrix<double, 3, 1>::Zero();
@@ -202,6 +209,21 @@ void BaselinePlanner::ShrinkCorridor(Eigen::MatrixX4d &corridor) {
     double B = corridor(i, 1);
     double C = corridor(i, 2);
     corridor(i, 3) += std::sqrt(A * A + B * B + C * C) * cfg_.shrink_size;
+  }
+}
+
+void BaselinePlanner::ShrinkCorridor(Eigen::MatrixX4d &corridor, const Eigen::Vector3d &path) {
+  for (int i = 0; i < corridor.rows(); i++) {
+    double A    = corridor(i, 0);
+    double B    = corridor(i, 1);
+    double C    = corridor(i, 2);
+    double norm = std::sqrt(A * A + B * B + C * C);
+
+    Eigen::Vector3d n(A, B, C);
+    Eigen::Vector3d z(0, 0, 1);
+    // if (n.dot(path) / norm/ path.norm() > 0.8) continue;  // not shrink front and back
+    // if (std::abs(C) / norm> 0.8) continue;  // not shrink top and bottom
+    corridor(i, 3) += norm * cfg_.shrink_size;
   }
 }
 
@@ -233,7 +255,8 @@ bool BaselinePlanner::replan(double                 t,
                              const Eigen::Vector3d &start_vel,
                              const Eigen::Vector3d &start_acc,
                              const Eigen::Vector3d &goal_pos) {
-  ROS_INFO("Replanning ... start position (%f, %f, %f)", start_pos(0), start_pos(1), start_pos(2));
+  ROS_INFO("Replanning ... start position (%f, %f, %f), time: %f", start_pos(0), start_pos(1),
+           start_pos(2), t);
   traj_start_time_ = t;
 
   // TODO: check time system
@@ -264,6 +287,7 @@ bool BaselinePlanner::replan(double                 t,
 
   /* if no path found, set empty trajectory */
   if (rst == NO_PATH) {
+    ROS_INFO("[Astar] No path found!");
     ROS_ERROR("[Astar] No path found!");
     return false;
   }
@@ -309,7 +333,7 @@ bool BaselinePlanner::replan(double                 t,
     bd.block<3, 1>(3, 3)           = llc;
 
     pc.clear();
-    std::cout << "[dbg] t1_glb = " << traj_start_time_ + i * cfg_.corridor_tau << std::endl;
+    // std::cout << "[dbg] t1_glb = " << traj_start_time_ + i * cfg_.corridor_tau << std::endl;
     double t1_glb = traj_start_time_ + i * cfg_.corridor_tau;
     double t2_glb = traj_start_time_ + (i + 1) * cfg_.corridor_tau;
     map_->getObstaclePoints(pc, t1_glb, t2_glb, llc, lhc);
@@ -323,9 +347,9 @@ bool BaselinePlanner::replan(double                 t,
     Eigen::Vector3d  r = Eigen::Vector3d::Ones();
     firi::firi(bd, m_pc, wpts[i], wpts[i + 1], hPoly, r, 2);
     ros::Time t4 = ros::Time::now();
-    ShrinkCorridor(hPoly);
+    ShrinkCorridor(hPoly, wpts[i + 1] - wpts[i]);
     if (!checkCorridorValidity(hPoly)) {
-      ROS_INFO("[FIRI] %ith corridor takes %f ms, check failed", i, (t4 - t3).toSec() * 1000);
+      ROS_INFO("[FIRI] %ith corridor takes %f ms, not feasible", i, (t4 - t3).toSec() * 1000);
       break;
     } else {
       ROS_INFO("[FIRI] %ith corridor takes %f ms", i, (t4 - t3).toSec() * 1000);
@@ -334,26 +358,50 @@ bool BaselinePlanner::replan(double                 t,
   }
   this->showObstaclePoints(pc);  // visualization
 
+  /* check if adjacent corridors intersect */
+  for (int i = 0; i < hPolys.size() - 1; i++) {
+    if (!checkCorridorIntersect(hPolys[i], hPolys[i + 1])) {
+      ROS_INFO("[Planner] Corridor %i and %i not intersect!", i, i + 1);
+      ROS_ERROR("[Planner] Corridor %i and %i not intersect!", i, i + 1);
+      if (i < 2) {
+        return false;
+      } else {
+        hPolys.erase(hPolys.begin() + i, hPolys.end());
+        break;
+      }
+    }
+  }
+
   t2 = ros::Time::now();
-  ROS_INFO("[CrdGen] Gen %i corridors cost: %f ms", hPolys.size(), (t2 - t1).toSec() * 1000);
+  ROS_INFO("[CrdGen] Gen %lu corridors cost: %f ms", hPolys.size(), (t2 - t1).toSec() * 1000);
   visualizer_->visualizePolytope(hPolys);
 
   if (hPolys.size() <= 1) {
-    ROS_ERROR("Cannot find safety corridors!");
+    ROS_ERROR("[Planner] Cannot find safety corridors!");
     return false;
+  }
+  /* Goal position and time allocation */
+  Eigen::Vector3d local_goal_pos = route_vel[hPolys.size() - 1].head(3);
+  Eigen::Vector3d local_goal_vel = route_vel[hPolys.size() - 1].tail(3);
+
+  if (!checkGoalReachability(hPolys.back(), start_pos, local_goal_pos)) {
+    for (auto it = hPolys.end() - 1; it != hPolys.begin(); it--) {
+      if (checkGoalReachability(*it, start_pos, local_goal_pos)) {
+        hPolys.erase(it + 1, hPolys.end());
+        int idx        = hPolys.size() - 1;
+        local_goal_pos = route_vel[idx].head(3);
+        local_goal_vel = route_vel[idx].tail(3);
+        ROS_INFO("[CrdGen] Goal reachable at corridor (%lu/%lu)", hPolys.size(), route_vel.size());
+        ROS_WARN("[CrdGen] Goal reachable at corridor (%lu/%lu)", hPolys.size(), route_vel.size());
+        break;
+      }
+    }
   }
 
   /*----- Trajectory Optimization -----*/
   std::cout << "/*----- Trajectory Optimization -----*/" << std::endl;
   // std::cout << "route size: " << route.size() << std::endl;
 
-  /* Goal position and time allocation */
-  Eigen::Vector3d local_goal_pos = route_vel[hPolys.size() - 1].head(3);
-  Eigen::Vector3d local_goal_vel = route_vel[hPolys.size() - 1].tail(3);
-  if (!checkGoalReachability(hPolys[hPolys.size() - 1], start_pos, local_goal_pos)) {
-    ROS_WARN("[Planner] Goal not reachable, revised to local goal: %f, %f, %f", local_goal_pos(0),
-             local_goal_pos(1), local_goal_pos(2));
-  }
   visualizer_->visualizeStartGoal(start_pos);       // visualization
   visualizer_->visualizeStartGoal(local_goal_pos);  // visualization
 

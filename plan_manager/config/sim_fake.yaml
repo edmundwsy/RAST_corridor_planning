@@ -28,7 +28,7 @@ search:
 corridor:
   init_range: 1.2
   min_volumn: 0.001
-  shrink_size: 0.30
+  shrink_size: 0.50
   risk_threshold_single_voxel: 0.15 # Useless
   risk_threshold_corridor: 3.0 # Useless
 

@@ -33,9 +33,9 @@ int main(int argc, char **argv) {
   FiniteStateMachineFake plan_manager(nh1, nh2, nh3, nh4);
   plan_manager.run();
 
-  ros::AsyncSpinner spinner1(1, &custom_queue1);  // spinner for FSM
+  ros::AsyncSpinner spinner1(3, &custom_queue1);  // spinner for FSM
   ros::AsyncSpinner spinner2(1, &custom_queue2);  // spinner for planner
-  ros::AsyncSpinner spinner3(1, &custom_queue3);  // spinner for coordinator
+  ros::AsyncSpinner spinner3(2, &custom_queue3);  // spinner for coordinator
   ros::AsyncSpinner spinner4(3, &custom_queue4);  // spinner for map
   spinner1.start();
   spinner2.start();

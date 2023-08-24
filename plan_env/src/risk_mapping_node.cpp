@@ -57,8 +57,6 @@ float filter_res_;
 float risk_threshold_;
 float observation_stddev_;
 float localization_stddev_;
-float num_newborn_particles_;
-float risk_threshold_astar_;
 
 void getParam(const ros::NodeHandle &nh) {
   nh.param("map/booleans/sub_pose", is_pose_sub_, false);
@@ -66,8 +64,6 @@ void getParam(const ros::NodeHandle &nh) {
   nh.param("map/risk_threshold_voxel", risk_threshold_, 0.2F);
   nh.param("map/sigma_observation", observation_stddev_, 0.05F);
   nh.param("map/sigma_localization", localization_stddev_, 0.05F);
-  nh.param("map/num_newborn_particles", num_newborn_particles_, 0.05F);
-  nh.param("map/risk_threshold_region", risk_threshold_astar_, 0.2F);
 }
 
 bool isInRange(const Eigen::Vector3f &p) {
@@ -196,9 +192,9 @@ void clearMapCallback(const ros::TimerEvent &event) {
     return;
   }
   float dx = 0.15;
-  for (float x = -2.4f; x < 2.4f; x += dx) {
-    for (float y = -2.4f; y < 2.4f; y += dx) {
-      for (float z = -1.2f; z < 1.2f; z += dx) {
+  for (float x = -0.9f; x < 0.9f; x += dx) {
+    for (float y = -0.9f; y < 0.9f; y += dx) {
+      for (float z = -0.9f; z < 0.9f; z += dx) {
         dsp_map_.removeParticlesAtMapPosition(x, y, z);
       }
     }

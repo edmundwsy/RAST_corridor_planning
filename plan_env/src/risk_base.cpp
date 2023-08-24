@@ -18,6 +18,8 @@ void RiskBase::init(ros::NodeHandle &nh) {
   /* Parameters */
   loadParameters();
   nh_.param("map/risk_threshold_region", risk_threshold_astar_, 1.2F);
+  nh_.param("map/risk_threshold_region_decay", risk_thres_reg_decay_, 0.2F);
+  nh_.param("map/risk_threshold_voxel_decay", risk_thres_vox_decay_, 0.2F);
 
   resolution_           = VOXEL_RESOLUTION;
   local_update_range_x_ = MAP_LENGTH_VOXEL_NUM / 2 * resolution_;
@@ -77,25 +79,26 @@ void RiskBase::futureRiskCallback(const std_msgs::Float32MultiArrayConstPtr &fut
 }
 
 void RiskBase::publishMap() {
-  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
   cloud->points.reserve(VOXEL_NUM);
   if (if_pub_spatio_temporal_map_) {
     for (int i = 0; i < VOXEL_NUM; i++) {
-      pcl::PointXYZ   pt;
+      pcl::PointXYZI  pt;
       Eigen::Vector3f pos = getVoxelPosition(i);
       if (abs(pos.z() - pose_.z()) > 0.5) continue;  // filter out necessary points
       for (int j = 0; j < PREDICTION_TIMES; j++) {
-        if (risk_maps_[i][j] > risk_threshold_) {
-          pt.x = pos.x() + j * 12.0f;
-          pt.y = pos.y();
-          pt.z = pos.z();
+        if (risk_maps_[i][j] > risk_threshold_ - j * risk_thres_vox_decay_) {
+          pt.x         = pos.x();
+          pt.y         = pos.y() + j * 10.0f;
+          pt.z         = pos.z();
+          pt.intensity = risk_maps_[i][j];
           cloud->points.push_back(pt);
         }
       }
     }
   } else {
     for (int i = 0; i < VOXEL_NUM; i++) {
-      pcl::PointXYZ   pt;
+      pcl::PointXYZI  pt;
       Eigen::Vector3f pos = getVoxelPosition(i);
       for (int j = 0; j < PREDICTION_TIMES; j++) {
         if (risk_maps_[i][j] > risk_threshold_) {
@@ -228,7 +231,7 @@ int RiskBase::getClearOcccupancy(const Eigen::Vector3d &pos, int t) const {
     if (!isInRange(p)) continue;
     int idx = getVoxelIndex(p);
     sum_risk += risk_maps_[idx][t];
-    if (sum_risk > risk_threshold_astar_) return 1; /* collision */
+    if (sum_risk > risk_threshold_astar_ - t * risk_thres_reg_decay_) return 1; /* collision */
   }
   return 0;
 }
@@ -290,7 +293,7 @@ void RiskBase::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
   idx_end       = idx_end > PREDICTION_TIMES ? PREDICTION_TIMES : idx_end;
   idx_end       = idx_end < 0 ? 0 : idx_end;
 
-  std::cout << "idx_start" << idx_start << "idx_end" << idx_end << std::endl;
+  // std::cout << "idx_start" << idx_start << "idx_end" << idx_end << std::endl;
   int lx = (lower_corner[0] - pose_.x() + local_update_range_x_) / resolution_;
   int ly = (lower_corner[1] - pose_.y() + local_update_range_y_) / resolution_;
   int lz = (lower_corner[2] - pose_.z() + local_update_range_z_) / resolution_;
@@ -310,7 +313,7 @@ void RiskBase::getObstaclePoints(std::vector<Eigen::Vector3d> &points,
       for (int x = lx; x <= hx; x++) {
         int i = x + y * MAP_LENGTH_VOXEL_NUM + z * MAP_LENGTH_VOXEL_NUM * MAP_WIDTH_VOXEL_NUM;
         for (int j = idx_start; j <= idx_end; j++) {
-          if (risk_maps_[i][j] > risk_threshold_) {
+          if (risk_maps_[i][j] > risk_threshold_ - risk_thres_vox_decay_ * j) {
             Eigen::Vector3d pt = getVoxelPosition(i).cast<double>();
             points.emplace_back(pt);
           }

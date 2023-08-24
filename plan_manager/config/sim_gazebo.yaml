@@ -5,14 +5,14 @@ fsm:
   goal_tolerance: 1.0
   replan_tolerance: 1.0
   replan_duration: 0.2
-  replan_start_time: 0.02
-  colli_check_duration: 1.0
+  replan_start_time: 0.3 # some set in xml
+  colli_check_duration: 0.5
   replan_max_failures: 2
 
 search:
   max_tau: 2.0
   init_max_tau: 0.8
-  max_vel: 2.5
+  max_vel: 1.5
   max_acc: 4.0
   w_time: 5.0
   horizon: 5.0
@@ -27,7 +27,7 @@ search:
 corridor:
   init_range: 1.5
   min_volumn: 0.1
-  shrink_size: 0.4
+  shrink_size: 0.45
 
 optimizer:
   pos_factor: 0.0
@@ -37,7 +37,7 @@ optimizer:
   snap_factor: 1.0 # minimum snap
   delta_corridor: 0.4
 
-  max_vel_optimization: 2.5 # Constraint in optimization. A little larger than max_vel
+  max_vel_optimization: 1.5 # Constraint in optimization. A little larger than max_vel
   max_acc_optimization: 5.0 # Constraint in optimization. A little larger than max_acc
 
 map:
@@ -58,23 +58,21 @@ map:
   stddev_pos: 0.05
   stddev_vel: 0.05
   sigma_update: 0.1
+
   sigma_observation: 0.01
   sigma_localization: 0.00
-  newborn/particles_weight: 0.0001
-  newborn/particles_number: 20
-  newborn/objects_weight: 0.04
-  half_fov_horizontal: 48
-  half_fov_vertical: 36
 
-  risk_threshold_voxel: 0.05
-  risk_threshold_region: 2.00
+  risk_threshold_voxel: 0.20
+  risk_threshold_voxel_decay: 0.02
+  risk_threshold_region: 0.5 # For astar
+  risk_threshold_region_decay: 0.1 # linear decay per layer
 
   local_update_range_x: 5.5
   local_update_range_y: 5.5
   local_update_range_z: 4.5
   obstacles_inflation: 0.3 # deprecated
   local_map_margin: 10
-  clearance: 0.50 # for astar collision check
+  clearance: 0.45 # for astar collision check
 
   ceiling_height: 1.5
   ground_height: -0.1

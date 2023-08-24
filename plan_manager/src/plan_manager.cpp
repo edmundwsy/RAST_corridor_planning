@@ -56,6 +56,8 @@ void FiniteStateMachine::run() {
 
   traj_idx_ = 0;
 
+  num_replan_failures_ = 0;
+
   waypoints_.push(goal_pos_);
 
   /* Initialize odometry */
@@ -124,7 +126,6 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
           ROS_WARN("[FSM] New trajectory planning failed");
         }
       }
-      /** TODO: time delay !!! */
       if (is_exec_triggered_ && is_success_) { /* execute trajectory */
         FSMChangeState(FSM_STATUS::EXEC_TRAJ);
       }
@@ -143,13 +144,15 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
       std::cout << termcolor::bright_red << "Target: " << waypoints_.front().transpose() << " now "
                 << odom_pos_.transpose() << std::endl;
       if (checkTimeLapse(cfgs_.replan_duration)) {
+        ROS_INFO("[FSM] Replan because of time lapse");
         FSMChangeState(FSM_STATUS::REPLAN);
       }
 
-      if (!planner_->isTrajSafe(cfgs_.colli_check_duration)) {
-        ROS_WARN("[FSM] Not safe, replan");
-        FSMChangeState(FSM_STATUS::REPLAN);
-      }
+      // if (!planner_->isTrajSafe(cfgs_.colli_check_duration)) {
+      //   ROS_WARN("[FSM] Not safe, replan");
+      //   ROS_INFO("[FSM] Not safe, replan");
+      //   FSMChangeState(FSM_STATUS::REPLAN);
+      // }
 
       if (isGoalReached(odom_pos_)) {
         ROS_INFO("[FSM] Goal reached");
@@ -173,23 +176,16 @@ void FiniteStateMachine::FSMCallback(const ros::TimerEvent& event) {
 
         bool is_success_ = planner_->replan(start_time, pos, vel, acc, goal_pos_);
 
-        // bool is_finished = isGoalReached(odom_pos_);
-        // std::cout << termcolor::bright_red << "Target: " << goal_pos_.transpose() << " now "
-        //           << odom_pos_ << std::endl;
-        //
-        // if (is_finished) {
-        //   ROS_INFO("[FSM] Goal reached");
-        //   FSMChangeState(FSM_STATUS::GOAL_REACHED);
-        // }
-
         ROS_INFO("[FSM] Replanning costs %f ms", (ros::Time::now() - t1).toSec() * 1000.0);
         if (is_success_) { /* publish trajectory */
+          num_replan_failures_ = 0;
           ROS_INFO("[FSM] Replanning success");
           publishTrajectory();
           FSMChangeState(FSM_STATUS::EXEC_TRAJ);
         } else {
-          ROS_WARN("[FSM] Replanning failed");
           num_replan_failures_++;
+          ROS_INFO("[FSM] Replanning failed, try again (%i, %i)", num_replan_failures_,
+                   cfgs_.replan_max_failures);
           if (num_replan_failures_ > cfgs_.replan_max_failures) {
             // if (planner_->isPrevTrajFinished(ros::Time::now().toSec() + cfgs_.replan_start_time))
             // {
@@ -371,6 +367,10 @@ void FiniteStateMachine::publishTrajectory() {
   int        N    = traj.getOrder();
   TrajMsg    msg;
 
+  Eigen::Vector3d pos = traj.getPos(0);
+  printf("[dbg]: traj publish t: %.2f, x: (%.2f, %.2f, %.2f)\n", traj_start_time_.toSec(), pos(0),
+         pos(1), pos(2));
+
   msg.drone_id   = drone_id_;
   msg.traj_id    = traj_idx_;
   msg.start_time = traj_start_time_;
@@ -404,6 +404,8 @@ void FiniteStateMachine::publishTrajectory() {
 void FiniteStateMachine::publishEmptyTrajectory() {
   traj_idx_++;
   TrajMsg msg;
+  printf("[dbg]: emergency traj publish t: %.2f, x: (%.2f, %.2f, %.2f)\n", traj_start_time_.toSec(),
+         odom_pos_(0), odom_pos_(1), odom_pos_(2));
   msg.drone_id   = drone_id_;
   msg.traj_id    = traj_idx_;
   msg.start_time = traj_start_time_;

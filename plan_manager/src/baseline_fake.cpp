@@ -176,6 +176,13 @@ bool FakeBaselinePlanner::checkGoalReachability(const Eigen::MatrixX4d &corridor
   }
 }
 
+bool FakeBaselinePlanner::checkCorridorIntersect(const Eigen::MatrixX4d &corridor1,
+                                                 const Eigen::MatrixX4d &corridor2) {
+  Eigen::MatrixX4d intersect(corridor1.rows() + corridor2.rows(), 4);
+  intersect << corridor1, corridor2;
+  return checkCorridorValidity(intersect);
+}
+
 bool FakeBaselinePlanner::checkCorridorValidity(const Eigen::MatrixX4d &corridor) {
   int                          m = corridor.rows();
   Eigen::Matrix<double, 3, 1>  c = Eigen::Matrix<double, 3, 1>::Zero();
@@ -196,6 +203,21 @@ void FakeBaselinePlanner::ShrinkCorridor(Eigen::MatrixX4d &corridor) {
     double A = corridor(i, 0);
     double B = corridor(i, 1);
     double C = corridor(i, 2);
+    if (std::abs(C) > std::sqrt(A * A + B * B)) continue;  // not shrink top and bottom
+    corridor(i, 3) += std::sqrt(A * A + B * B + C * C) * cfg_.shrink_size;
+  }
+}
+
+void FakeBaselinePlanner::ShrinkCorridor(Eigen::MatrixX4d &corridor, const Eigen::Vector3d &path) {
+  for (int i = 0; i < corridor.rows(); i++) {
+    double A = corridor(i, 0);
+    double B = corridor(i, 1);
+    double C = corridor(i, 2);
+
+    Eigen::Vector3d n(A, B, C);
+    Eigen::Vector3d z(0, 0, 1);
+    if (n.dot(path) / n.norm() / path.norm() > 0.8) continue;  // not shrink front and back
+    if (std::abs(n.dot(z)) / n.norm() > 0.8) continue;         // not shrink top and bottom
     corridor(i, 3) += std::sqrt(A * A + B * B + C * C) * cfg_.shrink_size;
   }
 }
@@ -338,7 +360,7 @@ bool FakeBaselinePlanner::replan(double                 t,
     //   // this->showObstaclePoints(pc);  // visualization
     //   break;
     // }
-    ShrinkCorridor(hPoly);
+    ShrinkCorridor(hPoly, wpts[i + 1] - wpts[i]);
     if (!checkCorridorValidity(hPoly)) {
       ROS_INFO("[FIRI] %ith corridor takes %f ms, check failed", i, (t4 - t3).toSec() * 1000);
       break;
@@ -349,6 +371,20 @@ bool FakeBaselinePlanner::replan(double                 t,
   }
   this->showObstaclePoints(pc);  // visualization
 
+  /* check if adjacent corridors intersect */
+  for (int i = 0; i < hPolys.size() - 1; i++) {
+    if (!checkCorridorIntersect(hPolys[i], hPolys[i + 1])) {
+      ROS_INFO("[Planner] Corridor %i and %i not intersect!", i, i + 1);
+      ROS_ERROR("[Planner] Corridor %i and %i not intersect!", i, i + 1);
+      if (i < 2) {
+        return false;
+      } else {
+        hPolys.erase(hPolys.begin() + i + 1, hPolys.end());
+        break;
+      }
+    }
+  }
+
   t2 = ros::Time::now();
   ROS_INFO("[CrdGen] Gen %i corridors cost: %f ms", hPolys.size(), (t2 - t1).toSec() * 1000);
   visualizer_->visualizePolytope(hPolys);
@@ -358,19 +394,29 @@ bool FakeBaselinePlanner::replan(double                 t,
     return false;
   }
 
-  /*----- Trajectory Optimization -----*/
-  std::cout << "/*----- Trajectory Optimization -----*/" << std::endl;
-  // std::cout << "route size: " << route.size() << std::endl;
-
   /* Goal position and time allocation */
   // Eigen::Vector3d local_goal_pos = route_vel.back().head(3);
   // Eigen::Vector3d local_goal_vel = route_vel.back().tail(3);
   Eigen::Vector3d local_goal_pos = route_vel[hPolys.size() - 1].head(3);
   Eigen::Vector3d local_goal_vel = route_vel[hPolys.size() - 1].tail(3);
-  if (!checkGoalReachability(hPolys[hPolys.size() - 1], start_pos, local_goal_pos)) {
-    ROS_WARN("[Planner] Goal not reachable, revised to local goal: %f, %f, %f", local_goal_pos(0),
-             local_goal_pos(1), local_goal_pos(2));
+  for (auto it = hPolys.end() - 1; it != hPolys.begin(); it--) {
+    if (checkGoalReachability(*it, start_pos, local_goal_pos)) {
+      hPolys.erase(it + 1, hPolys.end());
+      int idx        = hPolys.size() - 1;
+      local_goal_pos = route_vel[idx].head(3);
+      local_goal_vel = route_vel[idx].tail(3);
+      ROS_INFO("[Planner] Goal reachable at corridor %i (c:%lu|g:%lu)", idx + 1, hPolys.size(),
+               route_vel.size());
+      ROS_WARN("[Planner] Goal reachable at corridor %i (c:%lu|g:%lu)", idx + 1, hPolys.size(),
+               route_vel.size());
+      break;
+    }
   }
+
+  /*----- Trajectory Optimization -----*/
+  std::cout << "/*----- Trajectory Optimization -----*/" << std::endl;
+  // std::cout << "route size: " << route.size() << std::endl;
+
   visualizer_->visualizeStartGoal(start_pos);       // visualization
   visualizer_->visualizeStartGoal(local_goal_pos);  // visualization
 

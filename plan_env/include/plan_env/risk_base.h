@@ -39,6 +39,8 @@ class RiskBase : public MapBase {
   float localization_stddev_;
   float num_newborn_particles_;
   float risk_threshold_astar_;
+  float risk_thres_reg_decay_;
+  float risk_thres_vox_decay_;
 
   /* Map */
   float risk_maps_[VOXEL_NUM][PREDICTION_TIMES];

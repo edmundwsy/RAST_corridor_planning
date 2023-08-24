@@ -157,10 +157,12 @@ class FakeBaselinePlanner {
                                               const Eigen::Vector3d &right_lower_corner);
 
   bool checkCorridorValidity(const Eigen::MatrixX4d &corridor);
+  bool checkCorridorIntersect(const Eigen::MatrixX4d &corridor1, const Eigen::MatrixX4d &corridor2);
   bool checkGoalReachability(const Eigen::MatrixX4d &corridor,
                              const Eigen::Vector3d  &start_pos,
                              Eigen::Vector3d        &goal_pos);
   void ShrinkCorridor(Eigen::MatrixX4d &corridor);
+  void ShrinkCorridor(Eigen::MatrixX4d &corridor, const Eigen::Vector3d &path);
   void showObstaclePoints(const std::vector<Eigen::Vector3d> &points);
   void showObstaclePoints(const std::vector<Eigen::Vector4d> &points, ros::Publisher &pub);
   void addAgentsTrajectoryToMap();
