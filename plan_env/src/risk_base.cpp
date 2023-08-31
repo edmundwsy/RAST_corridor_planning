@@ -89,8 +89,8 @@ void RiskBase::publishMap() {
       for (int j = 0; j < PREDICTION_TIMES; j++) {
         if (risk_maps_[i][j] > risk_threshold_ - j * risk_thres_vox_decay_) {
           pt.x         = pos.x();
-          pt.y         = pos.y() + j * 10.0f;
-          pt.z         = pos.z();
+          pt.y         = pos.y();
+          pt.z         = pos.z() + j * 1.5f;
           pt.intensity = risk_maps_[i][j];
           cloud->points.push_back(pt);
         }

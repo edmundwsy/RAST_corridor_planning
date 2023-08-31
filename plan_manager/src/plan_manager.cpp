@@ -33,9 +33,9 @@ void FiniteStateMachine::run() {
       nh1_.subscribe("/traj_start_trigger", 1, &FiniteStateMachine::TriggerCallback, this);
 
   if (is_pose_subscribed_) {
-    pose_sub_ = nh1_.subscribe("pose", 10, &FiniteStateMachine::PoseCallback, this);
+    pose_sub_ = nh2_.subscribe("pose", 10, &FiniteStateMachine::PoseCallback, this);
   } else {
-    odom_sub_ = nh1_.subscribe("odom", 10, &FiniteStateMachine::OdomCallback, this);
+    odom_sub_ = nh2_.subscribe("odom", 10, &FiniteStateMachine::OdomCallback, this);
   }
 
   is_exec_triggered_      = false;

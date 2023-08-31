@@ -34,7 +34,6 @@
       <arg name="goal_x" value="-4" />
       <arg name="goal_y" value="-4" />
       <arg name="goal_z" value="1" />
-      <arg name="replan_risk_rate" value="$(arg replan_risk_rate)" />
     </include>
   </group>
 
@@ -51,7 +50,6 @@
       <arg name="goal_x" value="-4" />
       <arg name="goal_y" value="4" />
       <arg name="goal_z" value="1" />
-      <arg name="replan_risk_rate" value="$(arg replan_risk_rate)" />
     </include>
   </group>
 
@@ -70,7 +68,6 @@
       <arg name="goal_x" value="4" />
       <arg name="goal_y" value="4" />
       <arg name="goal_z" value="1" />
-      <arg name="replan_risk_rate" value="$(arg replan_risk_rate)" />
     </include>
   </group>
 
@@ -87,7 +84,6 @@
       <arg name="goal_x" value="4" />
       <arg name="goal_y" value="-4" />
       <arg name="goal_z" value="1" />
-      <arg name="replan_risk_rate" value="$(arg replan_risk_rate)" />
     </include>
   </group>
 
@@ -104,7 +100,6 @@
       <arg name="goal_x" value="4" />
       <arg name="goal_y" value="0" />
       <arg name="goal_z" value="1" />
-      <arg name="replan_risk_rate" value="$(arg replan_risk_rate)" />
     </include>
   </group>
 
@@ -123,7 +118,6 @@
       <arg name="goal_x" value="0" />
       <arg name="goal_y" value="-4" />
       <arg name="goal_z" value="1" />
-      <arg name="replan_risk_rate" value="$(arg replan_risk_rate)" />
     </include>
   </group>
 
@@ -142,7 +136,6 @@
       <arg name="goal_x" value="-4" />
       <arg name="goal_y" value="0" />
       <arg name="goal_z" value="1" />
-      <arg name="replan_risk_rate" value="$(arg replan_risk_rate)" />
     </include>
   </group>
 
@@ -161,7 +154,6 @@
       <arg name="goal_x" value="0" />
       <arg name="goal_y" value="4" />
       <arg name="goal_z" value="1" />
-      <arg name="replan_risk_rate" value="$(arg replan_risk_rate)" />
     </include>
   </group>
 

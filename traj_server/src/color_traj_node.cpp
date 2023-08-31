@@ -24,6 +24,7 @@ int    AGENT_ID = 0;
 int    N_AGENTS = 1;
 
 ros::Publisher colored_traj_pub_;
+ros::Publisher control_points_pub_;
 
 struct state {
   Eigen::Vector3d pos = Eigen::Vector3d::Zero();
@@ -69,6 +70,33 @@ std_msgs::ColorRGBA getColorJet(double v, double vmin, double vmax) {
   }
 
   return (c);
+}
+
+visualization_msgs::Marker visualizeControlPoints(const Eigen::MatrixX3d& cpts) {
+  visualization_msgs::Marker cpts_marker;
+  cpts_marker.header.frame_id    = "world";
+  cpts_marker.header.stamp       = ros::Time::now();
+  cpts_marker.type               = visualization_msgs::Marker::SPHERE_LIST;
+  cpts_marker.pose.orientation.w = 1.00;
+  cpts_marker.action             = visualization_msgs::Marker::ADD;
+  cpts_marker.id                 = 1;
+  cpts_marker.ns                 = "control_points";
+  cpts_marker.color.r            = 1.00;
+  cpts_marker.color.g            = 0.00;
+  cpts_marker.color.b            = 0.00;
+  cpts_marker.color.a            = 1.00;
+  cpts_marker.scale.x            = 1.2 * SCALE;
+  cpts_marker.scale.y            = 1.2 * SCALE;
+  cpts_marker.scale.z            = 1.2 * SCALE;
+
+  for (int i = 0; i < cpts.rows(); i++) {
+    geometry_msgs::Point point;
+    point.x = cpts(i, 0);
+    point.y = cpts(i, 1);
+    point.z = cpts(i, 2);
+    cpts_marker.points.push_back(point);
+  }
+  return cpts_marker;
 }
 
 visualization_msgs::MarkerArray trajectory2ColoredMarkerArray(const trajectory& data,
@@ -183,6 +211,9 @@ void BezierCallback(const traj_utils::BezierTrajConstPtr& msg) {
   // ROS_DEBUG("Bezier trajectory converted to marker array, id: %d, order: %d, duration: %f", id,
   // N, duration);
   colored_traj_pub_.publish(marker_array_traj);
+
+  visualization_msgs::Marker cpts_marker = visualizeControlPoints(cpts);
+  control_points_pub_.publish(cpts_marker);
 }
 
 int main(int argc, char** argv) {
@@ -196,5 +227,6 @@ int main(int argc, char** argv) {
 
   ros::Subscriber sub_odom = nh.subscribe("bezier_traj", 100, BezierCallback);
   colored_traj_pub_        = nh.advertise<visualization_msgs::MarkerArray>("color_traj", 100);
+  control_points_pub_      = nh.advertise<visualization_msgs::Marker>("vis_ctrl_pts", 100);
   ros::spin();
 }

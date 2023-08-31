@@ -5,12 +5,13 @@
   <arg name="map_size_y" value="16" />
   <arg name="map_size_z" value="7" />
   <arg name="obs_num" default="20" />
+  <arg name="map_mode" default="0" /> <!-- 0: pure, 1: mixed -->
   <!-- Number of obstacles -->
   <arg name="num_robots" value="4" />
   <arg name="rviz" default="True" />
 
   <include file="$(find plan_manager)/launch/simulator/simulator_fake.launch">
-    <arg name="map_mode" value="0" />
+    <arg name="map_mode" value="$(arg map_mode)" />
     <arg name="map_size_x" value="$(arg map_size_x)" />
     <arg name="map_size_y" value="$(arg map_size_y)" />
     <arg name="map_size_z" value="$(arg map_size_z)" />

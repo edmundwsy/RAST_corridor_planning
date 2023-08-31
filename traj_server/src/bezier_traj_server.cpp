@@ -31,8 +31,10 @@ const bool if_vis_cmd = true;
 ros::Publisher pos_cmd_pub_, pva_pub_, vis_pub_;
 ros::Publisher error_pub_;
 
-const double DELTA_T = 0.01;  // 100 Hz
-const double YAW_RAT = 0.10;  // max yaw rate
+const double     DELTA_T             = 0.01;  // 100 Hz
+constexpr double PI                  = 3.14159265358979323846;
+constexpr double YAW_DOT_MAX_PER_SEC = PI;  // max yaw rate
+constexpr double MAX_YAW_CHANGE      = YAW_DOT_MAX_PER_SEC * 0.01;
 
 bool   is_traj_received_   = false;
 bool   is_triggered_       = false;
@@ -54,6 +56,7 @@ double duration_;  // duration of the trajectory in seconds
 double offset_;    // offset of the trajectory in seconds (to account for the time it takes to load
                    // the trajectory)
 
+double init_yaw_    = 0;  // initial yaw angle
 double last_yaw_    = 0;  // previous yaw value
 double last_yawdot_ = 0;  // previous yawdot value
 
@@ -74,17 +77,13 @@ TrajSrvVisualizer::Ptr vis_ptr_;
  * @param yaw_dot return yaw dot
  */
 void getYaw(const Eigen::Vector3d &v, double &yaw, double &yaw_dot) {
-  constexpr double PI                  = 3.1415926;
-  constexpr double YAW_DOT_MAX_PER_SEC = PI;
-  constexpr double MAX_YAW_CHANGE      = YAW_DOT_MAX_PER_SEC * 0.01;
-
   yaw                 = 0;
   yaw_dot             = 0;
-  Eigen::Vector3d dir = v.normalized();
+  Eigen::Vector3d dir = v.normalized(); /* velocity direction */
   // std::cout << "dir: " << dir.transpose() << std::endl;
 
-  double yaw_temp = dir.norm() > 0.1 ? atan2(dir(1), dir(0)) : last_yaw_;
-  // std::cout << "yaw_temp: " << yaw_temp << std::endl;
+  double yaw_temp = dir.norm() > 0.1 ? atan2(dir(1), dir(0)) : last_yaw_;  //??
+  // std::cout << "[dbg] yaw_temp: " << yaw_temp << std::endl;
   if (yaw_temp - last_yaw_ > PI) {
     if (yaw_temp - last_yaw_ - 2 * PI < -MAX_YAW_CHANGE) {
       yaw = last_yaw_ - MAX_YAW_CHANGE;
@@ -136,7 +135,7 @@ void getYaw(const Eigen::Vector3d &v, double &yaw, double &yaw_dot) {
   yaw_dot      = 0.5 * last_yawdot_ + 0.5 * yaw_dot;
   last_yaw_    = yaw;
   last_yawdot_ = yaw_dot;
-  // std::cout << "yaw: " << yaw << " yaw_dot: " << yaw_dot << std::endl;
+  // std::cout << "[dbg] yaw: " << yaw << " yaw_dot: " << yaw_dot << std::endl;
 }
 
 /** publish position command for gazebo simulation and real world test */
@@ -326,7 +325,9 @@ void bezierCallback(traj_utils::BezierTrajConstPtr msg) {
 
   if (!is_triggered_) { /* if not triggered */
     ROS_INFO("[TrajSrv] not triggered yet, reset traj queue");
-    tns_ = ti_;
+    tns_         = ti_;
+    last_yaw_    = init_yaw_;
+    last_yawdot_ = 0;
     resetTrajQueue(next_traj_);
   } else if (te_ <= tns_) { /* if the current trajectory is finished */
     ROS_INFO("[TrajSrv] current traj finished, reset traj queue");
@@ -409,23 +410,22 @@ void PubCallback(const ros::TimerEvent &e) {
   p.acc = Eigen::Vector3d::Zero();
 
   if (!is_yaw_initilized_) { /* if yaw is not initialized, turn to desired yaw */
-    if (abs(last_yaw_ - current_yaw) < 0.1) {
-      ROS_INFO("[dbg] yaw_init = %.2f, yaw_des = %.2f, no need to init yaw", current_yaw,
-               last_yaw_);
+    if (abs(init_yaw_ - current_yaw) < 0.1) {
+      ROS_INFO("[dbg] yaw: %.2f -| %.2f, no need to move yaw", current_yaw, init_yaw_);
       is_yaw_initilized_ = true;
       return;
     }
-    ROS_INFO("[dbg] yaw_init = %.2f, yaw_des = %.2f", current_yaw, last_yaw_);
-    if (last_yaw_ < 0 && last_yaw_ > -3.12) {
-      p.yaw     = current_yaw - YAW_RAT;
-      p.yaw_dot = -YAW_RAT;
+    ROS_INFO("[dbg] t: %.2f yaw: %.2f --> %.2f", ros::Time::now().toSec(), current_yaw, init_yaw_);
+    if (init_yaw_ < 0 && init_yaw_ > -3.12) {
+      p.yaw     = current_yaw - MAX_YAW_CHANGE;
+      p.yaw_dot = -YAW_DOT_MAX_PER_SEC;
 
     } else {
-      p.yaw     = current_yaw + YAW_RAT;
-      p.yaw_dot = YAW_RAT;
+      p.yaw     = current_yaw + MAX_YAW_CHANGE;
+      p.yaw_dot = YAW_DOT_MAX_PER_SEC;
     }
   } else {
-    p.yaw     = last_yaw_;
+    p.yaw     = current_yaw;
     p.yaw_dot = 0.0;
   }
 
@@ -450,6 +450,9 @@ void PubCallback(const ros::TimerEvent &e) {
       fillTrajQueue();
     }
   }
+
+  // ROS_INFO("[dbg] t: %.2f | pos: %.2f %.2f %.2f | vel: %.2f %.2f %.2f", p.t.toSec(), p.pos.x(),
+  //          p.pos.y(), p.pos.z(), p.vel.x(), p.vel.y(), p.vel.z());
 
   publishCmd(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
   publishPVA(p.pos, p.vel, p.acc, p.yaw, p.yaw_dot);
@@ -487,7 +490,7 @@ int main(int argc, char **argv) {
 
   vis_ptr_.reset(new TrajSrvVisualizer(nh));
 
-  last_yaw_ = atan2(2.0 * (init_qw * init_qz + init_qx * init_qy),
+  init_yaw_ = atan2(2.0 * (init_qw * init_qz + init_qx * init_qy),
                     1.0 - 2.0 * (init_qy * init_qy + init_qz * init_qz));
 
   ros::Duration(3.0).sleep();
